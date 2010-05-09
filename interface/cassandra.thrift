@@ -52,16 +52,26 @@ const string VERSION = "2.1.0"
 # data structures
 #
 
+/** Encapsulate both types of conflict resolution.
+ *
+ * @param timestamp. User-supplied timestamp.
+ * @param context. Version Vector.
+ */
+struct Clock {
+   1: optional i64 timestamp,
+   2: optional binary context, # version
+}
+
 /** Basic unit of data within a ColumnFamily.
  * @param name. A column name can act both as structure (a label) or as data (like value). Regardless, the name of the column
  *        is used as a key to its value.
  * @param value. Some data
- * @param timestamp. Used to record when data was sent to be written.
+ * @param clock. Used to record when data was sent to be written.
  */
 struct Column {
    1: required binary name,
    2: required binary value,
-   3: required i64 timestamp,
+   3: required Clock clock,
 }
 
 /** A named list of columns.
@@ -149,7 +159,7 @@ exception AuthorizationException {
  *      ONE     Will return the record returned by the first node to respond. A consistency check is always done in a
  *              background thread to fix any consistency issues when ConsistencyLevel.ONE is used. This means subsequent
  *              calls will have correct data even if the initial read gets an older value. (This is called 'read repair'.)
- *      QUORUM  Will query all storage nodes and return the record with the most recent timestamp once it has at least a
+ *      QUORUM  Will query all storage nodes and return the record with the most recent clock once it has at least a
  *              majority of replicas reported. Again, the remaining replicas will be checked in the background.
  *      ALL     Not yet supported, but we plan to eventually.
 */
@@ -258,7 +268,7 @@ struct KeySlice {
 }
 
 struct Deletion {
-    1: required i64 timestamp,
+    1: required Clock clock,
     2: optional binary super_column,
     3: optional SlicePredicate predicate,
 }
@@ -371,7 +381,7 @@ service Cassandra {
   # modification methods
 
   /**
-    Insert a Column consisting of (column_path.column, value, timestamp) at the given column_path.column_family and optional
+    Insert a Column consisting of (column_path.column, value, clock) at the given column_path.column_family and optional
     column_path.super_column. Note that column_path.column is here required, since a SuperColumn cannot directly contain binary
     values -- it can only contain sub-Columns. 
    */
@@ -379,7 +389,7 @@ service Cassandra {
               2:required string key, 
               3:required ColumnPath column_path, 
               4:required binary value, 
-              5:required i64 timestamp, 
+              5:required Clock clock,
               6:required ConsistencyLevel consistency_level=ONE)
        throws (1:InvalidRequestException ire, 2:UnavailableException ue, 3:TimedOutException te),
 
@@ -396,14 +406,14 @@ service Cassandra {
        throws (1:InvalidRequestException ire, 2:UnavailableException ue, 3:TimedOutException te),
 
   /**
-    Remove data from the row specified by key at the granularity specified by column_path, and the given timestamp. Note
+    Remove data from the row specified by key at the granularity specified by column_path, and the given clock. Note
     that all the values in column_path besides column_path.column_family are truly optional: you can remove the entire
     row by just specifying the ColumnFamily, or you can remove a SuperColumn or a single Column by specifying those levels too.
    */
   void remove(1:required string keyspace,
               2:required string key,
               3:required ColumnPath column_path,
-              4:required i64 timestamp,
+              4:required Clock clock,
               5:ConsistencyLevel consistency_level=ONE)
        throws (1:InvalidRequestException ire, 2:UnavailableException ue, 3:TimedOutException te),
 
