@@ -39,14 +39,19 @@ import org.apache.cassandra.thrift.SliceRange;
 
 public class Util
 {
-    public static Column column(String name, String value, long timestamp)
+    public static Column column(String name, String value, IClock clock)
     {
-        return new Column(name.getBytes(), value.getBytes(), timestamp);
+        return new Column(name.getBytes(), value.getBytes(), clock);
     }
 
-    public static void addMutation(RowMutation rm, String columnFamilyName, String superColumnName, long columnName, String value, long timestamp)
+    public static Column column(String name, byte[] value, IClock clock)
     {
-        rm.add(new QueryPath(columnFamilyName, superColumnName.getBytes(), getBytes(columnName)), value.getBytes(), timestamp);
+        return new Column(name.getBytes(), value, clock);
+    }
+
+    public static void addMutation(RowMutation rm, String columnFamilyName, String superColumnName, long columnName, String value, IClock clock)
+    {
+        rm.add(new QueryPath(columnFamilyName, superColumnName.getBytes(), getBytes(columnName)), value.getBytes(), clock);
     }
 
     public static byte[] getBytes(long v)
@@ -94,5 +99,26 @@ public class Util
 
         store.forceBlockingFlush();
         return store;
+    }
+
+    public static byte[] concatByteArrays(byte[] first, byte[]... remaining)
+    {
+        int length = first.length;
+        for (byte[] array : remaining)
+        {
+            length += array.length;
+        }
+
+        byte[] result = new byte[length];
+        System.arraycopy(first, 0, result, 0, first.length);
+        int offset = first.length;
+
+        for (byte[] array : remaining)
+        {
+            System.arraycopy(array, 0, result, offset, array.length);
+            offset += array.length;
+        }
+
+        return result;
     }
 }

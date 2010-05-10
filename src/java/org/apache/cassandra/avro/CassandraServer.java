@@ -37,11 +37,15 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.ipc.AvroRemoteException;
 import org.apache.avro.util.Utf8;
 import org.apache.cassandra.db.ColumnFamily;
+//TODO: TEST
+import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.IColumn;
 import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.Row;
 import org.apache.cassandra.db.RowMutation;
 import org.apache.cassandra.db.SliceByNamesReadCommand;
+//TODO: TEST
+import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.MarshalException;
 import org.apache.cassandra.service.StorageProxy;
@@ -114,7 +118,9 @@ public class CassandraServer implements Cassandra {
                 else
                 {
                     columnorsupercolumn = col instanceof org.apache.cassandra.db.Column
-                                          ? newColumnOrSuperColumn(newColumn(col.name(), col.value(), col.timestamp()))
+//TODO: MODIFY: extend Avro spec to support Clock
+//                                          ? newColumnOrSuperColumn(newColumn(col.name(), col.value(), col.timestamp()))
+                                          ? newColumnOrSuperColumn(newColumn(col.name(), col.value(), ((TimestampClock)col.clock()).timestamp()))
                                           : newColumnOrSuperColumn(newSuperColumn(col.name(), avronateSubColumns(col.getSubColumns())));
                 }
 
@@ -213,7 +219,9 @@ public class CassandraServer implements Cassandra {
             if (column.isMarkedForDelete())
                 continue;
             
-            Column avroColumn = newColumn(column.name(), column.value(), column.timestamp());
+//TODO: MODIFY: create avro Clock
+//            Column avroColumn = newColumn(column.name(), column.value(), column.timestamp());
+            Column avroColumn = newColumn(column.name(), column.value(), ((TimestampClock)column.clock()).timestamp());
             avroColumns.add(avroColumn);
         }
         
@@ -221,6 +229,7 @@ public class CassandraServer implements Cassandra {
     }
 
     @Override
+//TODO: FIX: extend Avro spec to support Clock
     public Void insert(Utf8 keyspace, Utf8 key, ColumnPath cp, ByteBuffer value, long timestamp, ConsistencyLevel consistencyLevel)
     throws AvroRemoteException, InvalidRequestException, UnavailableException, TimedOutException
     {
@@ -240,7 +249,10 @@ public class CassandraServer implements Cassandra {
         RowMutation rm = new RowMutation(keyspace_string, key.toString());
         try
         {
-            rm.add(new QueryPath(column_family, super_column, column), value.array(), timestamp);
+//TODO: MODIFY: create appropriate IClock impl
+//            rm.add(new QueryPath(column_family, super_column, column), value.array(), timestamp);
+            IClock cassandra_clock = new TimestampClock(timestamp);
+            rm.add(new QueryPath(column_family, super_column, column), value.array(), cassandra_clock);
         }
         catch (MarshalException e)
         {
@@ -311,14 +323,20 @@ public class CassandraServer implements Cassandra {
                     for (Column column : cosc.super_column.columns)
                     {
                         QueryPath path = new QueryPath(cfName, cosc.super_column.name.array(), column.name.array());
-                        rm.add(path, column.value.array(), column.timestamp);
+//TODO: MODIFY: create appropriate IClock impl
+//                        rm.add(path, column.value.array(), column.timestamp);
+                        IClock cassandra_clock = new TimestampClock(column.timestamp);
+                        rm.add(path, column.value.array(), cassandra_clock);
                     }
                 }
                 else
                 {
                     assert cosc.super_column == null;
                     QueryPath path = new QueryPath(cfName, null, cosc.column.name.array());
-                    rm.add(path, cosc.column.value.array(), cosc.column.timestamp);
+//TODO: MODIFY: create appropriate IClock impl
+//                    rm.add(path, cosc.column.value.array(), cosc.column.timestamp);
+                    IClock cassandra_clock = new TimestampClock(cosc.column.timestamp);
+                    rm.add(path, cosc.column.value.array(), cassandra_clock);
                 }
             }
         }

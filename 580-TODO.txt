@@ -1,0 +1,249 @@
+===== STEPS
+1) column type as enum
+	a) db.ColumnType
+
+2) logical clock
+	a) db.IClock
+	b) db.TimestampClock
+
+3) context
+	a) db.VersionVectorClock
+	b) db.context.IContext
+	c) db.context.VersionVectorContext
+	d) db.context.AbstractReconciler
+	e) db.context.ConcatenatingReconciler
+
+	0) db.context.VersionVectorContextTest
+
+4) counters
+	a) db.IncrementCounterClock
+	b) db.context.IncrementCounterContext
+	c) db.context.IncrementCounterReconciler
+
+
+
+
+
+===== TESTED
+----- Context + Version Vector Context
+src/java/org/apache/cassandra/db/context/IContext.java
+src/java/org/apache/cassandra/db/context/VersionVectorContext.java
+src/java/org/apache/cassandra/utils/FBUtilities.java
+
+
+
+
+
+----- Logical Clock + Timestamp Clock
+src/java/org/apache/cassandra/db/IClock.java
+src/java/org/apache/cassandra/db/TimestampClock.java
+
+
+
+
+
+----- Version Vector Clock
+src/java/org/apache/cassandra/db/VersionVectorClock.java
+
+
+
+
+
+----- Reconciler + Concatenating Reconciler
+src/java/org/apache/cassandra/db/context/AbstractReconciler.java
+src/java/org/apache/cassandra/db/context/ConcatenatingReconciler.java
+
+
+
+
+
+----- Base Data Structuers: Column, SuperColumn, ColumnFamily
+src/java/org/apache/cassandra/db/IColumn.java
+src/java/org/apache/cassandra/db/IColumnContainer.java
+src/java/org/apache/cassandra/db/Column.java
+
+
+
+
+
+===== IMPLICIT TESTS
+----- ColumnType as enum
+src/java/org/apache/cassandra/db/ColumnType.java
+	- config/DatabaseDescriptor.java
+
+----- Configuration
+src/java/org/apache/cassandra/config/CFMetaData.java
+	- config/DatabaseDescriptor.java
+
+----- Base Data Structuers: Column, SuperColumn, ColumnFamily
+src/java/org/apache/cassandra/db/SuperColumn.java
+	- mostRecentLiveChangeAt()
+		* db.RemoveSuperColumnTest
+
+
+
+
+
+===== PARTIAL
+----- Counters
+src/java/org/apache/cassandra/db/context/IncrementCounterContext.java
+src/java/org/apache/cassandra/db/IncrementCounterClock.java
+src/java/org/apache/cassandra/db/context/IncrementCounterReconciler.java
+
+
+
+
+
+===== TODO
+----- Counters
+src/java/org/apache/cassandra/db/context/IncrementCounterContext.java
+	- delete
+src/java/org/apache/cassandra/db/IncrementCounterClock.java
+	- delete
+src/java/org/apache/cassandra/db/context/IncrementCounterReconciler.java
+	- delete
+
+
+
+
+
+----- Base Data Structuers: Column, SuperColumn, ColumnFamily
+src/java/org/apache/cassandra/db/SuperColumn.java
+	- addColumn()
+	- diff()
+	- updateDigest()
+	- ser/des
+
+	= delete
+		* increment CF
+			- mostRecentLiveChangeAt: timestamp
+src/java/org/apache/cassandra/db/ColumnFamily.java
+	- addColumn()
+		* addColumnForIncrCounters()
+	- cleanForIncrCounters()
+		* cleanForIncrCounters()
+	- diff()
+	- ser/des
+
+	= delete
+
+
+
+
+
+----- Larger Data Abstractions
+src/java/org/apache/cassandra/db/ColumnFamilyStore.java
+src/java/org/apache/cassandra/db/Memtable.java
+
+
+
+
+
+----- Serialization / Deserialization
+src/java/org/apache/cassandra/db/ColumnSerializer.java
+src/java/org/apache/cassandra/db/ColumnFamilySerializer.java
+src/java/org/apache/cassandra/io/SSTableReader.java
+
+
+
+
+
+----- Messaging / Read Repair
+src/java/org/apache/cassandra/service/ReadResponseResolver.java
+src/java/org/apache/cassandra/db/HintedHandOffManager.java
+src/java/org/apache/cassandra/db/RowMutation.java
+src/java/org/apache/cassandra/db/filter/QueryFilter.java
+src/java/org/apache/cassandra/db/filter/SliceQueryFilter.java
+
+
+
+
+
+----- Service
+src/java/org/apache/cassandra/service/StorageProxy.java
+src/java/org/apache/cassandra/service/StorageService.java
+src/java/org/apache/cassandra/thrift/CassandraServer.java
+src/java/org/apache/cassandra/thrift/ThriftValidation.java
+
+
+
+
+
+----- Configuration
+src/java/org/apache/cassandra/config/DatabaseDescriptor.java
+src/java/org/apache/cassandra/db/Table.java
+src/java/org/apache/cassandra/db/SystemTable.java
+
+
+
+
+
+----- Tools / Hadoop / Other
+src/java/org/apache/cassandra/db/ScribeLogHelper.java
+src/java/org/apache/cassandra/tools/SSTableExport.java
+src/java/org/apache/cassandra/tools/SSTableImport.java
+src/java/org/apache/cassandra/cli/CliClient.java
+src/java/org/apache/cassandra/hadoop/ColumnFamilyRecordReader.java
+
+
+
+
+
+===== MAYBE
+----- Logical Clock + Timestamp Clock
+src/java/org/apache/cassandra/db/context/VersionVectorContext.java
+	- compare() [check if all cases covered]
+src/java/org/apache/cassandra/utils/FBUtilities.java
+	- compareByteSubArrays() [check if all cases covered]
+
+
+
+
+
+===== IRRELEVANT
+interface/cassandra.thrift
+
+interface/thrift/gen-java/org/apache/cassandra/thrift/Cassandra.java
+interface/thrift/gen-java/org/apache/cassandra/thrift/Clock.java
+interface/thrift/gen-java/org/apache/cassandra/thrift/Column.java
+interface/thrift/gen-java/org/apache/cassandra/thrift/ConsistencyLevel.java
+interface/thrift/gen-java/org/apache/cassandra/thrift/Deletion.java
+
+src/java/org/apache/cassandra/avro/AvroValidation.java
+src/java/org/apache/cassandra/avro/CassandraServer.java
+src/java/org/apache/cassandra/avro/RecordFactory.java
+
+
+
+
+
+===== TO BE PROCESSED
+test/unit/org/apache/cassandra/Util.java
+test/unit/org/apache/cassandra/client/TestRingCache.java
+test/unit/org/apache/cassandra/db/ColumnFamilyStoreTest.java
+test/unit/org/apache/cassandra/db/ColumnFamilyTest.java
+test/unit/org/apache/cassandra/db/CommitLogTest.java
+test/unit/org/apache/cassandra/db/CompactionsPurgeTest.java
+test/unit/org/apache/cassandra/db/CompactionsTest.java
+test/unit/org/apache/cassandra/db/MultitableTest.java
+test/unit/org/apache/cassandra/db/NameSortTest.java
+test/unit/org/apache/cassandra/db/OneCompactionTest.java
+test/unit/org/apache/cassandra/db/ReadMessageTest.java
+test/unit/org/apache/cassandra/db/RecoveryManager2Test.java
+test/unit/org/apache/cassandra/db/RecoveryManagerTest.java
+test/unit/org/apache/cassandra/db/RemoveColumnFamilyTest.java
+test/unit/org/apache/cassandra/db/RemoveColumnFamilyWithFlush1Test.java
+test/unit/org/apache/cassandra/db/RemoveColumnFamilyWithFlush2Test.java
+test/unit/org/apache/cassandra/db/RemoveColumnTest.java
+test/unit/org/apache/cassandra/db/RemoveSubColumnTest.java
+test/unit/org/apache/cassandra/db/RemoveSuperColumnTest.java
+test/unit/org/apache/cassandra/db/RowTest.java
+test/unit/org/apache/cassandra/db/SuperColumnTest.java
+test/unit/org/apache/cassandra/db/TableTest.java
+test/unit/org/apache/cassandra/db/TimeSortTest.java
+test/unit/org/apache/cassandra/db/context/VersionVectorContextTest.java
+test/unit/org/apache/cassandra/io/SSTableUtils.java
+test/unit/org/apache/cassandra/service/AntiEntropyServiceTest.java
+test/unit/org/apache/cassandra/service/EmbeddedCassandraServiceTest.java
+test/unit/org/apache/cassandra/service/ReadResponseResolverTest.java
+test/unit/org/apache/cassandra/tools/SSTableExportTest.java

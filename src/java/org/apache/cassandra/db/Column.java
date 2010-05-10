@@ -26,6 +26,7 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 import org.apache.commons.lang.ArrayUtils;
 
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.utils.FBUtilities;
@@ -41,16 +42,14 @@ public class Column implements IColumn
 {
     private static Logger logger_ = Logger.getLogger(Column.class);
 
-    private static ColumnSerializer serializer_ = new ColumnSerializer();
-
-    public static ColumnSerializer serializer()
+    public static ColumnSerializer serializer(ColumnType columnType)
     {
-        return serializer_;
+        return new ColumnSerializer(columnType);
     }
 
     private final byte[] name;
     private final byte[] value;
-    private final long timestamp;
+    private final IClock clock;
     private final boolean isMarkedForDelete;
 
     Column(byte[] name)
@@ -60,22 +59,23 @@ public class Column implements IColumn
 
     Column(byte[] name, byte[] value)
     {
-        this(name, value, 0);
+        // safe to set to null, only used for filter comparisons
+        this(name, value, null);
     }
 
-    public Column(byte[] name, byte[] value, long timestamp)
+    public Column(byte[] name, byte[] value, IClock clock)
     {
-        this(name, value, timestamp, false);
+        this(name, value, clock, false);
     }
 
-    public Column(byte[] name, byte[] value, long timestamp, boolean isDeleted)
+    public Column(byte[] name, byte[] value, IClock clock, boolean isDeleted)
     {
         assert name != null;
         assert value != null;
         assert name.length <= IColumn.MAX_NAME_LENGTH;
         this.name = name;
         this.value = value;
-        this.timestamp = timestamp;
+        this.clock = clock;
         isMarkedForDelete = isDeleted;
     }
 
@@ -104,9 +104,9 @@ public class Column implements IColumn
         return 1;
     }
 
-    public long timestamp()
+    public IClock clock()
     {
-        return timestamp;
+        return clock;
     }
 
     public boolean isMarkedForDelete()
@@ -114,18 +114,18 @@ public class Column implements IColumn
         return isMarkedForDelete;
     }
 
-    public long getMarkedForDeleteAt()
+    public IClock getMarkedForDeleteAt()
     {
         if (!isMarkedForDelete())
         {
             throw new IllegalStateException("column is not marked for delete");
         }
-        return timestamp;
+        return clock;
     }
 
-    public long mostRecentLiveChangeAt()
+    public IClock mostRecentLiveChangeAt()
     {
-        return timestamp;
+        return clock;
     }
 
     public int size()
@@ -134,7 +134,7 @@ public class Column implements IColumn
          * Size of a column is =
          *   size of a name (UtfPrefix + length of the string)
          * + 1 byte to indicate if the column has been deleted
-         * + 8 bytes for timestamp
+         * + X bytes depending on IClock size
          * + 4 bytes which basically indicates the size of the byte array
          * + entire byte array.
         */
@@ -143,7 +143,12 @@ public class Column implements IColumn
            * We store the string as UTF-8 encoded, so when we calculate the length, it
            * should be converted to UTF-8.
            */
-        return IColumn.UtfPrefix_ + name.length + DBConstants.boolSize_ + DBConstants.tsSize_ + DBConstants.intSize_ + value.length;
+        return
+            IColumn.UtfPrefix_ + name.length +  // size of name
+            DBConstants.boolSize_ +             // 1 byte to indicate if the column has been deleted
+            clock.size() +                      // X bytes depending on IClock size
+            DBConstants.intSize_ +              // 4 bytes which basically indicates the size of the byte array
+            value.length;                       // entire byte array
     }
 
     /*
@@ -162,7 +167,9 @@ public class Column implements IColumn
 
     public IColumn diff(IColumn column)
     {
-        if (timestamp() < column.timestamp())
+        // (don't need to worry about disjoint versions, since column created by resolve()
+        // which will reconcile any disjoint versions.)
+        if (ClockRelationship.GREATER_THAN == column.clock().compare(clock))
         {
             return column;
         }
@@ -176,7 +183,7 @@ public class Column implements IColumn
         DataOutputBuffer buffer = new DataOutputBuffer();
         try
         {
-            buffer.writeLong(timestamp);
+            clock.serialize(buffer);
             buffer.writeBoolean(isMarkedForDelete);
         }
         catch (IOException e)
@@ -193,20 +200,22 @@ public class Column implements IColumn
     }
 
     // note that we do not call this simply compareTo since it also makes sense to compare Columns by name
-    public long comparePriority(Column o)
+    public ClockRelationship comparePriority(Column o)
     {
-        // tombstone always wins ties.
         if (isMarkedForDelete)
-            return timestamp < o.timestamp ? -1 : 1;
-        if (o.isMarkedForDelete)
-            return timestamp > o.timestamp ? 1 : -1;
-        
-        // compare value as tie-breaker for equal timestamps
-        if (timestamp == o.timestamp)
-            return FBUtilities.compareByteArrays(value, o.value);
-
-        // neither is tombstoned and timestamps are different
-        return timestamp - o.timestamp;
+        {
+            // tombstone always wins ties.
+            ClockRelationship rel = clock.compare(o.clock());
+            switch (rel)
+            {
+                case LESS_THAN:
+                case EQUAL:
+                    return ClockRelationship.LESS_THAN;
+                default:
+                    return rel;
+            }
+        }
+        return clock.compare(o.clock());
     }
 
     public String getString(AbstractType comparator)
@@ -218,7 +227,7 @@ public class Column implements IColumn
         sb.append(":");
         sb.append(value.length);
         sb.append("@");
-        sb.append(timestamp());
+        sb.append(clock.toString());
         return sb.toString();
     }
 }

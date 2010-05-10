@@ -27,6 +27,7 @@ import static org.apache.cassandra.thrift.ThriftGlue.*;
 
 import org.apache.cassandra.service.*;
 import org.apache.cassandra.thrift.Cassandra;
+import org.apache.cassandra.thrift.Clock;
 import org.apache.cassandra.thrift.Column;
 import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.ColumnParent;
@@ -246,8 +247,14 @@ public class CliClient
             columnName = CliCompiler.getColumn(columnFamilySpec, 1).getBytes("UTF-8");
         }
         
+//TODO: MODIFY: better determination of correct IClock impl
+//        thriftClient_.remove(tableName, key, createColumnPath(columnFamily, superColumnName, columnName),
+//                             System.currentTimeMillis(), ConsistencyLevel.ONE);
+        Clock thrift_clock = new Clock();
+//XXX: consider adding method to ThriftGlue to correctly create thrift Clock
+        thrift_clock.setTimestamp(System.currentTimeMillis());
         thriftClient_.remove(tableName, key, createColumnPath(columnFamily, superColumnName, columnName),
-                             timestampMicros(), ConsistencyLevel.ONE);
+                             thrift_clock, ConsistencyLevel.ONE);
         css_.out.println(String.format("%s removed.", (columnSpecCnt == 0) ? "row" : "column"));
     }
 
@@ -277,15 +284,19 @@ public class CliClient
                 css_.out.printf("=> (super_column=%s,", formatSuperColumnName(keyspace, columnFamily, superColumn));
                 for (Column col : superColumn.getColumns())
                     css_.out.printf("\n     (column=%s, value=%s, timestamp=%d)", formatSubcolumnName(keyspace, columnFamily, col),
-                                    new String(col.value, "UTF-8"), col.timestamp);
-                
-                css_.out.println(")"); 
+//TODO: MODIFY: correctly print out clock w/ context
+//                                    new String(col.value, "UTF-8"), col.timestamp);
+                                    new String(col.value, "UTF-8"), col.clock.timestamp);
+
+                css_.out.println(")");
             }
             else
             {
                 Column column = cosc.column;
                 css_.out.printf("=> (column=%s, value=%s, timestamp=%d)\n", formatColumnName(keyspace, columnFamily, column),
-                                new String(column.value, "UTF-8"), column.timestamp);
+//TODO: MODIFY: correctly print out clock w/ context
+//                                new String(column.value, "UTF-8"), column.timestamp);
+                                new String(column.value, "UTF-8"), column.clock.timestamp);
             }
         }
         
@@ -384,7 +395,9 @@ public class CliClient
         ColumnPath path = createColumnPath(columnFamily, superColumnName, columnName);
         Column column = thriftClient_.get(tableName, key, path, ConsistencyLevel.ONE).column;
         css_.out.printf("=> (column=%s, value=%s, timestamp=%d)\n", formatColumnName(tableName, columnFamily, column),
-                        new String(column.value, "UTF-8"), column.timestamp);
+//TODO: MODIFY
+//                        new String(column.value, "UTF-8"), column.timestamp);
+                        new String(column.value, "UTF-8"), column.clock.timestamp);
     }
 
     // Execute SET statement
@@ -430,9 +443,15 @@ public class CliClient
         }
         
         // do the insert
+//TODO: MODIFY: better determination of correct IClock impl
+//        thriftClient_.insert(tableName, key, createColumnPath(columnFamily, superColumnName, columnName),
+//                             value.getBytes(), System.currentTimeMillis(), ConsistencyLevel.ONE);
+        Clock clock = new Clock();
+//XXX: consider adding method to ThriftGlue to correctly create thrift Clock
+        clock.setTimestamp(System.currentTimeMillis());
         thriftClient_.insert(tableName, key, createColumnPath(columnFamily, superColumnName, columnName),
-                             value.getBytes(), timestampMicros(), ConsistencyLevel.ONE);
-        
+                             value.getBytes(), clock, ConsistencyLevel.ONE);
+
         css_.out.println("Value inserted.");
     }
 

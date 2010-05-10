@@ -22,9 +22,15 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
 import org.apache.cassandra.config.DatabaseDescriptor;
+//TODO: TEST
+import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.ColumnFamily;
+//TODO: TEST
+import org.apache.cassandra.db.ColumnType;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.SuperColumn;
+//TODO: TEST
+import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.io.util.DataOutputBuffer;
@@ -61,6 +67,7 @@ public class SSTableImport
     {
         private String name;
         private String value;
+//TODO: FIX
         private long timestamp;
         private boolean isDeleted;
         
@@ -70,6 +77,7 @@ public class SSTableImport
             assert colSpec.size() == 4;
             name = (String)colSpec.get(0);
             value = (String)colSpec.get(1);
+//TODO: FIX
             timestamp = (Long)colSpec.get(2);
             isDeleted = (Boolean)colSpec.get(3);
         }
@@ -87,7 +95,9 @@ public class SSTableImport
         {
             JsonColumn col = new JsonColumn(c);
             QueryPath path = new QueryPath(cfamily.name(), null, hexToBytes(col.name));
-            cfamily.addColumn(path, hexToBytes(col.value), col.timestamp, col.isDeleted);
+//TODO: MODIFY: correctly deserialize and create IClock impl
+//            cfamily.addColumn(path, hexToBytes(col.value), col.timestamp, col.isDeleted);
+            cfamily.addColumn(path, hexToBytes(col.value), new TimestampClock(col.timestamp), col.isDeleted);
         }
     }
     
@@ -111,11 +121,15 @@ public class SSTableImport
             {
                 JsonColumn col = new JsonColumn(c);
                 QueryPath path = new QueryPath(cfamily.name(), superName, hexToBytes(col.name));
-                cfamily.addColumn(path, hexToBytes(col.value), col.timestamp, col.isDeleted);
+//TODO: MODIFY: correctly deserialize and create IClock impl
+//                cfamily.addColumn(path, hexToBytes(col.value), col.timestamp, col.isDeleted);
+                cfamily.addColumn(path, hexToBytes(col.value), new TimestampClock(col.timestamp), col.isDeleted);
             }
             
             SuperColumn superColumn = (SuperColumn)cfamily.getColumn(superName);
-            superColumn.markForDeleteAt((int)(System.currentTimeMillis()/1000), deletedAt);
+//TODO: MODIFY: correctly deserialize and create IClock impl
+//            superColumn.markForDeleteAt((int)(System.currentTimeMillis()/1000), deletedAt);
+            superColumn.markForDeleteAt((int)(System.currentTimeMillis()/1000), new TimestampClock(deletedAt));
         }
     }
 
@@ -133,7 +147,9 @@ public class SSTableImport
     throws IOException, ParseException
     {
         ColumnFamily cfamily = ColumnFamily.create(keyspace, cf);
-        String cfType = cfamily.type();    // Super or Standard
+//TODO: TEST
+//        String cfType = cfamily.type();    // Super or Standard
+        ColumnType cfType = cfamily.type();    // Super, Standard, etc.
         IPartitioner<?> partitioner = DatabaseDescriptor.getPartitioner();
         DataOutputBuffer dob = new DataOutputBuffer();
         
@@ -150,7 +166,9 @@ public class SSTableImport
 
             for (DecoratedKey<?> rowKey : decoratedKeys)
             {
-                if (cfType.equals("Super"))
+//TODO: TEST
+//                if (cfType.equals("Super"))
+                if (cfType.isSuper())
                     addToSuperCF((JSONObject)json.get(rowKey.key), cfamily);
                 else
                     addToStandardCF((JSONArray)json.get(rowKey.key), cfamily);

@@ -26,6 +26,7 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
@@ -33,9 +34,12 @@ import java.util.zip.Inflater;
 import org.apache.log4j.Logger;
 
 import org.apache.commons.collections.iterators.CollatingIterator;
+import org.apache.commons.lang.ArrayUtils;
 
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.DecoratedKey;
+import org.apache.cassandra.db.IClock;
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.thrift.SlicePredicate;
@@ -146,13 +150,39 @@ public class FBUtilities
         return new Pair(midpoint, remainder);
     }
 
+    // copy bytes from int into bytes starting from offset
+    public static void copyIntoBytes(byte[] bytes, int offset, int i)
+    {
+        bytes[offset]   = (byte)( ( i >>> 24 ) & 0xFF );
+        bytes[offset+1] = (byte)( ( i >>> 16 ) & 0xFF );
+        bytes[offset+2] = (byte)( ( i >>> 8  ) & 0xFF );
+        bytes[offset+3] = (byte)(   i          & 0xFF );
+    }
+
+    // copy bytes from long into bytes starting from offset
+    public static void copyIntoBytes(byte[] bytes, int offset, long l)
+    {
+        bytes[offset]   = (byte)( ( l >>> 56 ) & 0xFF );
+        bytes[offset+1] = (byte)( ( l >>> 48 ) & 0xFF );
+        bytes[offset+2] = (byte)( ( l >>> 40 ) & 0xFF );
+        bytes[offset+3] = (byte)( ( l >>> 32 ) & 0xFF );
+        bytes[offset+4] = (byte)( ( l >>> 24 ) & 0xFF );
+        bytes[offset+5] = (byte)( ( l >>> 16 ) & 0xFF );
+        bytes[offset+6] = (byte)( ( l >>> 8  ) & 0xFF );
+        bytes[offset+7] = (byte)(   l          & 0xFF );
+    }
+
     public static byte[] toByteArray(int i)
     {
         byte[] bytes = new byte[4];
-        bytes[0] = (byte)( ( i >>> 24 ) & 0xFF);
-        bytes[1] = (byte)( ( i >>> 16 ) & 0xFF);
-        bytes[2] = (byte)( ( i >>> 8 ) & 0xFF);
-        bytes[3] = (byte)( i & 0xFF );
+        copyIntoBytes(bytes, 0, i);
+        return bytes;
+    }
+
+    public static byte[] toByteArray(long l)
+    {
+        byte[] bytes = new byte[8];
+        copyIntoBytes(bytes, 0, l);
         return bytes;
     }
 
@@ -169,6 +199,26 @@ public class FBUtilities
         }
         int n = 0;
         for ( int i = 0; i < 4; ++i )
+        {
+            n <<= 8;
+            n |= bytes[offset + i] & 0xFF;
+        }
+        return n;
+    }
+
+    public static long byteArrayToLong(byte[] bytes)
+    {
+        return byteArrayToLong(bytes, 0);
+    }
+
+    public static long byteArrayToLong(byte[] bytes, int offset)
+    {
+        if ( bytes.length - offset < 8 )
+        {
+            throw new IllegalArgumentException("A long must be 8 bytes in size.");
+        }
+        long n = 0;
+        for ( int i = 0; i < 8; ++i )
         {
             n <<= 8;
             n |= bytes[offset + i] & 0xFF;
@@ -193,6 +243,30 @@ public class FBUtilities
         }
         if(bytes1.length == bytes2.length) return 0;
         else return (bytes1.length < bytes2.length)? -1 : 1;
+    }
+
+    // compare two byte[] at specified offsets for length
+    public static int compareByteSubArrays(byte[] bytes1, int offset1, byte[] bytes2, int offset2, int length)
+    {
+        if ( null == bytes1 )
+        {
+            if ( null == bytes2) return 0;
+            else return -1;
+        }
+        if (null == bytes2 ) return 1;
+
+        assert bytes1.length >= (offset1 + length) : "The first byte array isn't long enough for the specified offset and length.";
+        assert bytes2.length >= (offset2 + length) : "The second byte array isn't long enough for the specified offset and length.";
+        for ( int i = 0; i < length; i++ )
+        {
+            byte byte1 = bytes1[offset1+i];
+            byte byte2 = bytes2[offset2+i];
+            if ( byte1 == byte2 )
+                continue;
+            // compare non-equal bytes as unsigned
+            return (byte1 & 0xFF) < (byte2 & 0xFF) ? -1 : 1;
+        }
+        return 0;
     }
 
     /**
@@ -387,6 +461,30 @@ public class FBUtilities
         }
     }
 
+    public static void atomicSetMax(AtomicReference<IClock> atomic, IClock newClock)
+    {
+    outer:
+        while (true)
+        {
+            IClock oldClock = atomic.getAndSet(newClock);
+            ClockRelationship rel = oldClock.compare(newClock);
+            switch (rel)
+            {
+                case LESS_THAN:
+                case EQUAL:
+                    break outer;
+                case GREATER_THAN:
+                    newClock = oldClock;
+                    break;
+                default: // DISJOINT
+                    List<IClock> clocks = new LinkedList<IClock>();
+                    clocks.add(newClock);
+
+                    newClock = oldClock.getSuperset(clocks);
+            }
+        }
+    }
+
     public static void serialize(TSerializer serializer, TBase struct, DataOutput out)
     throws IOException
     {
@@ -462,7 +560,7 @@ public class FBUtilities
             return false;
         else
             return a.equals(b);
-}
+    }
 
     public static int encodedUTF8Length(String st)
     {
@@ -479,5 +577,43 @@ public class FBUtilities
                 utflen += 2;
         }
         return utflen;
+    }
+
+    // thin wrapper around byte[] to provide meaningful equals() and hashCode() operations
+    // caveat: assumed that wrapped byte[] will not be modified
+    public static final class ByteArrayWrapper
+    {
+        public final byte[] data;
+
+        public ByteArrayWrapper(byte[] data)
+        {
+            if ( null == data )
+            {
+                throw new NullPointerException();
+            }
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if ( !( other instanceof ByteArrayWrapper ) )
+            {
+                return false;
+            }
+            return Arrays.equals(data, ((ByteArrayWrapper)other).data);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Arrays.hashCode(data);
+        }
+
+        @Override
+        public String toString()
+        {
+            return ArrayUtils.toString(data);
+        }
     }
 }

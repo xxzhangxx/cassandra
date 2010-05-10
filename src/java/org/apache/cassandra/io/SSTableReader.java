@@ -37,6 +37,7 @@ import org.apache.cassandra.utils.Pair;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.context.AbstractReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.io.util.BufferedRandomAccessFile;
 import org.apache.cassandra.io.util.FileDataInput;
@@ -528,6 +529,12 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
         return DatabaseDescriptor.getComparator(getTableName(), getColumnFamilyName());
     }
 
+//TODO: TEST
+    public AbstractReconciler getColumnReconciler()
+    {
+        return DatabaseDescriptor.getReconciler(getTableName(), getColumnFamilyName());
+    }
+
     public ColumnFamily makeColumnFamily()
     {
         return ColumnFamily.create(getTableName(), getColumnFamilyName());
@@ -535,8 +542,13 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
 
     public ICompactSerializer2<IColumn> getColumnSerializer()
     {
-        return DatabaseDescriptor.getColumnFamilyType(getTableName(), getColumnFamilyName()).equals("Standard")
-               ? Column.serializer()
-               : SuperColumn.serializer(getColumnComparator());
+//TODO: TEST
+//        return DatabaseDescriptor.getColumnFamilyType(getTableName(), getColumnFamilyName()).equals("Standard")
+        ColumnType columnType = DatabaseDescriptor.getColumnFamilyType(getTableName(), getColumnFamilyName());
+        return !columnType.isSuper()
+               ? Column.serializer(columnType)
+//TODO: TEST
+//               : SuperColumn.serializer(getColumnComparator(), columnType);
+               : SuperColumn.serializer(getColumnComparator(), columnType, getColumnReconciler());
     }
 }

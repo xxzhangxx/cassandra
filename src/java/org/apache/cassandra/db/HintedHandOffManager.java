@@ -90,17 +90,18 @@ public class HintedHandOffManager
 
     protected HintedHandOffManager()
     {
-        new Thread(new WrappedRunnable()
-        {
-            public void runMayThrow() throws Exception
+        if (DatabaseDescriptor.hintedHandoffEnabled())
+            new Thread(new WrappedRunnable()
             {
-                while (true)
+                public void runMayThrow() throws Exception
                 {
-                    Thread.sleep(INTERVAL_IN_MS);
-                    deliverAllHints();
+                    while (true)
+                    {
+                        Thread.sleep(INTERVAL_IN_MS);
+                        deliverAllHints();
+                    }
                 }
-            }
-        }, "Hint delivery").start();
+            }, "Hint delivery").start();
     }
 
     private static boolean sendMessage(InetAddress endPoint, String tableName, String key) throws IOException
@@ -138,17 +139,23 @@ public class HintedHandOffManager
         return true;
     }
 
-    private static void deleteEndPoint(byte[] endpointAddress, String tableName, byte[] key, long timestamp) throws IOException
+//TODO: TEST
+//    private static void deleteEndPoint(byte[] endpointAddress, String tableName, byte[] key, long timestamp) throws IOException
+    private static void deleteEndPoint(byte[] endpointAddress, String tableName, byte[] key) throws IOException
     {
         RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, tableName);
-        rm.delete(new QueryPath(HINTS_CF, key, endpointAddress), timestamp);
+//TODO: TEST
+//        rm.delete(new QueryPath(HINTS_CF, key, endpointAddress), timestamp);
+        rm.delete(new QueryPath(HINTS_CF, key, endpointAddress), new TimestampClock(System.currentTimeMillis()));
         rm.apply();
     }
 
     private static void deleteHintKey(String tableName, byte[] key) throws IOException
     {
         RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, tableName);
-        rm.delete(new QueryPath(HINTS_CF, key, null), System.currentTimeMillis());
+//TODO: TEST
+//        rm.delete(new QueryPath(HINTS_CF, key, null), System.currentTimeMillis());
+        rm.delete(new QueryPath(HINTS_CF, key, null), new TimestampClock(System.currentTimeMillis()));
         rm.apply();
     }
 
@@ -186,7 +193,9 @@ public class HintedHandOffManager
                     {
                         if (sendMessage(InetAddress.getByAddress(endpoint.name()), tableName, keyStr))
                         {
-                            deleteEndPoint(endpoint.name(), tableName, keyColumn.name(), System.currentTimeMillis());
+//TODO: TEST
+//                            deleteEndPoint(endpoint.name(), tableName, keyColumn.name(), System.currentTimeMillis());
+                            deleteEndPoint(endpoint.name(), tableName, keyColumn.name());
                             deleted++;
                         }
                     }
@@ -252,7 +261,9 @@ public class HintedHandOffManager
                             if (endpoints.size() == 1)
                                 deleteHintKey(tableName, keyColumn.name());
                             else
-                                deleteEndPoint(hintEndPoint.name(), tableName, keyColumn.name(), System.currentTimeMillis());
+//TODO: TEST
+//                                deleteEndPoint(hintEndPoint.name(), tableName, keyColumn.name(), System.currentTimeMillis());
+                                deleteEndPoint(hintEndPoint.name(), tableName, keyColumn.name());
                             break;
                         }
                     }

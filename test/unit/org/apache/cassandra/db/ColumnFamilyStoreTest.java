@@ -61,8 +61,8 @@ public class ColumnFamilyStoreTest extends CleanupHelper
         List<RowMutation> rms = new LinkedList<RowMutation>();
         RowMutation rm;
         rm = new RowMutation("Keyspace1", "key1");
-        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), 0);
-        rm.add(new QueryPath("Standard1", null, "Column2".getBytes()), "asdf".getBytes(), 0);
+        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), new TimestampClock(0));
+        rm.add(new QueryPath("Standard1", null, "Column2".getBytes()), "asdf".getBytes(), new TimestampClock(0));
         rms.add(rm);
         ColumnFamilyStore store = Util.writeColumnFamily(rms);
 
@@ -82,7 +82,7 @@ public class ColumnFamilyStoreTest extends CleanupHelper
         RowMutation rm;
 
         rm = new RowMutation("Keyspace1", "key1");
-        rm.delete(new QueryPath("Standard2", null, null), System.currentTimeMillis());
+        rm.delete(new QueryPath("Standard2", null, null), new TimestampClock(System.currentTimeMillis()));
         rm.apply();
 
         Runnable r = new WrappedRunnable()
@@ -115,7 +115,7 @@ public class ColumnFamilyStoreTest extends CleanupHelper
         {
             String key = String.valueOf(j);
             RowMutation rm = new RowMutation("Keyspace1", key);
-            rm.add(new QueryPath(columnFamilyName, null, "0".getBytes()), new byte[0], j);
+            rm.add(new QueryPath(columnFamilyName, null, "0".getBytes()), new byte[0], new TimestampClock(j));
             rms.add(rm);
         }
         ColumnFamilyStore store = Util.writeColumnFamily(rms);
@@ -169,12 +169,12 @@ public class ColumnFamilyStoreTest extends CleanupHelper
         List<RowMutation> rms = new LinkedList<RowMutation>();
         RowMutation rm;
         rm = new RowMutation("Keyspace2", "key1");
-        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), 0);
+        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), new TimestampClock(0));
         rms.add(rm);
         Util.writeColumnFamily(rms);
 
         rm = new RowMutation("Keyspace2", "key2");
-        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), 0);
+        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), new TimestampClock(0));
         rms.add(rm);
         return Util.writeColumnFamily(rms);
     }

@@ -23,9 +23,20 @@ package org.apache.cassandra.thrift;
 import java.util.Comparator;
 import java.util.Arrays;
 
+//TODO: TEST
+import org.apache.commons.lang.ArrayUtils;
+
 import org.apache.cassandra.db.KeyspaceNotDefinedException;
 import org.apache.cassandra.db.ColumnFamily;
+//TODO: TEST
+import org.apache.cassandra.db.ColumnType;
+//TODO: TEST
+import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.IColumn;
+//TODO: TEST
+import org.apache.cassandra.db.IncrementCounterClock;
+import org.apache.cassandra.db.TimestampClock;
+import org.apache.cassandra.db.VersionVectorClock;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.MarshalException;
 
@@ -60,13 +71,17 @@ public class ThriftValidation
         }
     }
 
-    public static String validateColumnFamily(String tablename, String cfName) throws InvalidRequestException
+//TODO: TEST
+//    public static String validateColumnFamily(String tablename, String cfName) throws InvalidRequestException
+    public static ColumnType validateColumnFamily(String tablename, String cfName) throws InvalidRequestException
     {
         if (cfName.isEmpty())
         {
             throw new InvalidRequestException("non-empty columnfamily is required");
         }
-        String cfType = DatabaseDescriptor.getColumnType(tablename, cfName);
+//TODO: TEST
+//        String cfType = DatabaseDescriptor.getColumnType(tablename, cfName);
+        ColumnType cfType = DatabaseDescriptor.getColumnType(tablename, cfName);
         if (cfType == null)
         {
             throw new InvalidRequestException("unconfigured columnfamily " + cfName);
@@ -77,8 +92,12 @@ public class ThriftValidation
     static void validateColumnPath(String tablename, ColumnPath column_path) throws InvalidRequestException
     {
         validateTable(tablename);
-        String cfType = validateColumnFamily(tablename, column_path.column_family);
-        if (cfType.equals("Standard"))
+//TODO: TEST
+//        String cfType = validateColumnFamily(tablename, column_path.column_family);
+        ColumnType cfType = validateColumnFamily(tablename, column_path.column_family);
+//TODO: TEST
+//        if (cfType.equals("Standard"))
+        if (!cfType.isSuper())
         {
             if (column_path.super_column != null)
             {
@@ -107,8 +126,12 @@ public class ThriftValidation
     static void validateColumnParent(String tablename, ColumnParent column_parent) throws InvalidRequestException
     {
         validateTable(tablename);
-        String cfType = validateColumnFamily(tablename, column_parent.column_family);
-        if (cfType.equals("Standard"))
+//TODO: TEST
+//        String cfType = validateColumnFamily(tablename, column_parent.column_family);
+        ColumnType cfType = validateColumnFamily(tablename, column_parent.column_family);
+//TODO: TEST
+//        if (cfType.equals("Standard"))
+        if (!cfType.isSuper())
         {
             if (column_parent.super_column != null)
             {
@@ -125,8 +148,12 @@ public class ThriftValidation
     static void validateColumnPathOrParent(String tablename, ColumnPath column_path_or_parent) throws InvalidRequestException
     {
         validateTable(tablename);
-        String cfType = validateColumnFamily(tablename, column_path_or_parent.column_family);
-        if (cfType.equals("Standard"))
+//TODO: TEST
+//        String cfType = validateColumnFamily(tablename, column_path_or_parent.column_family);
+        ColumnType cfType = validateColumnFamily(tablename, column_path_or_parent.column_family);
+//TODO: TEST
+//        if (cfType.equals("Standard"))
+        if (!cfType.isSuper())
         {
             if (column_path_or_parent.super_column != null)
             {
@@ -152,7 +179,9 @@ public class ThriftValidation
                 throw new InvalidRequestException("supercolumn name length must not be greater than " + IColumn.MAX_NAME_LENGTH);
             if (superColumnName.length == 0)
                 throw new InvalidRequestException("supercolumn name must not be empty");
-            if (!DatabaseDescriptor.getColumnFamilyType(keyspace, columnFamilyName).equals("Super"))
+//TODO: TEST
+//            if (!DatabaseDescriptor.getColumnFamilyType(keyspace, columnFamilyName).equals("Super"))
+            if (!DatabaseDescriptor.getColumnFamilyType(keyspace, columnFamilyName).isSuper())
                 throw new InvalidRequestException("supercolumn specified to ColumnFamily " + columnFamilyName + " containing normal columns");
         }
         AbstractType comparator = ColumnFamily.getComparatorFor(keyspace, columnFamilyName, superColumnName);
@@ -320,5 +349,25 @@ public class ThriftValidation
         {
             throw new InvalidRequestException("maxRows must be positive");
         }
+    }
+
+//TODO: TEST
+    public static IClock validateClock(Clock clock) throws InvalidRequestException
+    {
+        if (clock.isSetTimestamp() && clock.isSetContext())
+        {
+            throw new InvalidRequestException("Clock must have one of timestamp or context, but not both");
+        }
+        if (clock.isSetTimestamp())
+        {
+            return new TimestampClock(clock.getTimestamp());
+        }
+        else if (clock.isSetContext())
+        {
+            return new VersionVectorClock(clock.getContext());
+        }
+//TODO: TEST
+//        throw new InvalidRequestException("Clock must have one of timestamp or context");
+        return new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
     }
 }

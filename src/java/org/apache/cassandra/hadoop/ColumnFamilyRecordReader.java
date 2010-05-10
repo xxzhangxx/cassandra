@@ -31,6 +31,7 @@ import java.util.TreeMap;
 import com.google.common.collect.AbstractIterator;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.context.AbstractReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.thrift.*;
@@ -238,7 +239,11 @@ public class ColumnFamilyRecordReader extends RecordReader<String, SortedMap<byt
     private IColumn unthriftifySuper(SuperColumn super_column)
     {
         AbstractType subComparator = DatabaseDescriptor.getSubComparator(keyspace, cfName);
-        org.apache.cassandra.db.SuperColumn sc = new org.apache.cassandra.db.SuperColumn(super_column.name, subComparator);
+//TODO: TEST
+//        org.apache.cassandra.db.SuperColumn sc = new org.apache.cassandra.db.SuperColumn(super_column.name, subComparator);
+        ColumnType columnType = DatabaseDescriptor.getColumnFamilyType(keyspace, cfName);
+        AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(keyspace, cfName);
+        org.apache.cassandra.db.SuperColumn sc = new org.apache.cassandra.db.SuperColumn(super_column.name, subComparator, columnType, reconciler);
         for (Column column : super_column.columns)
         {
             sc.addColumn(unthriftifySimple(column));
@@ -248,6 +253,9 @@ public class ColumnFamilyRecordReader extends RecordReader<String, SortedMap<byt
 
     private IColumn unthriftifySimple(Column column)
     {
-        return new org.apache.cassandra.db.Column(column.name, column.value, column.timestamp);
+//TODO: MODIFY: create appropriate IClock impl
+//        return new org.apache.cassandra.db.Column(column.name, column.value, column.timestamp);
+        org.apache.cassandra.db.IClock clock = new org.apache.cassandra.db.TimestampClock(column.clock.timestamp);
+        return new org.apache.cassandra.db.Column(column.name, column.value, clock);
     }
 }

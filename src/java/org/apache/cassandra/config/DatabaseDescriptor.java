@@ -22,6 +22,7 @@ import org.apache.cassandra.auth.AllowAllAuthenticator;
 import org.apache.cassandra.auth.IAuthenticator;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.commitlog.CommitLog;
+import org.apache.cassandra.db.context.AbstractReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.db.marshal.UTF8Type;
@@ -490,8 +491,12 @@ public class DatabaseDescriptor
             tables.put(Table.SYSTEM_TABLE, systemMeta);
             systemMeta.cfMetaData.put(SystemTable.STATUS_CF, new CFMetaData(Table.SYSTEM_TABLE,
                                                                             SystemTable.STATUS_CF,
-                                                                            "Standard",
+//TODO: TEST
+//                                                                            "Standard",
+                                                                            ColumnType.Standard,
                                                                             new UTF8Type(),
+                                                                            null,
+//TODO: TEST
                                                                             null,
                                                                             "persistent metadata for the local node",
                                                                             0.0,
@@ -499,9 +504,13 @@ public class DatabaseDescriptor
 
             systemMeta.cfMetaData.put(HintedHandOffManager.HINTS_CF, new CFMetaData(Table.SYSTEM_TABLE,
                                                                                     HintedHandOffManager.HINTS_CF,
-                                                                                    "Super",
+//TODO: TEST
+//                                                                                    "Super",
+                                                                                    ColumnType.Super,
                                                                                     new UTF8Type(),
                                                                                     new BytesType(),
+//TODO: TEST
+                                                                                    null,
                                                                                     "hinted handoff data",
                                                                                     0.0,
                                                                                     0.01));
@@ -660,9 +669,22 @@ public class DatabaseDescriptor
 
                     // Parse out the column type
                     String rawColumnType = XMLUtils.getAttributeValue(columnFamily, "ColumnType");
+//TODO: TEST
+/*
                     String columnType = ColumnFamily.getColumnType(rawColumnType);
                     if (columnType == null)
                     {
+                        throw new ConfigurationException("ColumnFamily " + cfName + " has invalid type " + rawColumnType);
+                    }
+*/
+                    ColumnType columnType;
+                    try
+                    {
+                        columnType = ColumnType.create(rawColumnType);
+                    }
+                    catch (IllegalArgumentException e)
+                    {
+                        columnType = null;
                         throw new ConfigurationException("ColumnFamily " + cfName + " has invalid type " + rawColumnType);
                     }
 
@@ -674,13 +696,27 @@ public class DatabaseDescriptor
                     // Parse out the column comparator
                     AbstractType comparator = getComparator(columnFamily, "CompareWith");
                     AbstractType subcolumnComparator = null;
-                    if (columnType.equals("Super"))
+//TODO: TEST
+//                    if (columnType.equals("Super"))
+                    if (columnType.isSuper())
                     {
                         subcolumnComparator = getComparator(columnFamily, "CompareSubcolumnsWith");
                     }
                     else if (XMLUtils.getAttributeValue(columnFamily, "CompareSubcolumnsWith") != null)
                     {
                         throw new ConfigurationException("CompareSubcolumnsWith is only a valid attribute on super columnfamilies (not regular columnfamily " + cfName + ")");
+                    }
+
+//TODO: TEST
+                    // Parse out the column reconciler
+                    AbstractReconciler reconciler = null;
+                    if (columnType.isContext())
+                    {
+                        reconciler = getReconciler(columnFamily, "ReconcileWith");
+                    }
+                    else if (XMLUtils.getAttributeValue(columnFamily, "ReconcileWith") != null)
+                    {
+                        throw new ConfigurationException("ReconcileWith is only a valid attribute on context-based columnfamilies (not regular / super columnfamily " + cfName + ")");
                     }
 
                     double keyCacheSize = CFMetaData.DEFAULT_KEY_CACHE_SIZE;
@@ -706,7 +742,8 @@ public class DatabaseDescriptor
                     String comment = xmlUtils.getNodeValue(xqlCF + "Comment");
 
                     // insert it into the table dictionary.
-                    meta.cfMetaData.put(cfName, new CFMetaData(tableName, cfName, columnType, comparator, subcolumnComparator, comment, rowCacheSize, keyCacheSize));
+//TODO: TEST
+                    meta.cfMetaData.put(cfName, new CFMetaData(tableName, cfName, columnType, comparator, subcolumnComparator, reconciler, comment, rowCacheSize, keyCacheSize));
                 }
 
                 tables.put(meta.name, meta);
@@ -797,6 +834,77 @@ public class DatabaseDescriptor
         }
     }
 
+//TODO: TEST
+    private static AbstractReconciler getReconciler(Node columnFamily, String attr) throws ConfigurationException
+    {
+        Class<? extends AbstractReconciler> reconcilerClass;
+        String reconcileWith = null;
+        try
+        {
+            reconcileWith = XMLUtils.getAttributeValue(columnFamily, attr);
+        }
+        catch (TransformerException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        if (reconcileWith == null)
+        {
+            try
+            {
+                String cfName = XMLUtils.getAttributeValue(columnFamily, "Name");
+                throw new ConfigurationException("ReconcileWith may not be null on (super) version columnfamily " + cfName);
+            }
+            catch (TransformerException e)
+            {
+                ConfigurationException ex = new ConfigurationException(e.getMessage());
+                ex.initCause(e);
+                throw ex;
+            }
+        }
+        else
+        {
+            String className = reconcileWith.contains(".") ? reconcileWith : "org.apache.cassandra.db.context." + reconcileWith;
+            try
+            {
+                reconcilerClass = (Class<? extends AbstractReconciler>)Class.forName(className);
+            }
+            catch (ClassNotFoundException e)
+            {
+                throw new ConfigurationException("Unable to load class " + className + " for " + attr + " attribute");
+            }
+        }
+        try
+        {
+            return reconcilerClass.getConstructor().newInstance();
+        }
+        catch (InstantiationException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        catch (IllegalAccessException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        catch (InvocationTargetException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        catch (NoSuchMethodException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+    }
+
     /**
      * Creates all storage-related directories.
      * @throws IOException when a disk problem is encountered.
@@ -858,6 +966,7 @@ public class DatabaseDescriptor
 
                 for (String columnFamily : columnFamilies.keySet())
                 {
+//TODO: TEST
                     tmetadata.add(columnFamily, cfId++, DatabaseDescriptor.getColumnType(table, columnFamily));
                 }
             }
@@ -954,14 +1063,17 @@ public class DatabaseDescriptor
             return null;
         return ksm.cfMetaData.get(cfName);
     }
-    
-    public static String getColumnType(String tableName, String cfName)
+
+//TODO: TEST
+//    public static String getColumnType(String tableName, String cfName)
+    public static ColumnType getColumnType(String tableName, String cfName)
     {
         assert tableName != null;
         CFMetaData cfMetaData = getCFMetaData(tableName, cfName);
         
         if (cfMetaData == null)
             return null;
+//TODO: TEST
         return cfMetaData.columnType;
     }
 
@@ -1063,12 +1175,21 @@ public class DatabaseDescriptor
         return seeds;
     }
 
-    public static String getColumnFamilyType(String tableName, String cfName)
+//TODO: TEST
+//    public static String getColumnFamilyType(String tableName, String cfName)
+    public static ColumnType getColumnFamilyType(String tableName, String cfName)
     {
         assert tableName != null;
+//TODO: TEST
+/*
         String cfType = getColumnType(tableName, cfName);
         if ( cfType == null )
             cfType = "Standard";
+    	return cfType;
+*/
+        ColumnType cfType = getColumnType(tableName, cfName);
+        if ( cfType == null )
+            cfType = ColumnType.Standard;
     	return cfType;
     }
 
@@ -1126,6 +1247,15 @@ public class DatabaseDescriptor
     public static int getStageQueueSize()
     {
         return stageQueueSize_;
+    }
+//TODO: TEST
+    public static AbstractReconciler getReconciler(String tableName, String cfName)
+    {
+        assert tableName != null;
+        CFMetaData cfmd = getCFMetaData(tableName, cfName);
+        if (cfmd == null)
+            throw new NullPointerException("Unknown ColumnFamily " + cfName + " in keyspace " + tableName);
+        return cfmd.reconciler;
     }
 
     /**
@@ -1227,6 +1357,6 @@ public class DatabaseDescriptor
 
     public static boolean hintedHandoffEnabled()
     {
-        return hintedHandoffEnabled;
+       return hintedHandoffEnabled;
     }
 }

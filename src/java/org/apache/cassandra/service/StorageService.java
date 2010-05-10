@@ -916,7 +916,8 @@ public class StorageService implements IEndPointStateChangeSubscriber, StorageSe
     */
     public final void deliverHints(InetAddress endpoint)
     {
-        HintedHandOffManager.instance.deliverHints(endpoint);
+        if (DatabaseDescriptor.hintedHandoffEnabled())
+            HintedHandOffManager.instance.deliverHints(endpoint);
     }
 
     public Token getLocalToken()

@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.db;
 
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,10 +28,12 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.log4j.Logger;
 
+import org.apache.cassandra.db.IClock.ClockRelationship;
+import org.apache.cassandra.db.context.AbstractReconciler;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.db.filter.QueryPath;
@@ -44,54 +47,45 @@ public class ColumnFamily implements IColumnContainer
     private static ColumnFamilySerializer serializer_ = new ColumnFamilySerializer();
 
     private static Logger logger_ = Logger.getLogger( ColumnFamily.class );
-    private static Map<String, String> columnTypes_ = new HashMap<String, String>();
-    String type_;
 
-    static
-    {
-        /* TODO: These are the various column types. Hard coded for now. */
-        columnTypes_.put("Standard", "Standard");
-        columnTypes_.put("Super", "Super");
-    }
+    ColumnType type_;
+    AbstractReconciler reconciler;
 
     public static ColumnFamilySerializer serializer()
     {
         return serializer_;
     }
 
-    public static String getColumnType(String key)
-    {
-    	if ( key == null )
-    		return columnTypes_.get("Standard");
-    	return columnTypes_.get(key);
-    }
-
     public static ColumnFamily create(String tableName, String cfName)
     {
-        String columnType = DatabaseDescriptor.getColumnFamilyType(tableName, cfName);
+        ColumnType columnType = DatabaseDescriptor.getColumnFamilyType(tableName, cfName);
         AbstractType comparator = DatabaseDescriptor.getComparator(tableName, cfName);
         AbstractType subcolumnComparator = DatabaseDescriptor.getSubComparator(tableName, cfName);
-        return new ColumnFamily(cfName, columnType, comparator, subcolumnComparator);
+        AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(tableName, cfName);
+        return new ColumnFamily(cfName, columnType, comparator, subcolumnComparator, reconciler);
     }
 
     private String name_;
 
     private transient ICompactSerializer2<IColumn> columnSerializer_;
-    AtomicLong markedForDeleteAt = new AtomicLong(Long.MIN_VALUE);
+    AtomicReference<IClock> markedForDeleteAt;
+
     AtomicInteger localDeletionTime = new AtomicInteger(Integer.MIN_VALUE);
     private ConcurrentSkipListMap<byte[], IColumn> columns_;
 
-    public ColumnFamily(String cfName, String columnType, AbstractType comparator, AbstractType subcolumnComparator)
+    public ColumnFamily(String cfName, ColumnType columnType, AbstractType comparator, AbstractType subcolumnComparator, AbstractReconciler reconciler)
     {
         name_ = cfName;
         type_ = columnType;
-        columnSerializer_ = columnType.equals("Standard") ? Column.serializer() : SuperColumn.serializer(subcolumnComparator);
+        columnSerializer_ = !columnType.isSuper() ? Column.serializer(type_) : SuperColumn.serializer(subcolumnComparator, type_, reconciler);
+        this.reconciler = reconciler;
+        markedForDeleteAt = new AtomicReference<IClock>(type_.minClock());
         columns_ = new ConcurrentSkipListMap<byte[], IColumn>(comparator);
     }
 
     public ColumnFamily cloneMeShallow()
     {
-        ColumnFamily cf = new ColumnFamily(name_, type_, getComparator(), getSubComparator());
+        ColumnFamily cf = new ColumnFamily(name_, type_, getComparator(), getSubComparator(), reconciler);
         cf.markedForDeleteAt = markedForDeleteAt;
         cf.localDeletionTime = localDeletionTime;
         return cf;
@@ -151,28 +145,28 @@ public class ColumnFamily implements IColumnContainer
 
     public boolean isSuper()
     {
-        return type_.equals("Super");
+        return type_.isSuper();
     }
 
-    public void addColumn(QueryPath path, byte[] value, long timestamp)
+    public void addColumn(QueryPath path, byte[] value, IClock clock)
     {
-        addColumn(path, value, timestamp, false);
+        addColumn(path, value, clock, false);
     }
 
     /** In most places the CF must be part of a QueryPath but here it is ignored. */
-    public void addColumn(QueryPath path, byte[] value, long timestamp, boolean deleted)
+    public void addColumn(QueryPath path, byte[] value, IClock clock, boolean deleted)
 	{
         assert path.columnName != null : path;
 		IColumn column;
         if (path.superColumnName == null)
         {
-            column = new Column(path.columnName, value, timestamp, deleted);
+            column = new Column(path.columnName, value, clock, deleted);
         }
         else
         {
             assert isSuper();
-            column = new SuperColumn(path.superColumnName, getSubComparator());
-            column.addColumn(new Column(path.columnName, value, timestamp, deleted)); // checks subcolumn name
+            column = new SuperColumn(path.superColumnName, getSubComparator(), type_, reconciler);
+            column.addColumn(new Column(path.columnName, value, clock, deleted)); // checks subcolumn name
         }
 		addColumn(column);
     }
@@ -188,6 +182,13 @@ public class ColumnFamily implements IColumnContainer
     */
     public void addColumn(IColumn column)
     {
+//TODO: REFACTOR? (modify this switch)
+        if (type_.isIncrementCounter())
+        {
+            addColumnForIncrementCounter(column);
+            return;
+        }
+
         byte[] name = column.name();
         IColumn oldColumn = columns_.putIfAbsent(name, column);
         if (oldColumn != null)
@@ -198,13 +199,65 @@ public class ColumnFamily implements IColumnContainer
             }
             else
             {
-                while (((Column) oldColumn).comparePriority((Column)column) <= 0)
+//TODO: REFACTOR? (pull this into Clock sub-classes)
+                ClockRelationship rel = ((Column) oldColumn).comparePriority((Column)column);
+                while (ClockRelationship.GREATER_THAN != rel)
                 {
+                    if (ClockRelationship.DISJOINT == rel)
+                    {
+                        column = reconciler.reconcile((Column)oldColumn, (Column)column);
+                    }
                     if (columns_.replace(name, oldColumn, column))
                         break;
                     oldColumn = columns_.get(name);
+                    rel = ((Column) oldColumn).comparePriority((Column)column);
                 }
             }
+        }
+    }
+
+    private void addColumnForIncrementCounter(IColumn newColumn)
+    {
+        byte[] name = newColumn.name();
+        IColumn oldColumn = columns_.putIfAbsent(name, newColumn);
+        // if not present already, then return
+        if (oldColumn == null)
+        {
+            return;
+        }
+
+        // SuperColumn
+        if (oldColumn instanceof SuperColumn)
+        {
+            ((SuperColumn)oldColumn).putColumn(newColumn);
+            return;
+        }
+
+        // calculate reconciled col from old (existing) col and new col
+        IColumn reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
+        while (!columns_.replace(name, oldColumn, reconciledColumn))
+        {
+            // if unable to replace, then get updated old (existing) col
+            oldColumn = columns_.get(name);
+            // re-calculate reconciled col from updated old col and original new col
+            reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
+            // try to re-update value, again
+        }
+    }
+
+//TODO: TEST (clean counts from remote replicas)
+    public void cleanForIncrementCounter()
+    {
+        cleanForIncrementCounter(FBUtilities.getLocalAddress());
+    }
+
+//TODO: REFACTOR? (modify: 1) where CF is sanitized to be on read side; 2) how CF is sanitized)
+//TODO: TEST (clean remote replica counts for read repair)
+    public void cleanForIncrementCounter(InetAddress node)
+    {
+        for (IColumn column : getSortedColumns())
+        {
+            ((IncrementCounterClock)column.clock()).cleanNodeCounts(node);
         }
     }
 
@@ -234,10 +287,10 @@ public class ColumnFamily implements IColumnContainer
     }
 
     @Deprecated // TODO this is a hack to set initial value outside constructor
-    public void delete(int localtime, long timestamp)
+    public void delete(int localtime, IClock clock)
     {
         localDeletionTime.set(localtime);
-        markedForDeleteAt.set(timestamp);
+        markedForDeleteAt.set(clock);
     }
 
     public void delete(ColumnFamily cf2)
@@ -248,7 +301,9 @@ public class ColumnFamily implements IColumnContainer
 
     public boolean isMarkedForDelete()
     {
-        return markedForDeleteAt.get() > Long.MIN_VALUE;
+        IClock _markedForDeleteAt = markedForDeleteAt.get();
+        //XXX: will never be DISJOINT compared to MIN_VALUE
+        return _markedForDeleteAt.compare(type_.minClock()) == ClockRelationship.GREATER_THAN;
     }
 
     /*
@@ -257,8 +312,13 @@ public class ColumnFamily implements IColumnContainer
      */
     public ColumnFamily diff(ColumnFamily cfComposite)
     {
-    	ColumnFamily cfDiff = new ColumnFamily(cfComposite.name(), cfComposite.type_, getComparator(), getSubComparator());
-        if (cfComposite.getMarkedForDeleteAt() > getMarkedForDeleteAt())
+    	ColumnFamily cfDiff = new ColumnFamily(cfComposite.name(), cfComposite.type_, getComparator(), getSubComparator(), cfComposite.reconciler);
+//TODO: TEST
+//        if (cfComposite.getMarkedForDeleteAt() > getMarkedForDeleteAt())
+        // (don't need to worry about disjoint versions, since cfComposite created by resolve()
+        // which will reconcile disjoint versions.)
+        ClockRelationship rel = cfComposite.getMarkedForDeleteAt().compare(getMarkedForDeleteAt());
+        if (ClockRelationship.GREATER_THAN == rel)
         {
             cfDiff.delete(cfComposite.getLocalDeletionTime(), cfComposite.getMarkedForDeleteAt());
         }
@@ -297,6 +357,11 @@ public class ColumnFamily implements IColumnContainer
         return (AbstractType)columns_.comparator();
     }
 
+    public ColumnType getColumnType()
+    {
+        return type_;
+    }
+
     int size()
     {
         int size = 0;
@@ -327,7 +392,7 @@ public class ColumnFamily implements IColumnContainer
     	sb.append(name_);
 
         if (isMarkedForDelete()) {
-            sb.append(" -delete at " + getMarkedForDeleteAt() + "-");
+            sb.append(" -delete at " + getMarkedForDeleteAt().toString() + "-");
         }
 
     	sb.append(" [");
@@ -362,7 +427,7 @@ public class ColumnFamily implements IColumnContainer
         }
     }
 
-    public long getMarkedForDeleteAt()
+    public IClock getMarkedForDeleteAt()
     {
         return markedForDeleteAt.get();
     }
@@ -372,7 +437,7 @@ public class ColumnFamily implements IColumnContainer
         return localDeletionTime.get();
     }
 
-    public String type()
+    public ColumnType type()
     {
         return type_;
     }

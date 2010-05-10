@@ -18,6 +18,8 @@
 
 package org.apache.cassandra.config;
 
+import org.apache.cassandra.db.ColumnType;
+import org.apache.cassandra.db.context.AbstractReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -34,20 +36,22 @@ public final class CFMetaData
 
     public final String tableName;            // name of table which has this column family
     public final String cfName;               // name of the column family
-    public final String columnType;           // type: super, standard, etc.
+    public final ColumnType columnType;       // type: super, standard, etc.
     public final AbstractType comparator;       // name sorted, time stamp sorted etc.
     public final AbstractType subcolumnComparator; // like comparator, for supercolumns
+    public final AbstractReconciler reconciler; // determine correct column from conflicting versions
     public final String comment; // for humans only
     public final double rowCacheSize; // default 0
     public final double keyCacheSize; // default 0.01
 
-    CFMetaData(String tableName, String cfName, String columnType, AbstractType comparator, AbstractType subcolumnComparator, String comment, double rowCacheSize, double keyCacheSize)
+    CFMetaData(String tableName, String cfName, ColumnType columnType, AbstractType comparator, AbstractType subcolumnComparator, AbstractReconciler reconciler, String comment, double rowCacheSize, double keyCacheSize)
     {
         this.tableName = tableName;
         this.cfName = cfName;
         this.columnType = columnType;
         this.comparator = comparator;
         this.subcolumnComparator = subcolumnComparator;
+        this.reconciler = reconciler;
         this.comment = comment;
         this.rowCacheSize = rowCacheSize;
         this.keyCacheSize = keyCacheSize;
@@ -67,11 +71,13 @@ public final class CFMetaData
         DataOutputStream dout = new DataOutputStream(bout);
         dout.writeUTF(cfm.tableName);
         dout.writeUTF(cfm.cfName);
-        dout.writeUTF(cfm.columnType);
+        dout.writeUTF(cfm.columnType.name());
         dout.writeUTF(cfm.comparator.getClass().getName());
         dout.writeBoolean(cfm.subcolumnComparator != null);
         if (cfm.subcolumnComparator != null)
             dout.writeUTF(cfm.subcolumnComparator.getClass().getName());
+        if (cfm.columnType.isContext())
+            dout.writeUTF(cfm.reconciler.getClass().getName());
         dout.writeBoolean(cfm.comment != null);
         if (cfm.comment != null)
             dout.writeUTF(cfm.comment);
@@ -87,7 +93,7 @@ public final class CFMetaData
         DataInputStream din = new DataInputStream(in);
         String tableName = din.readUTF();
         String cfName = din.readUTF();
-        String columnType = din.readUTF();
+        ColumnType columnType = ColumnType.create(din.readUTF());
         AbstractType comparator = null;
         try
         {
@@ -106,10 +112,19 @@ public final class CFMetaData
         {
 
         }
+        AbstractReconciler reconciler = null;
+        try
+        {
+            reconciler = columnType.isContext() ? (AbstractReconciler)Class.forName(din.readUTF()).newInstance() : null;
+        }
+        catch (Exception ex)
+        {
+            throw new IOException(ex);
+        }
         String comment = din.readBoolean() ? din.readUTF() : null;
         double rowCacheSize = din.readDouble();
         double keyCacheSize = din.readDouble();
-        return new CFMetaData(tableName, cfName, columnType, comparator, subcolumnComparator, comment, rowCacheSize, keyCacheSize);
+        return new CFMetaData(tableName, cfName, columnType, comparator, subcolumnComparator, reconciler, comment, rowCacheSize, keyCacheSize);
     }
 
     public boolean equals(Object obj)
@@ -122,6 +137,7 @@ public final class CFMetaData
                 && other.columnType.equals(columnType)
                 && other.comparator.equals(comparator)
                 && FBUtilities.equals(other.subcolumnComparator, subcolumnComparator)
+                && FBUtilities.equals(other.reconciler, reconciler)
                 && FBUtilities.equals(other.comment, comment)
                 && other.rowCacheSize == rowCacheSize
                 && other.keyCacheSize == keyCacheSize;

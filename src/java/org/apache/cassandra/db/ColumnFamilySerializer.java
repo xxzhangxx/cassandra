@@ -29,6 +29,7 @@ import java.util.Collection;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.io.SSTableReader;
 import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.context.AbstractReconciler;
 
 public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
 {
@@ -37,9 +38,14 @@ public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
      *
      * [serialized for intra-node writes only, e.g. returning a query result]
      * <cf name>
-     * <cf type [super or standard]>
+//TODO: TEST
+//     * <cf type [super or standard]>
+     * <cf type [super, standard, etc.]>
      * <cf comparator name>
      * <cf subcolumn comparator name>
+//TODO: TEST
+     * [in (super) version cf only]
+     * <cf reconciler name>
      *
      * [in sstable only]
      * <column bloom filter>
@@ -62,9 +68,14 @@ public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
             }
 
             dos.writeUTF(columnFamily.name());
-            dos.writeUTF(columnFamily.type_);
+//TODO: TEST
+//            dos.writeUTF(columnFamily.type_);
+            dos.writeUTF(columnFamily.type_.name());
             dos.writeUTF(columnFamily.getComparatorName());
             dos.writeUTF(columnFamily.getSubComparatorName());
+//TODO: TEST
+            if (columnFamily.type_.isContext())
+                dos.writeUTF(columnFamily.reconciler.getClass().getName());
         }
         catch (IOException e)
         {
@@ -78,7 +89,10 @@ public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
         try
         {
             dos.writeInt(columnFamily.localDeletionTime.get());
-            dos.writeLong(columnFamily.markedForDeleteAt.get());
+//TODO: TEST
+//            dos.writeLong(columnFamily.markedForDeleteAt.get());
+            IClock _markedForDeleteAt = columnFamily.markedForDeleteAt.get();
+            columnFamily.getColumnType().clockSerializer().serialize(_markedForDeleteAt, dos);
 
             Collection<IColumn> columns = columnFamily.getSortedColumns();
             dos.writeInt(columns.size());
@@ -104,7 +118,12 @@ public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
         String cfName = dis.readUTF();
         if (cfName.isEmpty())
             return null;
-        ColumnFamily cf = deserializeFromSSTableNoColumns(cfName, dis.readUTF(), readComparator(dis), readComparator(dis), dis);
+//TODO: TEST
+        ColumnType columnType = ColumnType.create(dis.readUTF());
+        AbstractType comparator = readComparator(dis);
+        AbstractType subComparator = readComparator(dis);
+        AbstractReconciler reconciler = columnType.isContext() ? readReconciler(dis) : null;
+        ColumnFamily cf = deserializeFromSSTableNoColumns(cfName, columnType, comparator, subComparator, reconciler, dis);
         deserializeColumns(dis, cf);
         return cf;
     }
@@ -141,15 +160,42 @@ public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
         }
     }
 
-    public ColumnFamily deserializeFromSSTableNoColumns(String name, String type, AbstractType comparator, AbstractType subComparator, DataInput input) throws IOException
+    private AbstractReconciler readReconciler(DataInput dis) throws IOException
     {
-        ColumnFamily cf = new ColumnFamily(name, type, comparator, subComparator);
+        String className = dis.readUTF();
+        if (className.equals(""))
+        {
+            return null;
+        }
+
+        try
+        {
+            return (AbstractReconciler)Class.forName(className).getConstructor().newInstance();
+        }
+        catch (ClassNotFoundException e)
+        {
+            throw new RuntimeException("Unable to load reconciler class '" + className + "'.  probably this means you have obsolete sstables lying around", e);
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+//TODO: TEST
+//    public ColumnFamily deserializeFromSSTableNoColumns(String name, String type, AbstractType comparator, AbstractType subComparator, DataInput input) throws IOException
+    public ColumnFamily deserializeFromSSTableNoColumns(String name, ColumnType type, AbstractType comparator, AbstractType subComparator, AbstractReconciler reconciler, DataInput input) throws IOException
+    {
+//TODO: TEST
+        ColumnFamily cf = new ColumnFamily(name, type, comparator, subComparator, reconciler);
         return deserializeFromSSTableNoColumns(cf, input);
     }
 
     public ColumnFamily deserializeFromSSTableNoColumns(ColumnFamily cf, DataInput input) throws IOException
     {
-        cf.delete(input.readInt(), input.readLong());
+//TODO: TEST
+//        cf.delete(input.readInt(), input.readLong());
+        cf.delete(input.readInt(), cf.getColumnType().clockSerializer().deserialize(input));
         return cf;
     }
 

@@ -293,6 +293,10 @@ public class AntiEntropyService
     {
         if (!major || table.equals(Table.SYSTEM_TABLE))
             return new NoopValidator();
+//TODO: FIXME (AES not supported, yet)
+if (DatabaseDescriptor.getColumnType(table, cf).isIncrementCounter())
+    return new NoopValidator();
+
         if (StorageService.instance.getTokenMetadata().sortedTokens().size()  < 1)
             // gossiper isn't started
             return new NoopValidator();

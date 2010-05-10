@@ -41,6 +41,8 @@ import com.google.common.collect.Iterators;
 import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
 import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.db.IClock;
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.db.commitlog.CommitLog;
 import org.apache.cassandra.db.commitlog.CommitLogSegment;
 import org.apache.cassandra.db.filter.*;
@@ -245,7 +247,9 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         Collections.sort(generations);
         int value = (generations.size() > 0) ? (generations.get(generations.size() - 1)) : 0;
 
-        ColumnFamilyStore cfs = new ColumnFamilyStore(table, columnFamily, "Super".equals(DatabaseDescriptor.getColumnType(table, columnFamily)), value);
+//TODO: TEST
+//        ColumnFamilyStore cfs = new ColumnFamilyStore(table, columnFamily, "Super".equals(DatabaseDescriptor.getColumnType(table, columnFamily)), value);
+        ColumnFamilyStore cfs = new ColumnFamilyStore(table, columnFamily, DatabaseDescriptor.getColumnType(table, columnFamily).isSuper(), value);
 
         MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         try
@@ -481,8 +485,11 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         for (byte[] cname : cf.getColumnNames())
         {
             IColumn c = cf.getColumnsMap().get(cname);
+//TODO: REFACTOR: optimize: modify operation order (don't do clock compare() unless necessary)
+            ClockRelationship rel = c.clock().compare(cf.getMarkedForDeleteAt());
             if ((c.isMarkedForDelete() && c.getLocalDeletionTime() <= gcBefore)
-                || c.timestamp() <= cf.getMarkedForDeleteAt())
+//                || c.timestamp() <= cf.getMarkedForDeleteAt())
+                || ((ClockRelationship.LESS_THAN == rel) || (ClockRelationship.EQUAL == rel)))
             {
                 cf.remove(cname);
             }
@@ -497,10 +504,18 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         for (byte[] cname : cf.getColumnNames())
         {
             IColumn c = cf.getColumnsMap().get(cname);
-            long minTimestamp = Math.max(c.getMarkedForDeleteAt(), cf.getMarkedForDeleteAt());
+//TODO: TEST: (no vector size limit, so merge both clocks)
+//            long minTimestamp = Math.max(c.getMarkedForDeleteAt(), cf.getMarkedForDeleteAt());
+            List<IClock> clocks = new LinkedList<IClock>();
+            clocks.add(cf.getMarkedForDeleteAt());
+            IClock minClock = c.getMarkedForDeleteAt().getSuperset(clocks);
             for (IColumn subColumn : c.getSubColumns())
             {
-                if (subColumn.timestamp() <= minTimestamp
+//TODO: REFACTOR: optimize: modify op order (don't do clock compare() unless necessary)
+//TODO: TEST: (if DISJOINT, keep)
+//                if (subColumn.timestamp() <= minTimestamp
+                ClockRelationship subRel = subColumn.clock().compare(minClock);
+                if (((ClockRelationship.LESS_THAN == subRel) || (ClockRelationship.EQUAL == subRel))
                     || (subColumn.isMarkedForDelete() && subColumn.getLocalDeletionTime() <= gcBefore))
                 {
                     ((SuperColumn)c).remove(subColumn.name());
@@ -803,8 +818,14 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
             // filterSuperColumn only looks at immediate parent (the supercolumn) when determining if a subcolumn
             // is still live, i.e., not shadowed by the parent's tombstone.  so, bump it up temporarily to the tombstone
             // time of the cf, if that is greater.
+//TODO: TEST
+/*
             long deletedAt = sc.getMarkedForDeleteAt();
             if (cf.getMarkedForDeleteAt() > deletedAt)
+*/
+            IClock deletedAt = sc.getMarkedForDeleteAt();
+            ClockRelationship rel = cf.getMarkedForDeleteAt().compare(deletedAt);
+            if (ClockRelationship.GREATER_THAN == rel)
                 sc.markForDeleteAt(sc.getLocalDeletionTime(), cf.getMarkedForDeleteAt());
 
             SuperColumn scFiltered = filter.filterSuperColumn(sc, gcBefore);

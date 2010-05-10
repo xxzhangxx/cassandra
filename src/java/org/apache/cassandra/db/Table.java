@@ -103,21 +103,28 @@ public class Table
         }
 
         /* The mapping between column family and the column type. */
-        private Map<String, String> cfTypeMap_ = new HashMap<String, String>();
+//TODO: TEST
+//        private Map<String, String> cfTypeMap_ = new HashMap<String, String>();
+        private Map<String, ColumnType> cfTypeMap_ = new HashMap<String, ColumnType>();
         private Map<String, Integer> cfIdMap_ = new HashMap<String, Integer>();
 
         public void add(String cf, int id)
         {
-            add(cf, id, "Standard");
+//TODO: TEST
+//            add(cf, id, "Standard");
+            add(cf, id, ColumnType.Standard);
         }
         
-        public void add(String cf, int id, String type)
+//TODO: TEST
+//        public void add(String cf, int id, String type)
+        public void add(String cf, int id, ColumnType type)
         {
             if (logger.isDebugEnabled())
               logger.debug("adding " + cf + " as " + id);
             assert !idCfMap_.containsKey(id);
             cfIdMap_.put(cf, id);
             idCfMap_.put(id, cf);
+//TODO: TEST
             cfTypeMap_.put(cf, type);
         }
         
@@ -136,8 +143,11 @@ public class Table
             return idCfMap_.get(id);
         }
         
-        String getColumnFamilyType(String cfName)
+//TODO: TEST
+//        String getColumnFamilyType(String cfName)
+        ColumnType getColumnFamilyType(String cfName)
         {
+//TODO: TEST
             return cfTypeMap_.get(cfName);
         }
 

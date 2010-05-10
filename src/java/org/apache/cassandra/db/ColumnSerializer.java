@@ -28,6 +28,15 @@ import org.apache.cassandra.utils.FBUtilities;
 
 public class ColumnSerializer implements ICompactSerializer2<IColumn>
 {
+//TODO: TEST
+    private ColumnType columnType;
+
+//TODO: TEST (add constructor(ColumnType))
+    public ColumnSerializer(ColumnType columnType)
+    {
+        this.columnType = columnType;
+    }
+
     public static void writeName(byte[] name, DataOutput out)
     {
         int length = name.length;
@@ -62,7 +71,9 @@ public class ColumnSerializer implements ICompactSerializer2<IColumn>
         try
         {
             dos.writeBoolean(column.isMarkedForDelete());
-            dos.writeLong(column.timestamp());
+//TODO: TEST
+//            dos.writeLong(column.timestamp());
+            columnType.clockSerializer().serialize(column.clock(), dos);
             FBUtilities.writeByteArray(column.value(), dos);
         }
         catch (IOException e)
@@ -75,7 +86,9 @@ public class ColumnSerializer implements ICompactSerializer2<IColumn>
     {
         byte[] name = ColumnSerializer.readName(dis);
         boolean delete = dis.readBoolean();
-        long ts = dis.readLong();
+//TODO: TEST
+//        long ts = dis.readLong();
+        IClock clock = columnType.clockSerializer().deserialize(dis);
         int length = dis.readInt();
         if (length < 0)
         {
@@ -86,6 +99,8 @@ public class ColumnSerializer implements ICompactSerializer2<IColumn>
         {
             dis.readFully(value);
         }
-        return new Column(name, value, ts, delete);
+//TODO: TEST
+//        return new Column(name, value, ts, delete);
+        return new Column(name, value, clock, delete);
     }
 }

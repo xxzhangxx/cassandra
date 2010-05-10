@@ -73,6 +73,9 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 		byte[] digest = new byte[0];
 		boolean isDigestQuery = false;
         
+//TODO: REMOVE
+List<ColumnFamily> originals = new ArrayList<ColumnFamily>();
+
         /*
 		 * Populate the list of rows from each of the messages
 		 * Check to see if there is a digest query. If a digest 
@@ -86,12 +89,34 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             ReadResponse result = ReadResponse.serializer().deserialize(new DataInputStream(bufIn));
             if (result.isDigestQuery())
             {
+//TODO: TEST (compare multiple digests)
+                if (isDigestQuery)
+                {
+                    byte[] resultDigest = result.digest();
+                    if (!Arrays.equals(resultDigest, digest))
+                    {
+                        /* Wrap the key as the context in this exception */
+                        String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(resultDigest), FBUtilities.bytesToHex(digest));
+                        throw new DigestMismatchException(s);
+                    }
+                }
                 digest = result.digest();
                 isDigestQuery = true;
             }
             else
             {
-                versions.add(result.row().cf);
+//TODO: MODIFY: [not deterministic] clean counts from remote replicas
+                ColumnFamily cf = result.row().cf;
+                if (!FBUtilities.getLocalAddress().equals(response.getFrom()) &&
+                    cf != null && cf.getColumnType().isIncrementCounter())
+                {
+                    cf = cf.cloneMe();
+                    cf.cleanForIncrementCounter();
+                }
+//                versions.add(result.row().cf);
+//TODO: REMOVE
+originals.add(result.row().cf);
+                versions.add(cf);
                 endPoints.add(response.getFrom());
                 key = result.row().key;
             }
@@ -111,7 +136,17 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             }
         }
 
+//TODO: REMOVE
+for (int i = 0; i < versions.size(); i++)
+{
+System.out.println("                    RRR: 1: [" + endPoints.get(i) + "]: " + originals.get(i) + " => " + versions.get(i));
+}
+
         ColumnFamily resolved = resolveSuperset(versions);
+
+//TODO: REMOVE
+System.out.println("                    RRR: 2: " + resolved);
+
         maybeScheduleRepairs(resolved, table, key, versions, endPoints);
 
         if (logger_.isDebugEnabled())
@@ -119,6 +154,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 		return new Row(key, resolved);
 	}
 
+//TODO: TEST
     /**
      * For each row version, compare with resolved (the superset of all row versions);
      * if it is missing anything, send a mutation to the endpoint it come from.
@@ -129,16 +165,30 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             ColumnFamily diffCf = ColumnFamily.diff(versions.get(i), resolved);
             if (diffCf == null) // no repair needs to happen
+{
+//TODO: REMOVE
+System.out.println("                    RRR: 3A: [" + endPoints.get(i) + "]: " + diffCf);
                 continue;
+}
 
             // create and send the row mutation message based on the diff
             RowMutation rowMutation = new RowMutation(table, key);
+//TODO: REMOVE
+ColumnFamily origDiffCf = diffCf.cloneMe();
+//TODO: TEST (clean remote node's counts, when sending read repair)
+            if (diffCf.getColumnType().isIncrementCounter())
+            {
+                diffCf.cleanForIncrementCounter(endPoints.get(i));
+            }
+//TODO: REMOVE
+System.out.println("                    RRR: 3B: [" + endPoints.get(i) + "]: " + origDiffCf + " => " + diffCf);
             rowMutation.add(diffCf);
             RowMutationMessage rowMutationMessage = new RowMutationMessage(rowMutation);
             ReadRepairManager.instance.schedule(endPoints.get(i), rowMutationMessage);
         }
     }
 
+//TODO: TEST
     static ColumnFamily resolveSuperset(List<ColumnFamily> versions)
     {
         assert versions.size() > 0;
@@ -147,7 +197,9 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             if (cf != null)
             {
-                resolved = cf.cloneMe();
+//TODO: TEST (shallow clone for incr counters)
+//                resolved = cf.cloneMe();
+                resolved = cf.cloneMeShallow();
                 break;
             }
         }

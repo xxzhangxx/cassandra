@@ -151,17 +151,20 @@ public class StorageProxy implements StorageProxyMBean
                         else
                         {
                             // hinted
-                            Message hintedMessage = rm.makeRowMutationMessage();
-                            for (InetAddress target : targets)
+                            if (DatabaseDescriptor.hintedHandoffEnabled())
                             {
-                                if (!target.equals(destination))
+                                Message hintedMessage = rm.makeRowMutationMessage();
+                                for (InetAddress target : targets)
                                 {
-                                    addHintHeader(hintedMessage, target);
-                                    if (logger.isDebugEnabled())
-                                        logger.debug("insert writing key " + rm.key() + " to " + hintedMessage.getMessageId() + "@" + destination + " for " + target);
+                                    if (!target.equals(destination))
+                                    {
+                                        addHintHeader(hintedMessage, target);
+                                        if (logger.isDebugEnabled())
+                                            logger.debug("insert writing key " + rm.key() + " to " + hintedMessage.getMessageId() + "@" + destination + " for " + target);
+                                    }
                                 }
+                                MessagingService.instance.sendOneWay(hintedMessage, destination);
                             }
-                            MessagingService.instance.sendOneWay(hintedMessage, destination);
                         }
                     }
                 }
@@ -186,6 +189,8 @@ public class StorageProxy implements StorageProxyMBean
 
     public static void mutateBlocking(List<RowMutation> mutations, ConsistencyLevel consistency_level) throws UnavailableException, TimeoutException
     {
+//TODO: REMOVE
+System.out.println("StorageProxy : mutateBlocking(): START w/ CL.ONE? " + (ConsistencyLevel.ONE == consistency_level));
         long startTime = System.nanoTime();
         ArrayList<WriteResponseHandler> responseHandlers = new ArrayList<WriteResponseHandler>();
 
@@ -211,10 +216,54 @@ public class StorageProxy implements StorageProxyMBean
                 final WriteResponseHandler responseHandler = ss.getWriteResponseHandler(blockFor, consistency_level, table);
                 responseHandlers.add(responseHandler);
                 Message unhintedMessage = null;
+
+//TODO: MODIFY: refactor this... (alternate code path for context-based clocks)
+                ColumnType columnType = DatabaseDescriptor.getColumnType(rm.getTable(), rm.columnFamilyNames().iterator().next());
+                if (columnType.isContext())
+                {
+                    // NOTE: only CL.ONE supported AND only one server can be written to
+                    assert ConsistencyLevel.ONE == consistency_level : "Context-based CFs only support ConsistencyLevel.ONE!!!";
+                    Random generator = new Random();
+                    Set<InetAddress> destinationSet = hintedEndpoints.keySet();
+                    // local write
+                    if (destinationSet.contains(FBUtilities.getLocalAddress()))
+                    {
+//TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (local)
+                        rm.updateClocks(FBUtilities.getLocalAddress());
+                        insertLocalMessage(rm, responseHandler);
+                        continue;
+                    }
+
+                    // remote write
+                    InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
+                    InetAddress randomDestination = destinations[generator.nextInt(destinations.length)];
+//TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (not local)
+                    rm.updateClocks(randomDestination);
+
+                    Collection<InetAddress> targets = hintedEndpoints.asMap().get(randomDestination);
+                    assert (targets.size() != 1 || !targets.iterator().next().equals(randomDestination)) : "Context-based CFs do not support Hinted Hand-off.";
+
+                    // belongs on a different server.  send it there.
+                    if (unhintedMessage == null)
+                    {
+                        unhintedMessage = rm.makeRowMutationMessage();
+                        MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
+                    }
+                    if (logger.isDebugEnabled())
+                        logger.debug("insert writing key " + rm.key() + " to " + unhintedMessage.getMessageId() + "@" + randomDestination);
+//TODO: MODIFY: add support for ResponseHandler? (iterate through other destinations on failure?)
+                    MessagingService.instance.sendOneWay(unhintedMessage, randomDestination);
+
+                    continue;
+                }
+
                 for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
                 {
                     InetAddress destination = entry.getKey();
                     Collection<InetAddress> targets = entry.getValue();
+
+//TODO: REMOVE
+System.out.println("StorageProxy : mutateBlocking(): 0: destination: " + destination);
 
                     if (targets.size() == 1 && targets.iterator().next().equals(destination))
                     {

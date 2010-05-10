@@ -30,6 +30,7 @@ import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.Column;
 import org.apache.cassandra.db.ColumnFamily;
 import org.apache.cassandra.db.Table;
+import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 
@@ -75,7 +76,7 @@ public class SSTableUtils
         for (String key : keys)
         {
             ColumnFamily cf = ColumnFamily.create(TABLENAME, CFNAME);
-            cf.addColumn(new Column(key.getBytes(), key.getBytes(), 0));
+            cf.addColumn(new Column(key.getBytes(), key.getBytes(), new TimestampClock(0)));
             map.put(key, cf);
         }
         return writeSSTable(map);

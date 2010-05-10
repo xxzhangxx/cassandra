@@ -130,7 +130,9 @@ public class CassandraServer implements Cassandra.Iface
             {
                 continue;
             }
-            Column thrift_column = new Column(column.name(), column.value(), column.timestamp());
+//TODO: TEST
+//            Column thrift_column = new Column(column.name(), column.value(), column.timestamp());
+            Column thrift_column = new Column(column.name(), column.value(), thriftifyIClock(column.clock()));
             thriftColumns.add(thrift_column);
         }
 
@@ -146,7 +148,9 @@ public class CassandraServer implements Cassandra.Iface
             {
                 continue;
             }
-            Column thrift_column = new Column(column.name(), column.value(), column.timestamp());
+//TODO: TEST
+//            Column thrift_column = new Column(column.name(), column.value(), column.timestamp());
+            Column thrift_column = new Column(column.name(), column.value(), thriftifyIClock(column.clock()));
             thriftColumns.add(createColumnOrSuperColumn_Column(thrift_column));
         }
 
@@ -338,7 +342,9 @@ public class CassandraServer implements Cassandra.Iface
         return get_slice(table, key, column_parent, predicate, consistency_level).size();
     }
 
-    public void insert(String table, String key, ColumnPath column_path, byte[] value, long timestamp, ConsistencyLevel consistency_level)
+//TODO: TEST
+//    public void insert(String table, String key, ColumnPath column_path, byte[] value, long timestamp, ConsistencyLevel consistency_level)
+    public void insert(String table, String key, ColumnPath column_path, byte[] value, Clock clock, ConsistencyLevel consistency_level)
     throws InvalidRequestException, UnavailableException, TimedOutException
     {
         if (logger.isDebugEnabled())
@@ -348,11 +354,15 @@ public class CassandraServer implements Cassandra.Iface
 
         ThriftValidation.validateKey(key);
         ThriftValidation.validateColumnPath(table, column_path);
+//TODO: TEST
+        IClock cassandra_clock = ThriftValidation.validateClock(clock);
 
         RowMutation rm = new RowMutation(table, key);
         try
         {
-            rm.add(new QueryPath(column_path), value, timestamp);
+//TODO: TEST
+//            rm.add(new QueryPath(column_path), value, timestamp);
+            rm.add(new QueryPath(column_path), value, cassandra_clock);
         }
         catch (MarshalException e)
         {
@@ -425,7 +435,9 @@ public class CassandraServer implements Cassandra.Iface
         }
     }
 
-    public void remove(String table, String key, ColumnPath column_path, long timestamp, ConsistencyLevel consistency_level)
+//TODO: TEST
+//    public void remove(String table, String key, ColumnPath column_path, long timestamp, ConsistencyLevel consistency_level)
+    public void remove(String table, String key, ColumnPath column_path, Clock clock, ConsistencyLevel consistency_level)
     throws InvalidRequestException, UnavailableException, TimedOutException
     {
         if (logger.isDebugEnabled())
@@ -435,9 +447,13 @@ public class CassandraServer implements Cassandra.Iface
 
         ThriftValidation.validateKey(key);
         ThriftValidation.validateColumnPathOrParent(table, column_path);
-        
+//TODO: TEST
+        IClock cassandra_clock = ThriftValidation.validateClock(clock);
+
         RowMutation rm = new RowMutation(table, key);
-        rm.delete(new QueryPath(column_path), timestamp);
+//TODO: TEST
+//        rm.delete(new QueryPath(column_path), timestamp);
+        rm.delete(new QueryPath(column_path), cassandra_clock);
 
         doInsert(consistency_level, rm);
     }
@@ -528,10 +544,14 @@ public class CassandraServer implements Cassandra.Iface
             CFMetaData columnFamilyMetaData = stringCFMetaDataEntry.getValue();
 
             Map<String, String> columnMap = new HashMap<String, String>();
-            columnMap.put("Type", columnFamilyMetaData.columnType);
+//TODO: TEST
+//            columnMap.put("Type", columnFamilyMetaData.columnType);
+            columnMap.put("Type", columnFamilyMetaData.columnType.name());
             columnMap.put("Desc", columnFamilyMetaData.comment == null ? columnFamilyMetaData.pretty() : columnFamilyMetaData.comment);
             columnMap.put("CompareWith", columnFamilyMetaData.comparator.getClass().getName());
-            if (columnFamilyMetaData.columnType.equals("Super"))
+//TODO: TEST
+//            if (columnFamilyMetaData.columnType.equals("Super"))
+            if (columnFamilyMetaData.columnType.isSuper())
             {
                 columnMap.put("CompareSubcolumnsWith", columnFamilyMetaData.subcolumnComparator.getClass().getName());
             }
@@ -661,6 +681,26 @@ public class CassandraServer implements Cassandra.Iface
         if (!loginDone.get()) throw new InvalidRequestException("Login is required before any other API calls");
     }
 
-    
+//TODO: TEST
+    private static Clock thriftifyIClock(IClock clock)
+    {
+        Clock thrift_clock = new Clock();
+//TODO: MODIFY: move this to ColumnType?
+        if (clock instanceof TimestampClock)
+        {
+            thrift_clock.setTimestamp(((TimestampClock)clock).timestamp());
+        }
+        else if (clock instanceof VersionVectorClock)
+        {
+            thrift_clock.setContext(((VersionVectorClock)clock).context());
+        }
+        else if (clock instanceof IncrementCounterClock)
+        {
+            thrift_clock.setContext(((IncrementCounterClock)clock).context());
+        }
+        return thrift_clock;
+    }
+
+
     // main method moved to CassandraDaemon
 }

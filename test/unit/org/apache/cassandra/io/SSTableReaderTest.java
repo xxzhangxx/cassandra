@@ -52,7 +52,7 @@ public class SSTableReaderTest extends CleanupHelper
         {
             String key = String.valueOf(j);
             RowMutation rm = new RowMutation("Keyspace1", key);
-            rm.add(new QueryPath("Standard1", null, "0".getBytes()), new byte[0], j);
+            rm.add(new QueryPath("Standard1", null, "0".getBytes()), new byte[0], new TimestampClock(j));
             rm.apply();
         }
         store.forceBlockingFlush();

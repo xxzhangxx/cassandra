@@ -39,14 +39,14 @@ public class RemoveColumnFamilyWithFlush1Test extends CleanupHelper
 
         // add data
         rm = new RowMutation("Keyspace1", "key1");
-        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), 0);
-        rm.add(new QueryPath("Standard1", null, "Column2".getBytes()), "asdf".getBytes(), 0);
+        rm.add(new QueryPath("Standard1", null, "Column1".getBytes()), "asdf".getBytes(), new TimestampClock(0));
+        rm.add(new QueryPath("Standard1", null, "Column2".getBytes()), "asdf".getBytes(), new TimestampClock(0));
         rm.apply();
         store.forceBlockingFlush();
 
         // remove
         rm = new RowMutation("Keyspace1", "key1");
-        rm.delete(new QueryPath("Standard1"), 1);
+        rm.delete(new QueryPath("Standard1"), new TimestampClock(1));
         rm.apply();
 
         ColumnFamily retrieved = store.getColumnFamily(new IdentityQueryFilter("key1", new QueryPath("Standard1")));

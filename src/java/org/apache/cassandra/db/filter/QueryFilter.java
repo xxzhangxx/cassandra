@@ -29,6 +29,7 @@ import java.util.Arrays;
 import org.apache.cassandra.io.SSTableReader;
 import org.apache.cassandra.utils.ReducingIterator;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.db.marshal.AbstractType;
 
 public abstract class QueryFilter
@@ -122,8 +123,14 @@ public abstract class QueryFilter
         // the column itself must be not gc-able (it is live, or a still relevant tombstone, or has live subcolumns), (1)
         // and if its container is deleted, the column must be changed more recently than the container tombstone (2)
         // (since otherwise, the only thing repair cares about is the container tombstone)
-        long maxChange = column.mostRecentLiveChangeAt();
-        return (!column.isMarkedForDelete() || column.getLocalDeletionTime() > gcBefore || maxChange > column.getMarkedForDeleteAt()) // (1)
-               && (!container.isMarkedForDelete() || maxChange > container.getMarkedForDeleteAt()); // (2)
+//TODO: TEST: merge all sub-col versions
+//        long maxChange = column.mostRecentLiveChangeAt();
+        IClock maxChange = column.mostRecentLiveChangeAt();
+//TODO: TEST: (delete policy: iff GREATER_THAN)
+//        return (!column.isMarkedForDelete() || column.getLocalDeletionTime() > gcBefore || maxChange > column.getMarkedForDeleteAt()) // (1)
+        return (!column.isMarkedForDelete() || column.getLocalDeletionTime() > gcBefore || (ClockRelationship.GREATER_THAN == maxChange.compare(column.getMarkedForDeleteAt()))) // (1)
+//TODO: TEST: (delete policy: iff GREATER_THAN)
+//               && (!container.isMarkedForDelete() || maxChange > container.getMarkedForDeleteAt()); // (2)
+               && (!container.isMarkedForDelete() || (ClockRelationship.GREATER_THAN == maxChange.compare(container.getMarkedForDeleteAt()))); // (2)
     }
 }

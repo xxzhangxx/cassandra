@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+//TODO: TEST
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 
 import org.apache.commons.lang.ArrayUtils;
@@ -37,6 +39,8 @@ import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.io.ICompactSerializer;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.service.*;
+//TODO: TEST
+import org.apache.cassandra.thrift.Clock;
 import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.Deletion;
 import org.apache.cassandra.thrift.Mutation;
@@ -107,7 +111,9 @@ public class RowMutation
     void addHints(String key, byte[] host) throws IOException
     {
         QueryPath path = new QueryPath(HintedHandOffManager.HINTS_CF, key.getBytes("UTF-8"), host);
-        add(path, ArrayUtils.EMPTY_BYTE_ARRAY, System.currentTimeMillis());
+//TODO: TEST
+//        add(path, ArrayUtils.EMPTY_BYTE_ARRAY, System.currentTimeMillis());
+        add(path, ArrayUtils.EMPTY_BYTE_ARRAY, new TimestampClock(System.currentTimeMillis()));
     }
 
     /*
@@ -147,20 +153,28 @@ public class RowMutation
      *
      * param @ cf - column name as <column family>:<column>
      * param @ value - value associated with the column
-     * param @ timestamp - timestamp associated with this data.
+//TODO: TEST
+//     * param @ timestamp - timestamp associated with this data.
+     * param @ clock - clock associated with this data.
     */
-    public void add(QueryPath path, byte[] value, long timestamp)
+//TODO: TEST
+//    public void add(QueryPath path, byte[] value, long timestamp)
+    public void add(QueryPath path, byte[] value, IClock clock)
     {
         ColumnFamily columnFamily = modifications_.get(path.columnFamilyName);
         if (columnFamily == null)
         {
             columnFamily = ColumnFamily.create(table_, path.columnFamilyName);
         }
-        columnFamily.addColumn(path, value, timestamp);
+//TODO: TEST
+//        columnFamily.addColumn(path, value, timestamp);
+        columnFamily.addColumn(path, value, clock);
         modifications_.put(path.columnFamilyName, columnFamily);
     }
 
-    public void delete(QueryPath path, long timestamp)
+//TODO: TEST
+//    public void delete(QueryPath path, long timestamp)
+    public void delete(QueryPath path, IClock clock)
     {
         assert path.columnFamilyName != null;
         String cfName = path.columnFamilyName;
@@ -173,19 +187,27 @@ public class RowMutation
 
         if (path.superColumnName == null && path.columnName == null)
         {
-            columnFamily.delete(localDeleteTime, timestamp);
+//TODO: TEST
+//            columnFamily.delete(localDeleteTime, timestamp);
+            columnFamily.delete(localDeleteTime, clock);
         }
         else if (path.columnName == null)
         {
-            SuperColumn sc = new SuperColumn(path.superColumnName, DatabaseDescriptor.getSubComparator(table_, cfName));
-            sc.markForDeleteAt(localDeleteTime, timestamp);
+//TODO: TEST
+//            SuperColumn sc = new SuperColumn(path.superColumnName, DatabaseDescriptor.getSubComparator(table_, cfName));
+            SuperColumn sc = new SuperColumn(path.superColumnName, DatabaseDescriptor.getSubComparator(table_, cfName), DatabaseDescriptor.getColumnFamilyType(table_, cfName), DatabaseDescriptor.getReconciler(table_, cfName));
+//TODO: TEST
+//            sc.markForDeleteAt(localDeleteTime, timestamp);
+            sc.markForDeleteAt(localDeleteTime, clock);
             columnFamily.addColumn(sc);
         }
         else
         {
             ByteBuffer bytes = ByteBuffer.allocate(4);
             bytes.putInt(localDeleteTime);
-            columnFamily.addColumn(path, bytes.array(), timestamp, true);
+//TODO: TEST
+//            columnFamily.addColumn(path, bytes.array(), timestamp, true);
+            columnFamily.addColumn(path, bytes.array(), clock, true);
         }
 
         modifications_.put(cfName, columnFamily);
@@ -256,13 +278,17 @@ public class RowMutation
                     assert cosc.super_column != null;
                     for (org.apache.cassandra.thrift.Column column : cosc.super_column.columns)
                     {
-                        rm.add(new QueryPath(cfName, cosc.super_column.name, column.name), column.value, column.timestamp);
+//TODO: TEST
+//                        rm.add(new QueryPath(cfName, cosc.super_column.name, column.name), column.value, column.timestamp);
+                        rm.add(new QueryPath(cfName, cosc.super_column.name, column.name), column.value, unthriftifyClock(column.clock));
                     }
                 }
                 else
                 {
                     assert cosc.super_column == null;
-                    rm.add(new QueryPath(cfName, null, cosc.column.name), cosc.column.value, cosc.column.timestamp);
+//TODO: TEST
+//                    rm.add(new QueryPath(cfName, null, cosc.column.name), cosc.column.value, cosc.column.timestamp);
+                    rm.add(new QueryPath(cfName, null, cosc.column.name), cosc.column.value, unthriftifyClock(cosc.column.clock));
                 }
             }
         }
@@ -291,12 +317,16 @@ public class RowMutation
         {
             for (org.apache.cassandra.thrift.Column column : cosc.super_column.columns)
             {
-                rm.add(new QueryPath(cfName, cosc.super_column.name, column.name), column.value, column.timestamp);
+//TODO: TEST
+//                rm.add(new QueryPath(cfName, cosc.super_column.name, column.name), column.value, column.timestamp);
+                rm.add(new QueryPath(cfName, cosc.super_column.name, column.name), column.value, unthriftifyClock(column.clock));
             }
         }
         else
         {
-            rm.add(new QueryPath(cfName, null, cosc.column.name), cosc.column.value, cosc.column.timestamp);
+//TODO: TEST
+//            rm.add(new QueryPath(cfName, null, cosc.column.name), cosc.column.value, cosc.column.timestamp);
+            rm.add(new QueryPath(cfName, null, cosc.column.name), cosc.column.value, unthriftifyClock(cosc.column.clock));
         }
     }
 
@@ -306,15 +336,110 @@ public class RowMutation
         {
             for(byte[] c : del.predicate.column_names)
             {
-                if (del.super_column == null && DatabaseDescriptor.getColumnFamilyType(rm.table_, cfName).equals("Super"))
-                    rm.delete(new QueryPath(cfName, c), del.timestamp);
+//TODO: TEST
+                if (del.super_column == null && DatabaseDescriptor.getColumnFamilyType(rm.table_, cfName).isSuper())
+                    rm.delete(new QueryPath(cfName, c), unthriftifyClock(del.clock));
                 else
-                    rm.delete(new QueryPath(cfName, del.super_column, c), del.timestamp);
+                    rm.delete(new QueryPath(cfName, del.super_column, c), unthriftifyClock(del.clock));
             }
         }
         else
         {
-            rm.delete(new QueryPath(cfName, del.super_column), del.timestamp);
+//TODO: TEST
+            rm.delete(new QueryPath(cfName, del.super_column), unthriftifyClock(del.clock));
+        }
+    }
+
+//TODO: TEST
+    private static IClock unthriftifyClock(Clock clock)
+    {
+        if (clock.isSetTimestamp())
+        {
+            return new TimestampClock(clock.getTimestamp());
+        }
+        else if (clock.isSetContext())
+        {
+            return new VersionVectorClock(clock.getContext());
+        }
+//TODO: CHECK: external Clock validated in thrift.CassandraServer, so should never reach here
+        return null;
+    }
+
+//TODO: TEST
+    // XXX: should only be called by: db.Table : apply()
+    // update the context of all Columns in this RowMutation
+    public void updateClocks(InetAddress node)
+    {
+        for (Map.Entry<String, ColumnFamily> entry : modifications_.entrySet())
+        {
+            ColumnFamily cf = entry.getValue();
+            ColumnType columnType = cf.getColumnType();
+            if (columnType.isVersion())
+            {
+                updateVersionClocks(node, cf);
+            }
+            else if (columnType.isIncrementCounter())
+            {
+                updateIncrementCounterClocks(node, cf);
+            }
+        }
+    }
+
+    private void updateVersionClocks(InetAddress node, ColumnFamily cf)
+    {
+        ColumnType columnType = cf.getColumnType();
+
+        // standard column family
+        if (!columnType.isSuper())
+        {
+            for (IColumn col : cf.getSortedColumns())
+            {
+                // update in-place, although Column is (abstractly) immutable
+                ((VersionVectorClock)col.clock()).update(node);
+            }
+            return;
+        }
+
+        // super column family
+        for (IColumn col : cf.getSortedColumns())
+        {
+            for (IColumn subCol : col.getSubColumns())
+            {
+                ((VersionVectorClock)subCol.clock()).update(node);
+            }
+        }
+    }
+
+    private void updateIncrementCounterClocks(InetAddress node, ColumnFamily cf)
+    {
+        ColumnType columnType = cf.getColumnType();
+
+        // standard column family
+        if (!columnType.isSuper())
+        {
+            for (IColumn col : cf.getSortedColumns())
+            {
+//TODO: REMOVE
+//System.out.println("updateIncrementCounterClocks: 0: " + ArrayUtils.toString(col.value()) + "@" + col.clock());
+
+//TODO: MODIFY: prob need to create new Column()
+                // update in-place, although Column is (abstractly) immutable
+                ((IncrementCounterClock)col.clock()).update(node, FBUtilities.byteArrayToLong(col.value()));
+
+//TODO: REMOVE
+//System.out.println("updateIncrementCounterClocks: 1: " + ArrayUtils.toString(col.value()) + "@" + col.clock());
+            }
+            return;
+        }
+
+        // super column family
+        for (IColumn col : cf.getSortedColumns())
+        {
+            for (IColumn subCol : col.getSubColumns())
+            {
+//TODO: MODIFY: prob need to create new Column()
+                ((IncrementCounterClock)subCol.clock()).update(node, FBUtilities.byteArrayToLong(subCol.value()));
+            }
         }
     }
 }

@@ -25,6 +25,8 @@ import java.util.Arrays;
 import org.apache.avro.util.Utf8;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ColumnFamily;
+//TODO: TEST
+import org.apache.cassandra.db.ColumnType;
 import org.apache.cassandra.db.IColumn;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.MarshalException;
@@ -51,12 +53,16 @@ public class AvroValidation {
     }
     
     // FIXME: could use method in ThriftValidation
-    static String validateColumnFamily(String keyspace, String columnFamily) throws InvalidRequestException
+//TODO: TEST
+//    static String validateColumnFamily(String keyspace, String columnFamily) throws InvalidRequestException
+    static ColumnType validateColumnFamily(String keyspace, String columnFamily) throws InvalidRequestException
     {
         if (columnFamily.isEmpty())
             throw newInvalidRequestException("non-empty columnfamily is required");
         
-        String cfType = DatabaseDescriptor.getColumnFamilyType(keyspace, columnFamily);
+//TODO: TEST
+//        String cfType = DatabaseDescriptor.getColumnFamilyType(keyspace, columnFamily);
+        ColumnType cfType = DatabaseDescriptor.getColumnFamilyType(keyspace, columnFamily);
         if (cfType == null)
             throw newInvalidRequestException("unconfigured columnfamily " + columnFamily);
         
@@ -67,13 +73,17 @@ public class AvroValidation {
     {
         validateKeyspace(keyspace);
         String column_family = cp.column_family.toString();
-        String cfType = validateColumnFamily(keyspace, column_family);
+//TODO: TEST
+//        String cfType = validateColumnFamily(keyspace, column_family);
+        ColumnType cfType = validateColumnFamily(keyspace, column_family);
         
         byte[] column = null, super_column = null;
         if (cp.super_column != null) super_column = cp.super_column.array();
         if (cp.column != null) column = cp.column.array();
         
-        if (cfType.equals("Standard"))
+//TODO: TEST
+//        if (cfType.equals("Standard"))
+        if (!cfType.isSuper())
         {
             if (super_column != null)
                 throw newInvalidRequestException("supercolumn parameter is invalid for standard CF " + column_family);
@@ -103,7 +113,9 @@ public class AvroValidation {
                 throw newInvalidRequestException("supercolumn name length must not be greater than " + IColumn.MAX_NAME_LENGTH);
             if (superColumnName.length == 0)
                 throw newInvalidRequestException("supercolumn name must not be empty");
-            if (!DatabaseDescriptor.getColumnFamilyType(keyspace, cfName).equals("Super"))
+//TODO: TEST
+//            if (!DatabaseDescriptor.getColumnFamilyType(keyspace, cfName).equals("Super"))
+            if (!DatabaseDescriptor.getColumnFamilyType(keyspace, cfName).isSuper())
                 throw newInvalidRequestException("supercolumn specified to ColumnFamily " + cfName + " containing normal columns");
         }
         

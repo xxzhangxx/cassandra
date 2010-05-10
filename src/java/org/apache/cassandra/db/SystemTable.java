@@ -69,7 +69,9 @@ public class SystemTable
     {
         IPartitioner p = StorageService.getPartitioner();
         ColumnFamily cf = ColumnFamily.create(Table.SYSTEM_TABLE, STATUS_CF);
-        cf.addColumn(new Column(ep.getAddress(), p.getTokenFactory().toByteArray(token), System.currentTimeMillis()));
+//TODO: TEST
+//        cf.addColumn(new Column(ep.getAddress(), p.getTokenFactory().toByteArray(token), System.currentTimeMillis()));
+        cf.addColumn(new Column(ep.getAddress(), p.getTokenFactory().toByteArray(token), new TimestampClock(System.currentTimeMillis())));
         RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, LOCATION_KEY);
         rm.add(cf);
         try
@@ -90,7 +92,9 @@ public class SystemTable
         assert metadata != null;
         IPartitioner p = StorageService.getPartitioner();
         ColumnFamily cf = ColumnFamily.create(Table.SYSTEM_TABLE, STATUS_CF);
-        cf.addColumn(new Column(SystemTable.TOKEN, p.getTokenFactory().toByteArray(token), System.currentTimeMillis()));
+//TODO: TEST
+//        cf.addColumn(new Column(SystemTable.TOKEN, p.getTokenFactory().toByteArray(token), System.currentTimeMillis()));
+        cf.addColumn(new Column(SystemTable.TOKEN, p.getTokenFactory().toByteArray(token), new TimestampClock(System.currentTimeMillis())));
         RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, LOCATION_KEY);
         rm.add(cf);
         try
@@ -146,9 +150,14 @@ public class SystemTable
 
             RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, LOCATION_KEY);
             cf = ColumnFamily.create(Table.SYSTEM_TABLE, SystemTable.STATUS_CF);
-            cf.addColumn(new Column(TOKEN, p.getTokenFactory().toByteArray(token)));
-            cf.addColumn(new Column(GENERATION, FBUtilities.toByteArray(generation)));
-            cf.addColumn(new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes()));
+//TODO: TEST
+//            cf.addColumn(new Column(TOKEN, p.getTokenFactory().toByteArray(token)));
+            cf.addColumn(new Column(TOKEN, p.getTokenFactory().toByteArray(token), TimestampClock.MIN_VALUE));
+//TODO: TEST
+//            cf.addColumn(new Column(GENERATION, FBUtilities.toByteArray(generation)));
+            cf.addColumn(new Column(GENERATION, FBUtilities.toByteArray(generation), TimestampClock.MIN_VALUE));
+            cf.addColumn(new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes(), TimestampClock.MIN_VALUE));
+
             rm.add(cf);
             rm.apply();
             metadata = new StorageMetadata(token, generation, DatabaseDescriptor.getClusterName().getBytes());
@@ -171,7 +180,10 @@ public class SystemTable
 
         RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, LOCATION_KEY);
         cf = ColumnFamily.create(Table.SYSTEM_TABLE, SystemTable.STATUS_CF);
-        Column generation2 = new Column(GENERATION, FBUtilities.toByteArray(gen), generation.timestamp() + 1);
+//TODO: TEST
+//        Column generation2 = new Column(GENERATION, FBUtilities.toByteArray(gen), generation.timestamp() + 1);
+        TimestampClock genClock = new TimestampClock(((TimestampClock)generation.clock()).timestamp() + 1);
+        Column generation2 = new Column(GENERATION, FBUtilities.toByteArray(gen), genClock);
         cf.addColumn(generation2);
         byte[] cname;
         if (cluster != null)
@@ -181,7 +193,7 @@ public class SystemTable
         }
         else
         {
-            Column clustername = new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes());
+            Column clustername = new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes(), TimestampClock.MIN_VALUE);
             cf.addColumn(clustername);
             cname = DatabaseDescriptor.getClusterName().getBytes();
             logger.info("Saved ClusterName not found. Using " + DatabaseDescriptor.getClusterName());
@@ -211,7 +223,9 @@ public class SystemTable
     public static void setBootstrapped(boolean isBootstrapped)
     {
         ColumnFamily cf = ColumnFamily.create(Table.SYSTEM_TABLE, STATUS_CF);
-        cf.addColumn(new Column(BOOTSTRAP, new byte[] { (byte) (isBootstrapped ? 1 : 0) }, System.currentTimeMillis()));
+//TODO: TEST
+//        cf.addColumn(new Column(BOOTSTRAP, new byte[] { (byte) (isBootstrapped ? 1 : 0) }, System.currentTimeMillis()));
+        cf.addColumn(new Column(BOOTSTRAP, new byte[] { (byte) (isBootstrapped ? 1 : 0) }, new TimestampClock(System.currentTimeMillis())));
         RowMutation rm = new RowMutation(Table.SYSTEM_TABLE, BOOTSTRAP_KEY);
         rm.add(cf);
         try

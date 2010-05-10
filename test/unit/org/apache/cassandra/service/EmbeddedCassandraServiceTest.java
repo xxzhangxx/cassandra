@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 import org.apache.cassandra.thrift.Cassandra;
+import org.apache.cassandra.thrift.Clock;
 import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.ColumnPath;
 import org.apache.cassandra.thrift.ConsistencyLevel;
@@ -91,8 +92,13 @@ public class EmbeddedCassandraServiceTest
         cp.setColumn("name".getBytes("utf-8"));
 
         // insert
+//TODO: CHECK
+//        client.insert("Keyspace1", key_user_id, cp, "Ran".getBytes("UTF-8"),
+//                timestamp, ConsistencyLevel.ONE);
+        Clock clock = new Clock();
+        clock.setTimestamp(timestamp);
         client.insert("Keyspace1", key_user_id, cp, "Ran".getBytes("UTF-8"),
-                timestamp, ConsistencyLevel.ONE);
+                clock, ConsistencyLevel.ONE);
 
         // read
         ColumnOrSuperColumn got = client.get("Keyspace1", key_user_id, cp,

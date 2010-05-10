@@ -21,6 +21,7 @@ import java.net.InetAddress;
 import java.util.List;
 
 import org.apache.cassandra.thrift.Cassandra;
+import org.apache.cassandra.thrift.Clock;
 import org.apache.cassandra.thrift.Column;
 import org.apache.cassandra.thrift.ColumnPath;
 import org.apache.cassandra.thrift.ConsistencyLevel;
@@ -99,9 +100,14 @@ public class TestRingCache
 
             // now, read the row back directly from the host owning the row locally
             setup(endPoints.get(0).getHostAddress(), DatabaseDescriptor.getThriftPort());
-            thriftClient.insert(table, row, col, "val1".getBytes(), 1, ConsistencyLevel.ONE);
+//TODO: CHECK
+//            thriftClient.insert(table, row, col, "val1".getBytes(), 1, ConsistencyLevel.ONE);
+            Clock clock = new Clock();
+            clock.setTimestamp(1);
+            thriftClient.insert(table, row, col, "val1".getBytes(), clock, ConsistencyLevel.ONE);
+//            Column column=thriftClient.get(table, row, col, ConsistencyLevel.ONE).column;
             Column column=thriftClient.get(table, row, col, ConsistencyLevel.ONE).column;
-            System.out.println("read row " + row + " " + new String(column.name) + ":" + new String(column.value) + ":" + column.timestamp);
+            System.out.println("read row " + row + " " + new String(column.name) + ":" + new String(column.value) + ":" + column.clock.timestamp);
         }
 
         System.exit(1);

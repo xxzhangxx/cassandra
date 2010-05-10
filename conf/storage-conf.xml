@@ -48,7 +48,7 @@
   <!--
    ~ See http://wiki.apache.org/cassandra/HintedHandoff
   -->
-  <HintedHandoffEnabled>true</HintedHandoffEnabled>
+  <HintedHandoffEnabled>false</HintedHandoffEnabled>
 
   <!--
    ~ Keyspaces and ColumnFamilies:
@@ -121,6 +121,28 @@
                     RowsCached="10000"
                     KeysCached="50%"
                     Comment="A column family with supercolumns, whose column and subcolumn names are UTF8 strings"/>
+      <ColumnFamily Name="Version1"
+                    ColumnType="Version"
+                    CompareWith="BytesType"
+                    ReconcileWith="ConcatenatingReconciler"
+                    Comment="A Version CF" />
+      <ColumnFamily Name="SuperVersion1"
+                    ColumnType="SuperVersion"
+                    CompareWith="BytesType"
+                    CompareSubcolumnsWith="BytesType"
+                    ReconcileWith="ConcatenatingReconciler"
+                    Comment="A Version SuperColumn CF" />
+      <ColumnFamily Name="IncrementCounter1"
+                    ColumnType="IncrementCounter"
+                    CompareWith="BytesType"
+                    ReconcileWith="IncrementCounterReconciler"
+                    Comment="An increment-only counter CF" />
+      <ColumnFamily Name="SueprIncrementCounter1"
+                    ColumnType="SuperIncrementCounter"
+                    CompareWith="BytesType"
+                    CompareSubcolumnsWith="BytesType"
+                    ReconcileWith="IncrementCounterReconciler"
+                    Comment="An Increment-only Counter SuperColumn CF" />
 
       <!--
        ~ Strategy: Setting this to the class that implements

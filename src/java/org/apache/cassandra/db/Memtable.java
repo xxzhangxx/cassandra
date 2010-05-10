@@ -209,11 +209,16 @@ public class Memtable implements Comparable<Memtable>, IFlushable
         if (filter.reversed)
             ArrayUtils.reverse(columns);
         IColumn startIColumn;
-        final boolean isStandard = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).equals("Standard");
+//TODO: TEST
+//        final boolean isStandard = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).equals("Standard");
+        final ColumnType columnType = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName());
+        final boolean isStandard = !columnType.isSuper();
         if (isStandard)
             startIColumn = new Column(filter.start);
         else
-            startIColumn = new SuperColumn(filter.start, null); // ok to not have subcolumnComparator since we won't be adding columns to this object
+//TODO: TEST
+//            startIColumn = new SuperColumn(filter.start, null, columnType); // ok to not have subcolumnComparator since we won't be adding columns to this object
+            startIColumn = new SuperColumn(filter.start, null, columnType, null); // ok to not have subcolumnComparator or reconciler since we won't be adding columns to this object
 
         // can't use a ColumnComparatorFactory comparator since those compare on both name and time (and thus will fail to match
         // our dummy column, since the time there is arbitrary).
@@ -247,6 +252,7 @@ public class Memtable implements Comparable<Memtable>, IFlushable
             public IColumn next()
             {
                 // clone supercolumns so caller can freely removeDeleted or otherwise mutate it
+//TODO: TEST
                 return isStandard ? columns[curIndex_++] : ((SuperColumn)columns[curIndex_++]).cloneMe();
             }
         };
@@ -255,7 +261,9 @@ public class Memtable implements Comparable<Memtable>, IFlushable
     public ColumnIterator getNamesIterator(final ColumnFamily cf, final NamesQueryFilter filter)
     {
         final ColumnFamily columnFamily = cf == null ? ColumnFamily.create(getTableName(), filter.getColumnFamilyName()) : cf.cloneMeShallow();
-        final boolean isStandard = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).equals("Standard");
+//TODO: TEST
+//        final boolean isStandard = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).equals("Standard");
+        final boolean isStandard = !DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).isSuper();
 
         return new SimpleAbstractColumnIterator()
         {
@@ -279,6 +287,7 @@ public class Memtable implements Comparable<Memtable>, IFlushable
                     IColumn column = cf.getColumn(current);
                     if (column != null)
                         // clone supercolumns so caller can freely removeDeleted or otherwise mutate it
+//TODO: TEST
                         return isStandard ? column : ((SuperColumn)column).cloneMe();
                 }
                 return endOfData();
