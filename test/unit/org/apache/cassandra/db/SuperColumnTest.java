@@ -26,12 +26,8 @@ import static junit.framework.Assert.assertNull;
 import static org.apache.cassandra.Util.concatByteArrays;
 import static org.apache.cassandra.Util.getBytes;
 import org.apache.cassandra.db.marshal.LongType;
-import org.apache.cassandra.db.context.ConcatenatingReconciler;
 import org.apache.cassandra.db.context.IncrementCounterReconciler;
 import org.apache.cassandra.utils.FBUtilities;
-
-//TODO: REMOVE
-import org.apache.commons.lang.ArrayUtils;
 
 public class SuperColumnTest
 {   
@@ -41,84 +37,6 @@ public class SuperColumnTest
     	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new TimestampClock(1)));
     	assertNotNull(sc.getSubColumn(getBytes(1)));
     	assertNull(sc.getSubColumn(getBytes(2)));
-    }
-
-    @Test
-    public void testAddColumnVersionVector()
-    {
-    	SuperColumn sc = new SuperColumn("sc1".getBytes(), new LongType(), ColumnType.SuperVersion, new ConcatenatingReconciler());
-
-    	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new VersionVectorClock(concatByteArrays(
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
-            FBUtilities.toByteArray(2), FBUtilities.toByteArray(5L),
-            FBUtilities.toByteArray(4), FBUtilities.toByteArray(2L)
-            ))));
-    	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new VersionVectorClock(concatByteArrays(
-            FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
-            FBUtilities.toByteArray(4), FBUtilities.toByteArray(4L),
-            FBUtilities.toByteArray(2), FBUtilities.toByteArray(3L)
-            ))));
-
-    	sc.addColumn(new Column(getBytes(2), "value".getBytes(), new VersionVectorClock(concatByteArrays(
-            FBUtilities.toByteArray(3), FBUtilities.toByteArray(6L),
-            FBUtilities.toByteArray(7), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
-            ))));
-
-    	assertNotNull(sc.getSubColumn(getBytes(1)));
-    	assertNull(sc.getSubColumn(getBytes(3)));
-        assert 3 == sc.getObjectCount();
-
-        assert 0 == FBUtilities.compareByteArrays(
-            ((VersionVectorClock)sc.getSubColumn(getBytes(1)).clock()).context(),
-            concatByteArrays(
-                FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
-                FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
-                FBUtilities.toByteArray(2), FBUtilities.toByteArray(5L),
-                FBUtilities.toByteArray(4), FBUtilities.toByteArray(4L)
-                ));
-
-        assert 0 == FBUtilities.compareByteArrays(
-            ((VersionVectorClock)sc.getSubColumn(getBytes(2)).clock()).context(),
-            concatByteArrays(
-                FBUtilities.toByteArray(3), FBUtilities.toByteArray(6L),
-                FBUtilities.toByteArray(7), FBUtilities.toByteArray(3L),
-                FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
-                ));
-    }
-
-    @Test
-    public void testMostRecentLiveChangeAtVersionVector()
-    {
-    	SuperColumn sc = new SuperColumn("sc1".getBytes(), new LongType(), ColumnType.SuperVersion, new ConcatenatingReconciler());
-
-    	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new VersionVectorClock(concatByteArrays(
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
-            FBUtilities.toByteArray(2), FBUtilities.toByteArray(5L),
-            FBUtilities.toByteArray(4), FBUtilities.toByteArray(2L)
-            ))));
-    	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new VersionVectorClock(concatByteArrays(
-            FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
-            FBUtilities.toByteArray(4), FBUtilities.toByteArray(4L),
-            FBUtilities.toByteArray(2), FBUtilities.toByteArray(3L)
-            ))));
-
-    	sc.addColumn(new Column(getBytes(2), "value".getBytes(), new VersionVectorClock(concatByteArrays(
-            FBUtilities.toByteArray(3), FBUtilities.toByteArray(6L),
-            FBUtilities.toByteArray(7), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
-            ))));
-
-        assert 0 == FBUtilities.compareByteArrays(
-            ((VersionVectorClock)sc.mostRecentLiveChangeAt()).context(),
-            concatByteArrays(
-                FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
-                FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
-                FBUtilities.toByteArray(3), FBUtilities.toByteArray(6L),
-                FBUtilities.toByteArray(2), FBUtilities.toByteArray(5L),
-                FBUtilities.toByteArray(4), FBUtilities.toByteArray(4L),
-                FBUtilities.toByteArray(7), FBUtilities.toByteArray(3L)
-                ));
     }
 
     @Test

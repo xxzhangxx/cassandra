@@ -36,7 +36,6 @@ import org.apache.cassandra.db.IColumn;
 //TODO: TEST
 import org.apache.cassandra.db.IncrementCounterClock;
 import org.apache.cassandra.db.TimestampClock;
-import org.apache.cassandra.db.VersionVectorClock;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.MarshalException;
 
@@ -362,12 +361,7 @@ public class ThriftValidation
         {
             return new TimestampClock(clock.getTimestamp());
         }
-        else if (clock.isSetContext())
-        {
-            return new VersionVectorClock(clock.getContext());
-        }
-//TODO: TEST
-//        throw new InvalidRequestException("Clock must have one of timestamp or context");
+
         return new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
     }
 }

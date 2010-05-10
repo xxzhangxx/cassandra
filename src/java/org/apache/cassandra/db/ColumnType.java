@@ -17,7 +17,6 @@
  */
 package org.apache.cassandra.db;
 
-import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.io.ICompactSerializer2;
 
 /**
@@ -65,11 +64,6 @@ public enum ColumnType
         return isContext;
     }
 
-    public final boolean isVersion()
-    {
-        return isVersion;
-    }
-
     public final boolean isIncrementCounter()
     {
         return isIncrementCounter;
@@ -77,11 +71,7 @@ public enum ColumnType
 
     public final IClock minClock()
     {
-        if (isVersion)
-        {
-            return VersionVectorClock.MIN_VALUE;
-        }
-        else if (isIncrementCounter)
+        if (isIncrementCounter)
         {
             return IncrementCounterClock.MIN_VALUE;
         }
@@ -90,11 +80,7 @@ public enum ColumnType
 
     public final ICompactSerializer2<IClock> clockSerializer()
     {
-        if (isVersion)
-        {
-            return VersionVectorClock.SERIALIZER;
-        }
-        else if (isIncrementCounter)
+        if (isIncrementCounter)
         {
             return IncrementCounterClock.SERIALIZER;
         }

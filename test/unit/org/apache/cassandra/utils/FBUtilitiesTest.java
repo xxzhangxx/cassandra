@@ -18,20 +18,11 @@
 
 package org.apache.cassandra.utils;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
-
-import org.apache.cassandra.db.IClock;
-import org.apache.cassandra.db.TimestampClock;
-import org.apache.cassandra.db.VersionVectorClock;
-import org.apache.cassandra.db.context.VersionVectorContext;
 
 public class FBUtilitiesTest 
 {
@@ -124,66 +115,4 @@ public class FBUtilitiesTest
         }
     }
 
-    @Test
-    public void testAtomicSetMaxIClock() throws UnknownHostException
-    {
-        AtomicReference<IClock> atomicClock = new AtomicReference<IClock>(null);
-
-        // atomic < new
-        atomicClock.set(TimestampClock.MIN_VALUE);
-        FBUtilities.atomicSetMax(atomicClock, new TimestampClock(1L));
-        assert ((TimestampClock)atomicClock.get()).timestamp() == 1L;
-
-        // atomic == new
-        atomicClock.set(new TimestampClock(3L));
-        FBUtilities.atomicSetMax(atomicClock, new TimestampClock(3L));
-        assert ((TimestampClock)atomicClock.get()).timestamp() == 3L;
-
-        // atomic > new
-        atomicClock.set(new TimestampClock(9L));
-        FBUtilities.atomicSetMax(atomicClock, new TimestampClock(3L));
-        assert ((TimestampClock)atomicClock.get()).timestamp() == 9L;
-
-        // atomic disjoint new
-        VersionVectorContext vvc = new VersionVectorContext();
-        byte[] context = new byte[0];
-        for (int i = 0; i < 5; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(3)));
-        for (int i = 0; i < 2; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(6)));
-        for (int i = 0; i < 2; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(9)));
-        atomicClock.set(new VersionVectorClock(context));
-
-        context = new byte[0];
-        for (int i = 0; i < 4; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(3)));
-        for (int i = 0; i < 3; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(6)));
-        for (int i = 0; i < 2; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(9)));
-        for (int i = 0; i < 2; i++)
-            context = vvc.update(context, InetAddress.getByAddress(FBUtilities.toByteArray(12)));
-        FBUtilities.atomicSetMax(atomicClock, new VersionVectorClock(context));
-
-        int idLength    = 4; // size of int
-        int countLength = 8; // size of long
-        int stepLength  = idLength + countLength;
-
-        byte[] merged = ((VersionVectorClock)atomicClock.get()).context();
-
-        assert merged.length == 4 * stepLength;
-
-        assert 3 == FBUtilities.byteArrayToInt(merged, 0*stepLength);
-        assert 6 == FBUtilities.byteArrayToInt(merged, 1*stepLength);
-        assert ( 9 == FBUtilities.byteArrayToInt(merged, 2*stepLength))
-            || (12 == FBUtilities.byteArrayToInt(merged, 2*stepLength));
-        assert ( 9 == FBUtilities.byteArrayToInt(merged, 3*stepLength))
-            || (12 == FBUtilities.byteArrayToInt(merged, 3*stepLength));
-
-        assert 5L == FBUtilities.byteArrayToLong(merged, 0*stepLength + idLength);
-        assert 3L == FBUtilities.byteArrayToLong(merged, 1*stepLength + idLength);
-        assert 2L == FBUtilities.byteArrayToLong(merged, 2*stepLength + idLength);
-        assert 2L == FBUtilities.byteArrayToLong(merged, 3*stepLength + idLength);
-    }
 }

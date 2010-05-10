@@ -357,10 +357,6 @@ public class RowMutation
         {
             return new TimestampClock(clock.getTimestamp());
         }
-        else if (clock.isSetContext())
-        {
-            return new VersionVectorClock(clock.getContext());
-        }
 //TODO: CHECK: external Clock validated in thrift.CassandraServer, so should never reach here
         return null;
     }
@@ -374,38 +370,9 @@ public class RowMutation
         {
             ColumnFamily cf = entry.getValue();
             ColumnType columnType = cf.getColumnType();
-            if (columnType.isVersion())
-            {
-                updateVersionClocks(node, cf);
-            }
-            else if (columnType.isIncrementCounter())
+            if (columnType.isIncrementCounter())
             {
                 updateIncrementCounterClocks(node, cf);
-            }
-        }
-    }
-
-    private void updateVersionClocks(InetAddress node, ColumnFamily cf)
-    {
-        ColumnType columnType = cf.getColumnType();
-
-        // standard column family
-        if (!columnType.isSuper())
-        {
-            for (IColumn col : cf.getSortedColumns())
-            {
-                // update in-place, although Column is (abstractly) immutable
-                ((VersionVectorClock)col.clock()).update(node);
-            }
-            return;
-        }
-
-        // super column family
-        for (IColumn col : cf.getSortedColumns())
-        {
-            for (IColumn subCol : col.getSubColumns())
-            {
-                ((VersionVectorClock)subCol.clock()).update(node);
             }
         }
     }

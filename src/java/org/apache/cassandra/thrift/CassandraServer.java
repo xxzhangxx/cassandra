@@ -690,10 +690,6 @@ public class CassandraServer implements Cassandra.Iface
         {
             thrift_clock.setTimestamp(((TimestampClock)clock).timestamp());
         }
-        else if (clock instanceof VersionVectorClock)
-        {
-            thrift_clock.setContext(((VersionVectorClock)clock).context());
-        }
         else if (clock instanceof IncrementCounterClock)
         {
             thrift_clock.setContext(((IncrementCounterClock)clock).context());
