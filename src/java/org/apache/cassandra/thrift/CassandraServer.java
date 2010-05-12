@@ -544,13 +544,10 @@ public class CassandraServer implements Cassandra.Iface
             CFMetaData columnFamilyMetaData = stringCFMetaDataEntry.getValue();
 
             Map<String, String> columnMap = new HashMap<String, String>();
-//TODO: TEST
-//            columnMap.put("Type", columnFamilyMetaData.columnType);
             columnMap.put("Type", columnFamilyMetaData.columnType.name());
             columnMap.put("Desc", columnFamilyMetaData.comment == null ? columnFamilyMetaData.pretty() : columnFamilyMetaData.comment);
             columnMap.put("CompareWith", columnFamilyMetaData.comparator.getClass().getName());
-//TODO: TEST
-//            if (columnFamilyMetaData.columnType.equals("Super"))
+
             if (columnFamilyMetaData.columnType.isSuper())
             {
                 columnMap.put("CompareSubcolumnsWith", columnFamilyMetaData.subcolumnComparator.getClass().getName());

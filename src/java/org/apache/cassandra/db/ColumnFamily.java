@@ -182,7 +182,6 @@ public class ColumnFamily implements IColumnContainer
     */
     public void addColumn(IColumn column)
     {
-//TODO: REFACTOR? (modify this switch)
         if (type_.isIncrementCounter())
         {
             addColumnForIncrementCounter(column);
@@ -245,7 +244,6 @@ public class ColumnFamily implements IColumnContainer
         }
     }
 
-//TODO: TEST (clean counts from remote replicas)
     public void cleanForIncrementCounter()
     {
         cleanForIncrementCounter(FBUtilities.getLocalAddress());

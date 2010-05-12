@@ -150,7 +150,12 @@ public class FBUtilities
         return new Pair(midpoint, remainder);
     }
 
-    // copy bytes from int into bytes starting from offset
+    /**
+     * Copy bytes from int into bytes starting from offset.
+     * @param bytes Target array
+     * @param offset Offset into the array
+     * @param i Value to write
+     */
     public static void copyIntoBytes(byte[] bytes, int offset, int i)
     {
         bytes[offset]   = (byte)( ( i >>> 24 ) & 0xFF );
@@ -159,7 +164,12 @@ public class FBUtilities
         bytes[offset+3] = (byte)(   i          & 0xFF );
     }
 
-    // copy bytes from long into bytes starting from offset
+    /**
+     * Copy bytes from long into bytes starting from offset.
+     * @param bytes Target array
+     * @param offset Offset into the array
+     * @param l Value to write
+     */
     public static void copyIntoBytes(byte[] bytes, int offset, long l)
     {
         bytes[offset]   = (byte)( ( l >>> 56 ) & 0xFF );
@@ -172,6 +182,10 @@ public class FBUtilities
         bytes[offset+7] = (byte)(   l          & 0xFF );
     }
 
+    /**
+     * @param i Write this int to an array
+     * @return Four byte array containing the int
+     */
     public static byte[] toByteArray(int i)
     {
         byte[] bytes = new byte[4];
@@ -179,6 +193,10 @@ public class FBUtilities
         return bytes;
     }
 
+    /**
+     * @param l Write this long to an array
+     * @return Four byte array containing the long
+     */
     public static byte[] toByteArray(long l)
     {
         byte[] bytes = new byte[8];
@@ -186,11 +204,20 @@ public class FBUtilities
         return bytes;
     }
 
+    /**
+     * @param bytes A byte array containing a serialized integer.
+     * @return The integer value contained in the byte array.
+     */
     public static int byteArrayToInt(byte[] bytes)
     {
     	return byteArrayToInt(bytes, 0);
     }
 
+    /**
+     * @param bytes A byte array containing a serialized integer.
+     * @param offset Start position of the integer in the array.
+     * @return The integer value contained in the byte array.
+     */
     public static int byteArrayToInt(byte[] bytes, int offset)
     {
         if ( bytes.length - offset < 4 )
@@ -206,11 +233,20 @@ public class FBUtilities
         return n;
     }
 
+    /**
+     * @param bytes A byte array containing a serialized long.
+     * @return The long value contained in the byte array.
+     */
     public static long byteArrayToLong(byte[] bytes)
     {
         return byteArrayToLong(bytes, 0);
     }
 
+    /**
+     * @param bytes A byte array containing a serialized long.
+     * @param offset Start position of the long in the array.
+     * @return The long value contained in the byte array.
+     */
     public static long byteArrayToLong(byte[] bytes, int offset)
     {
         if ( bytes.length - offset < 8 )
@@ -245,7 +281,15 @@ public class FBUtilities
         else return (bytes1.length < bytes2.length)? -1 : 1;
     }
 
-    // compare two byte[] at specified offsets for length
+    /**
+     * Compare two byte[] at specified offsets for length. Compares the non equal bytes as unsigned.
+     * @param bytes1 First array to compare.
+     * @param offset1 Position to start the comparison at in the first array.
+     * @param bytes2 Second array to compare.
+     * @param offset2 Position to start the comparison at in the second array.
+     * @param length How many bytes to compare?
+     * @return -1 if byte1 is less than byte2, 1 if byte2 is less than byte1 or 0 if equal.
+     */
     public static int compareByteSubArrays(byte[] bytes1, int offset1, byte[] bytes2, int offset2, int length)
     {
         if ( null == bytes1 )
@@ -579,8 +623,10 @@ public class FBUtilities
         return utflen;
     }
 
-    // thin wrapper around byte[] to provide meaningful equals() and hashCode() operations
-    // caveat: assumed that wrapped byte[] will not be modified
+    /** 
+     * Thin wrapper around byte[] to provide meaningful equals() and hashCode() operations
+     * caveat: assumed that wrapped byte[] will not be modified
+     */
     public static final class ByteArrayWrapper
     {
         public final byte[] data;

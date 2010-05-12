@@ -22,6 +22,9 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * A clock used for conflict resolution.
+ */
 public interface IClock
 {
     public static enum ClockRelationship
@@ -32,9 +35,33 @@ public interface IClock
         DISJOINT
     };
 
+    /**
+     * @param other Compare these two clocks.
+     * @return The relationship between the two clocks,
+     * lets us know if reconciliation will have to take place.
+     */
     public ClockRelationship compare(IClock other);
+    
+    /**
+     * @param otherClocks The other clock to use when extracting the superset.
+     * @return The superset of the two clocks.
+     */
     public IClock getSuperset(List<IClock> otherClocks);
+    
+    /**
+     * @return number of bytes this type of clock
+     * uses up when serialized.
+     */
     public int size();
+    
+    /**
+     * @param out Write a serialized representation of this clock to the output.
+     * @throws IOException Thrown if writing failed.
+     */
     public void serialize(DataOutput out) throws IOException;
+    
+    /**
+     * @return a textual representation of this clock.
+     */
     public String toString();
 }
