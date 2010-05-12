@@ -924,3 +924,46 @@ class TestMutations(CassandraTester):
     def test_describe_ring(self):
         assert list(client.describe_ring('Keyspace1'))[0].endpoints == ['127.0.0.1']
 
+    def test_incr_standard(self):
+        d1 = 12
+        d2 = -21
+        d3 = 35
+        d1p = struct.pack('>q', d1)
+        d2p = struct.pack('>q', d2)
+        d3p = struct.pack('>q', d3)
+        client.insert('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), d1p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv1 = client.get('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv1.column.value)[0] == d1
+
+        client.insert('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), d2p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv2 = client.get('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv2.column.value)[0] == (d1+d2)
+
+        client.insert('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), d3p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv3 = client.get('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
+
+    def test_incr_super(self):
+        d1 = -234
+        d2 = 52345
+        d3 = 3123
+        d1p = struct.pack('>q', d1)
+        d2p = struct.pack('>q', d2)
+        d3p = struct.pack('>q', d3)
+        client.insert('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), d1p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv1 = client.get('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv1.column.value)[0] == d1
+
+        client.insert('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), d2p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv2 = client.get('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv2.column.value)[0] == (d1+d2)
+
+        client.insert('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), d3p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv3 = client.get('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
