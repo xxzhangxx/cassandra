@@ -22,6 +22,12 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.apache.cassandra.db.IClock;
+import org.apache.cassandra.db.TimestampClock;
+import org.apache.cassandra.db.IClock.ClockRelationship;
+import org.apache.cassandra.utils.FBUtilities.ByteArrayWrapper;
 import org.junit.Test;
 
 public class FBUtilitiesTest 
@@ -55,6 +61,18 @@ public class FBUtilitiesTest
         }
     }
 
+    @Test
+    public void testCopyIntoBytes()
+    {
+        int i = 300;
+        long l = 1000;
+        byte[] b = new byte[20];
+        FBUtilities.copyIntoBytes(b, 0, i);
+        FBUtilities.copyIntoBytes(b, 4, l);
+        assertEquals(i, FBUtilities.byteArrayToInt(b, 0));
+        assertEquals(l, FBUtilities.byteArrayToLong(b, 4));
+    }
+    
     @Test
     public void testLongBytesConversions()
     {
@@ -113,6 +131,17 @@ public class FBUtilitiesTest
         } catch (AssertionError ae)
         {
         }
+    }
+    
+    @Test
+    public void testAtomicSetMax()
+    {
+        IClock clock1 = new TimestampClock(123);
+        IClock clock2 = new TimestampClock(345);
+        AtomicReference<IClock> clockRef = new AtomicReference<IClock>(clock1);
+        
+        FBUtilities.atomicSetMax(clockRef, clock2);
+        assertEquals(ClockRelationship.EQUAL, clock2.compare(clockRef.get()));
     }
 
 }
