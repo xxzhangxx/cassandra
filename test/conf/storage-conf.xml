@@ -47,8 +47,6 @@
        <ColumnFamily ColumnType="Super" CompareSubcolumnsWith="LongType" Name="Super2"/>
        <ColumnFamily ColumnType="Super" CompareSubcolumnsWith="LongType" Name="Super3"/>
        <ColumnFamily ColumnType="Super" CompareSubcolumnsWith="UTF8Type" Name="Super4"/>
-       <ColumnFamily ColumnType="Version" CompareWith="BytesType" ReconcileWith="ConcatenatingReconciler" Name="Version1"/>
-       <ColumnFamily ColumnType="SuperVersion" CompareSubcolumnsWith="BytesType" ReconcileWith="ConcatenatingReconciler" Name="SuperVersion1"/>
        <ColumnFamily ColumnType="IncrementCounter" CompareWith="BytesType" ReconcileWith="IncrementCounterReconciler" Name="IncrementCounter1"/>
        <ColumnFamily ColumnType="SuperIncrementCounter" CompareSubcolumnsWith="BytesType" ReconcileWith="IncrementCounterReconciler" Name="SuperIncrementCounter1"/>
        <ReplicaPlacementStrategy>org.apache.cassandra.locator.RackUnawareStrategy</ReplicaPlacementStrategy>
