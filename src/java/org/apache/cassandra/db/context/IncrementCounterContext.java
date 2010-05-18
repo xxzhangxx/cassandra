@@ -201,10 +201,10 @@ public class IncrementCounterContext implements IContext
     }
 
     /**
-     * Determine the version relationship between two contexts.
+     * Determine the last modified relationship between two contexts.
      *
      * Strategy:
-     *  compare local node's timestamps.  (if local node not present, then equal)
+     *  compare highest timestamp between contexts.
      *
      * @param left
      *            counter context.
@@ -212,32 +212,23 @@ public class IncrementCounterContext implements IContext
      *            counter context.
      * @return the ContextRelationship between the contexts.
      */
-/*
     public ContextRelationship compare(byte[] left, byte[] right)
     {
-        long leftTimestamp = Long.MIN_VALUE;
+        long highestLeftTimestamp = Long.MIN_VALUE;
         for (int offset = 0; offset < left.length; offset += stepLength)
         {
-            if (FBUtilities.compareByteSubArrays(left, offset, id, 0, idLength) != 0)
-                continue;
-
-            // local id found: save timestamp
-            leftTimestamp = FBUtilities.byteArrayToLong(left, offset + idLength + countLength);
-            break;
+            long leftTimestamp = FBUtilities.byteArrayToLong(left, offset + idLength + countLength);
+            highestLeftTimestamp = Math.max(leftTimestamp, highestLeftTimestamp);
         }
 
-        long rightTimestamp = Long.MIN_VALUE;
+        long highestRightTimestamp = Long.MIN_VALUE;
         for (int offset = 0; offset < right.length; offset += stepLength)
         {
-            if (FBUtilities.compareByteSubArrays(right, offset, id, 0, idLength) != 0)
-                continue;
-
-            // local id found: save timestamp
-            rightTimestamp = FBUtilities.byteArrayToLong(right, offset + idLength + countLength);
-            break;
+            long rightTimestamp = FBUtilities.byteArrayToLong(right, offset + idLength + countLength);
+            highestRightTimestamp = Math.max(rightTimestamp, highestRightTimestamp);
         }
 
-        int compare = Long.valueOf(leftTimestamp).compareTo(Long.valueOf(rightTimestamp));
+        int compare = Long.valueOf(highestLeftTimestamp).compareTo(Long.valueOf(highestRightTimestamp));
         if (compare < 0)
         {
             return ContextRelationship.LESS_THAN;
@@ -248,8 +239,20 @@ public class IncrementCounterContext implements IContext
         }
         return ContextRelationship.EQUAL;
     }
-*/
-    public ContextRelationship compare(byte[] left, byte[] right)
+
+    /**
+     * Determine the count relationship between two contexts.
+     *
+     * Strategy:
+     *  compare node count values (like a version vector).
+     *
+     * @param left
+     *            counter context.
+     * @param right
+     *            counter context.
+     * @return the ContextRelationship between the contexts.
+     */
+    public ContextRelationship diff(byte[] left, byte[] right)
     {
         left  = sortElementsById(left);
         right = sortElementsById(right);

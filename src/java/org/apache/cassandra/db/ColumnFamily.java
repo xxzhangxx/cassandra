@@ -338,7 +338,9 @@ public class ColumnFamily implements IColumnContainer
             }
             else
             {
-                IColumn columnDiff = columnInternal.diff(columnExternal);
+//TODO: TEST
+//                IColumn columnDiff = columnInternal.diff(columnExternal);
+                IColumn columnDiff = type_.isIncrementCounter() ? columnInternal.diffForIncrementCounter(columnExternal) : columnInternal.diff(columnExternal);
                 if (columnDiff != null)
                 {
                     cfDiff.addColumn(columnDiff);

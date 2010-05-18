@@ -77,6 +77,24 @@ public class IncrementCounterClock implements IClock
         }
     }
 
+    public ClockRelationship diff(IClock other)
+    {
+        assert other instanceof IncrementCounterClock : "Wrong class type.";
+
+        ContextRelationship rel = contextManager.diff(context, ((IncrementCounterClock)other).context());
+        switch (rel)
+        {
+            case EQUAL:
+                return ClockRelationship.EQUAL;
+            case GREATER_THAN:
+                return ClockRelationship.GREATER_THAN;
+            case LESS_THAN:
+                return ClockRelationship.LESS_THAN;
+            default: // DISJOINT
+                return ClockRelationship.DISJOINT;
+        }
+    }
+
     public IClock getSuperset(List<IClock> otherClocks)
     {
         List<byte[]> contexts = new LinkedList<byte[]>();
