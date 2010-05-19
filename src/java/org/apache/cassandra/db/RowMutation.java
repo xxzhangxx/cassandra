@@ -391,7 +391,9 @@ public class RowMutation
 
 //TODO: MODIFY: prob need to create new Column()
                 // update in-place, although Column is (abstractly) immutable
-                ((IncrementCounterClock)col.clock()).update(node, FBUtilities.byteArrayToLong(col.value()));
+                ((IncrementCounterClock)col.clock()).update(
+                    node,
+                    col.isMarkedForDelete() ? 0 : FBUtilities.byteArrayToLong(col.value()));
 
 //TODO: REMOVE
 //System.out.println("updateIncrementCounterClocks: 1: " + ArrayUtils.toString(col.value()) + "@" + col.clock());
@@ -405,7 +407,9 @@ public class RowMutation
             for (IColumn subCol : col.getSubColumns())
             {
 //TODO: MODIFY: prob need to create new Column()
-                ((IncrementCounterClock)subCol.clock()).update(node, FBUtilities.byteArrayToLong(subCol.value()));
+                ((IncrementCounterClock)subCol.clock()).update(
+                    node,
+                    subCol.isMarkedForDelete() ? 0 : FBUtilities.byteArrayToLong(subCol.value()));
             }
         }
     }

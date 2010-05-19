@@ -38,84 +38,61 @@ public class IncrementCounterReconciler extends AbstractReconciler
         contextManager = IncrementCounterContext.instance();
     }
 
+    private static IClock mergeClocks(Column left, Column right)
+    {
+        List<IClock> clocks = new LinkedList<IClock>();
+        clocks.add(right.clock());
+        return (IClock)left.clock().getSuperset(clocks);
+    }
+
     public Column reconcile(Column left, Column right)
     {
         // note: called in addColumn(IColumn) to aggregate local node id's counts
 
-        // delete + delete: keep later tombstone, higher clock
-        if (left.isMarkedForDelete() && right.isMarkedForDelete())
-        {
-            // use later local delete time
-            int leftLocalDeleteTime  = FBUtilities.byteArrayToInt(left.value());
-            int rightLocalDeleteTime = FBUtilities.byteArrayToInt(right.value());
-
-            // merge clocks
-            List<IClock> clocks = new LinkedList<IClock>();
-            clocks.add(right.clock());
-            IClock clock = (IClock)left.clock().getSuperset(clocks);
-
-            return new Column(
-                left.name(),
-                leftLocalDeleteTime >= rightLocalDeleteTime ? left.value() : right.value(),
-                clock,
-                true);
-        }
-
-        // normal + delete
-        //
-        // in clock context:
-        // if local node delete timestamp > local node's last count timestamp,
-        // then treat local row as completely deleted, locally.
-        // (require read repair to pull this row's count.)
-        // note: tombstones win ties.
         if (left.isMarkedForDelete())
         {
+            if (right.isMarkedForDelete())
+            {
+                // delete + delete: keep later tombstone, higher clock
+                int leftLocalDeleteTime  = FBUtilities.byteArrayToInt(left.value());
+                int rightLocalDeleteTime = FBUtilities.byteArrayToInt(right.value());
+
+                return new Column(
+                    left.name(),
+                    leftLocalDeleteTime >= rightLocalDeleteTime ? left.value() : right.value(),
+                    mergeClocks(left, right),
+                    true);
+            }
+
+            // delete + live: use compare() to determine which side to take
+            // note: tombstone always wins ties.
             switch (left.clock().compare(right.clock()))
             {
                 case EQUAL:
                 case GREATER_THAN:
-                    return new Column(
-                        left.name(),
-                        left.value(),
-                        left.clock(),
-                        true);
+                    return left;
                 default: // LESS_THAN
-                    return new Column(
-                        left.name(),
-                        right.value(),
-                        right.clock(),
-                        false);
+                    return right;
                 // note: DISJOINT is not possible
             }
         }
         else if (right.isMarkedForDelete())
         {
+            // live + delete: use compare() to determine which side to take
+            // note: tombstone always wins ties.
             switch (left.clock().compare(right.clock()))
             {
                 case GREATER_THAN:
-                    return new Column(
-                        left.name(),
-                        left.value(),
-                        left.clock(),
-                        false);
+                    return left;
                 default: // EQUAL, LESS_THAN
-                    return new Column(
-                        left.name(),
-                        right.value(),
-                        right.clock(),
-                        true);
+                    return right;
                 // note: DISJOINT is not possible
             }
         }
-        // normal + normal
         else
         {
-            // merge clocks
-            List<IClock> clocks = new LinkedList<IClock>();
-            clocks.add(right.clock());
-            IClock clock = (IClock)left.clock().getSuperset(clocks);
-
-            // set value to aggregate
+            // live + live: merge clocks; update value
+            IClock clock = mergeClocks(left, right);
             byte[] value = contextManager.total(((IncrementCounterClock)clock).context());
 
             return new Column(left.name(), value, clock, false);
