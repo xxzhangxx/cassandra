@@ -931,6 +931,7 @@ class TestMutations(CassandraTester):
         d1p = struct.pack('>q', d1)
         d2p = struct.pack('>q', d2)
         d3p = struct.pack('>q', d3)
+        # insert positive and negative values and check the counts
         client.insert('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), d1p, Clock(), ConsistencyLevel.ONE)
         time.sleep(0.1)
         rv1 = client.get('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
@@ -945,6 +946,17 @@ class TestMutations(CassandraTester):
         time.sleep(0.1)
         rv3 = client.get('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
         assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
+
+        # remove the previous values and check that it is gone. insert two new ones, check result
+        client.remove('Keyspace1', 'key1', ColumnPath('IncrementCounter1'), Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        _assert_no_columnpath('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'))
+		
+        client.insert('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), d1p, Clock(), ConsistencyLevel.ONE)
+        client.insert('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), d2p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv4 = client.get('Keyspace1', 'key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv4.column.value)[0] == (d1+d2)
 
     def test_incr_super(self):
         d1 = -234
@@ -967,3 +979,14 @@ class TestMutations(CassandraTester):
         time.sleep(0.1)
         rv3 = client.get('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
         assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
+
+        # remove the previous values and check that it is gone. insert two new ones, check result
+        client.remove('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1'), Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        _assert_no_columnpath('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'))
+		
+        client.insert('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), d1p, Clock(), ConsistencyLevel.ONE)
+        client.insert('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), d2p, Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv4 = client.get('Keyspace1', 'key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv4.column.value)[0] == (d1+d2)
