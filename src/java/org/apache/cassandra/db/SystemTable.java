@@ -152,11 +152,11 @@ public class SystemTable
             cf = ColumnFamily.create(Table.SYSTEM_TABLE, SystemTable.STATUS_CF);
 //TODO: TEST
 //            cf.addColumn(new Column(TOKEN, p.getTokenFactory().toByteArray(token)));
-            cf.addColumn(new Column(TOKEN, p.getTokenFactory().toByteArray(token), TimestampClock.MIN_VALUE));
+            cf.addColumn(new Column(TOKEN, p.getTokenFactory().toByteArray(token), TimestampClock.ZERO));
 //TODO: TEST
 //            cf.addColumn(new Column(GENERATION, FBUtilities.toByteArray(generation)));
-            cf.addColumn(new Column(GENERATION, FBUtilities.toByteArray(generation), TimestampClock.MIN_VALUE));
-            cf.addColumn(new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes(), TimestampClock.MIN_VALUE));
+            cf.addColumn(new Column(GENERATION, FBUtilities.toByteArray(generation), TimestampClock.ZERO));
+            cf.addColumn(new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes(), TimestampClock.ZERO));
 
             rm.add(cf);
             rm.apply();
@@ -193,7 +193,7 @@ public class SystemTable
         }
         else
         {
-            Column clustername = new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes(), TimestampClock.MIN_VALUE);
+            Column clustername = new Column(CLUSTERNAME, DatabaseDescriptor.getClusterName().getBytes(), TimestampClock.ZERO);
             cf.addColumn(clustername);
             cname = DatabaseDescriptor.getClusterName().getBytes();
             logger.info("Saved ClusterName not found. Using " + DatabaseDescriptor.getClusterName());

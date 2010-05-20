@@ -28,6 +28,7 @@ import org.apache.cassandra.io.ICompactSerializer2;
 public class TimestampClock implements IClock
 {
     public static TimestampClock MIN_VALUE = new TimestampClock(Long.MIN_VALUE);
+    public static TimestampClock ZERO = new TimestampClock(0L);
     public static ICompactSerializer2<IClock> SERIALIZER = new TimestampClockSerializer();
 
     private final long timestamp;
