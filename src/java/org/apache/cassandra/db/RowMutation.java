@@ -386,6 +386,9 @@ public class RowMutation
         {
             for (IColumn col : cf.getSortedColumns())
             {
+                if (col.isMarkedForDelete())
+                    continue;
+
 //TODO: REMOVE
 //System.out.println("updateIncrementCounterClocks: 0: " + ArrayUtils.toString(col.value()) + "@" + col.clock());
 
@@ -393,7 +396,7 @@ public class RowMutation
                 // update in-place, although Column is (abstractly) immutable
                 ((IncrementCounterClock)col.clock()).update(
                     node,
-                    col.isMarkedForDelete() ? 0 : FBUtilities.byteArrayToLong(col.value()));
+                    FBUtilities.byteArrayToLong(col.value()));
 
 //TODO: REMOVE
 //System.out.println("updateIncrementCounterClocks: 1: " + ArrayUtils.toString(col.value()) + "@" + col.clock());
@@ -406,10 +409,13 @@ public class RowMutation
         {
             for (IColumn subCol : col.getSubColumns())
             {
+                if (subCol.isMarkedForDelete())
+                    continue;
+
 //TODO: MODIFY: prob need to create new Column()
                 ((IncrementCounterClock)subCol.clock()).update(
                     node,
-                    subCol.isMarkedForDelete() ? 0 : FBUtilities.byteArrayToLong(subCol.value()));
+                    FBUtilities.byteArrayToLong(subCol.value()));
             }
         }
     }
