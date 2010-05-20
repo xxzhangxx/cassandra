@@ -113,8 +113,6 @@ public class IncrementCounterReconcilerTest
 
         List<IClock> clocks;
 
-//TODO: FIXME: (when delete strategy implemented, fix test)
-/*
         // normal + delete: normal has higher timestamp
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L), FBUtilities.toByteArray(44L),
@@ -266,7 +264,6 @@ public class IncrementCounterReconcilerTest
             ) == 0;
 
         assert reconciled.isMarkedForDelete() == false;
-*/
     }
 
     @Test

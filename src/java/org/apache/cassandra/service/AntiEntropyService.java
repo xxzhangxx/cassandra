@@ -293,10 +293,6 @@ public class AntiEntropyService
     {
         if (!major || table.equals(Table.SYSTEM_TABLE))
             return new NoopValidator();
-//TODO: FIXME (AES not supported, yet)
-if (DatabaseDescriptor.getColumnType(table, cf).isIncrementCounter())
-    return new NoopValidator();
-
         if (StorageService.instance.getTokenMetadata().sortedTokens().size()  < 1)
             // gossiper isn't started
             return new NoopValidator();
@@ -625,7 +621,7 @@ if (DatabaseDescriptor.getColumnType(table, cf).isIncrementCounter())
             try
             {
                 List<Range> ranges = new ArrayList<Range>(differences);
-                List<SSTableReader> sstables = CompactionManager.instance.submitAnticompaction(cfstore, ranges, remote).get();
+                List<SSTableReader> sstables = CompactionManager.instance.submitAESCompaction(cfstore, ranges, remote).get();
                 StreamOut.transferSSTables(remote, sstables, cf.left);
             }
             catch(Exception e)

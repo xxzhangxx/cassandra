@@ -255,9 +255,15 @@ public class ColumnFamily implements IColumnContainer
 //TODO: TEST (clean remote replica counts for read repair)
     public void cleanForIncrementCounter(InetAddress node)
     {
+//TODO: MODIFY: support SuperColumn-type CF
         for (IColumn column : getSortedColumns())
         {
-            ((IncrementCounterClock)column.clock()).cleanNodeCounts(node);
+            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
+            clock.cleanNodeCounts(node);
+            if (0 == clock.context().length)
+            {
+                remove(column.name());
+            }
         }
     }
 

@@ -126,7 +126,7 @@ public class IncrementCounterClock implements IClock
 
     public void cleanNodeCounts(InetAddress node)
     {
-        contextManager.cleanNodeCounts(context, node);
+        context = contextManager.cleanNodeCounts(context, node);
     }
 }
 

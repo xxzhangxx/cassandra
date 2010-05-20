@@ -164,7 +164,7 @@ System.out.println("                    RRR: 2: " + resolved);
         for (int i = 0; i < versions.size(); i++)
         {
             ColumnFamily diffCf = ColumnFamily.diff(versions.get(i), resolved);
-            if (diffCf == null) // no repair needs to happen
+            if (null == diffCf) // no repair needs to happen
 {
 //TODO: REMOVE
 System.out.println("                    RRR: 3A: [" + endPoints.get(i) + "]: " + diffCf);
@@ -179,6 +179,10 @@ ColumnFamily origDiffCf = diffCf.cloneMe();
             if (diffCf.getColumnType().isIncrementCounter())
             {
                 diffCf.cleanForIncrementCounter(endPoints.get(i));
+                // same check as ColumnFamily.diff()
+//TODO: MODIFY: the check in ColumnFamilyStore.removeDeleted() appears better
+                if (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete())
+                    continue;
             }
 //TODO: REMOVE
 System.out.println("                    RRR: 3B: [" + endPoints.get(i) + "]: " + origDiffCf + " => " + diffCf);
