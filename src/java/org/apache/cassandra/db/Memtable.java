@@ -209,8 +209,6 @@ public class Memtable implements Comparable<Memtable>, IFlushable
         if (filter.reversed)
             ArrayUtils.reverse(columns);
         IColumn startIColumn;
-//TODO: TEST
-//        final boolean isStandard = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).equals("Standard");
         final ColumnType columnType = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName());
         final boolean isStandard = !columnType.isSuper();
         if (isStandard)
@@ -261,8 +259,6 @@ public class Memtable implements Comparable<Memtable>, IFlushable
     public ColumnIterator getNamesIterator(final ColumnFamily cf, final NamesQueryFilter filter)
     {
         final ColumnFamily columnFamily = cf == null ? ColumnFamily.create(getTableName(), filter.getColumnFamilyName()) : cf.cloneMeShallow();
-//TODO: TEST
-//        final boolean isStandard = DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).equals("Standard");
         final boolean isStandard = !DatabaseDescriptor.getColumnFamilyType(getTableName(), filter.getColumnFamilyName()).isSuper();
 
         return new SimpleAbstractColumnIterator()

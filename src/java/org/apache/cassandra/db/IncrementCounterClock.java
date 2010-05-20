@@ -25,7 +25,6 @@ import java.net.InetAddress;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
 import org.apache.commons.lang.ArrayUtils;
 
 import org.apache.cassandra.db.context.IContext.ContextRelationship;
@@ -35,13 +34,11 @@ import org.apache.cassandra.utils.FBUtilities;
 
 public class IncrementCounterClock implements IClock
 {
-    private static Logger logger_ = Logger.getLogger(IncrementCounterClock.class);
     public static IncrementCounterClock MIN_VALUE = new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
     public static ICompactSerializer2<IClock> SERIALIZER = new IncrementCounterClockSerializer();
 
     private static IncrementCounterContext contextManager = IncrementCounterContext.instance();
-//TODO: TEST (NOTE: if we use final, we need to re-create every CF on insert in RowMutation : updateClocks())
-//    public final byte[] context;
+
     public byte[] context;
 
     public IncrementCounterClock(byte[] context)
