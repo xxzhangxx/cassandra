@@ -30,6 +30,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 //TODO: TEST
 import java.net.InetAddress;
+//TODO: REMOVE (after clock context structure modified)
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
 import org.apache.commons.lang.ArrayUtils;
@@ -332,21 +334,22 @@ public class RowMutation
 
     private static void deleteColumnOrSuperColumnToRowMutation(RowMutation rm, String cfName, Deletion del)
     {
+        IClock deleteClock = unthriftifyClockForDelete(del.clock);
         if (del.predicate != null && del.predicate.column_names != null)
         {
             for(byte[] c : del.predicate.column_names)
             {
 //TODO: TEST
                 if (del.super_column == null && DatabaseDescriptor.getColumnFamilyType(rm.table_, cfName).isSuper())
-                    rm.delete(new QueryPath(cfName, c), unthriftifyClock(del.clock));
+                    rm.delete(new QueryPath(cfName, c), deleteClock);
                 else
-                    rm.delete(new QueryPath(cfName, del.super_column, c), unthriftifyClock(del.clock));
+                    rm.delete(new QueryPath(cfName, del.super_column, c), deleteClock);
             }
         }
         else
         {
 //TODO: TEST
-            rm.delete(new QueryPath(cfName, del.super_column), unthriftifyClock(del.clock));
+            rm.delete(new QueryPath(cfName, del.super_column), deleteClock);
         }
     }
 
@@ -357,8 +360,29 @@ public class RowMutation
         {
             return new TimestampClock(clock.getTimestamp());
         }
-//TODO: CHECK: external Clock validated in thrift.CassandraServer, so should never reach here
-        return null;
+
+//TODO: MODIFY: assume IncrementCounterClock, for now
+        return new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
+    }
+
+//TODO: REMOVE (temporary fix, until clock context structure modified)
+    private static IClock unthriftifyClockForDelete(Clock clock)
+    {
+        if (clock.isSetTimestamp())
+        {
+            return new TimestampClock(clock.getTimestamp());
+        }
+
+        IClock cassandra_clock = new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
+        try
+        {
+            ((IncrementCounterClock)cassandra_clock).update(InetAddress.getByAddress(new byte[4]), 0L);
+        }
+        catch (UnknownHostException e)
+        {
+            assert false : "We need to temporarily use 0.0.0.0 as a flag node for delete.";
+        }
+        return cassandra_clock;
     }
 
 //TODO: TEST
