@@ -273,8 +273,6 @@ public class IncrementCounterContextTest
     @Test
     public void testCompare()
     {
-//TODO: FIXME (when delete strategy implemented, fix test)
-/*
         byte[] left;
         byte[] right;
 
@@ -366,8 +364,11 @@ public class IncrementCounterContextTest
 
         assert IContext.ContextRelationship.LESS_THAN ==
             icc.compare(left, right);
-*/
+    }
 
+    @Test
+    public void testDiff()
+    {
         byte[] left = new byte[3 * stepLength];
         byte[] right;
 
@@ -378,7 +379,7 @@ public class IncrementCounterContextTest
         right = ArrayUtils.clone(left);
 
         assert IContext.ContextRelationship.EQUAL ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // greater than: left has superset of nodes (counts equal)
         left = new byte[4 * stepLength];
@@ -393,7 +394,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L, 1L);
 
         assert IContext.ContextRelationship.GREATER_THAN ==
-            icc.compare(left, right);
+            icc.diff(left, right);
         
         // less than: left has subset of nodes (counts equal)
         left = new byte[3 * stepLength];
@@ -408,7 +409,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 3, FBUtilities.toByteArray(12), 0L, 1L);
 
         assert IContext.ContextRelationship.LESS_THAN ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // greater than: equal nodes, but left has higher counts
         left = new byte[3 * stepLength];
@@ -422,7 +423,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L, 1L);
 
         assert IContext.ContextRelationship.GREATER_THAN ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // less than: equal nodes, but right has higher counts
         left = new byte[3 * stepLength];
@@ -436,7 +437,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 3L, 1L);
 
         assert IContext.ContextRelationship.LESS_THAN ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // disjoint: right and left have disjoint node sets
         left = new byte[3 * stepLength];
@@ -450,7 +451,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         left = new byte[3 * stepLength];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 1L, 1L);
@@ -463,7 +464,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(12), 1L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // disjoint: equal nodes, but right and left have higher counts in differing nodes
         left = new byte[3 * stepLength];
@@ -477,7 +478,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         left = new byte[3 * stepLength];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 2L, 1L);
@@ -490,7 +491,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // disjoint: left has more nodes, but lower counts
         left = new byte[4 * stepLength];
@@ -505,7 +506,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
         
         // disjoint: left has less nodes, but higher counts
         left = new byte[3 * stepLength];
@@ -520,7 +521,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 3, FBUtilities.toByteArray(12), 1L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         // disjoint: mixed nodes and counts
         left = new byte[3 * stepLength];
@@ -535,7 +536,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 3, FBUtilities.toByteArray(12), 1L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
 
         left = new byte[4 * stepLength];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 5L, 1L);
@@ -549,7 +550,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 2L, 1L);
 
         assert IContext.ContextRelationship.DISJOINT ==
-            icc.compare(left, right);
+            icc.diff(left, right);
     }
 
     @Test
@@ -663,12 +664,10 @@ public class IncrementCounterContextTest
         assert 3L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength);
         assert 3L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength + countLength);
 
-        icc.cleanNodeCounts(bytes, InetAddress.getByAddress(FBUtilities.toByteArray(4)));
+        bytes = icc.cleanNodeCounts(bytes, InetAddress.getByAddress(FBUtilities.toByteArray(4)));
 
-        // node: 0.0.0.4's counts should now be reset
-        assert 4  == FBUtilities.byteArrayToInt(bytes,  2*stepLength);
-        assert 0L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength);
-        assert 3L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength + countLength);
+        // node: 0.0.0.4 should be removed
+        assert 3 * stepLength == bytes.length;
 
         // other nodes should be unaffected
         assert 1  == FBUtilities.byteArrayToInt(bytes,  0*stepLength);
@@ -679,8 +678,8 @@ public class IncrementCounterContextTest
         assert 2L == FBUtilities.byteArrayToLong(bytes, 1*stepLength + idLength);
         assert 2L == FBUtilities.byteArrayToLong(bytes, 1*stepLength + idLength + countLength);
 
-        assert 8  == FBUtilities.byteArrayToInt(bytes,  3*stepLength);
-        assert 4L == FBUtilities.byteArrayToLong(bytes, 3*stepLength + idLength);
-        assert 4L == FBUtilities.byteArrayToLong(bytes, 3*stepLength + idLength + countLength);
+        assert 8  == FBUtilities.byteArrayToInt(bytes,  2*stepLength);
+        assert 4L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength);
+        assert 4L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength + countLength);
     }
 }

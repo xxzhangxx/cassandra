@@ -290,7 +290,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     }
 
     private static String getColumnFamilyFromFileName(String filename)
-            {
+    {
         return filename.split("-")[0];
     }
 
@@ -1072,6 +1072,11 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     public AbstractType getComparator()
     {
         return DatabaseDescriptor.getComparator(table_, columnFamily_);
+    }
+
+    public ColumnType getColumnType()
+    {
+        return DatabaseDescriptor.getColumnType(table_, columnFamily_);
     }
 
     /**

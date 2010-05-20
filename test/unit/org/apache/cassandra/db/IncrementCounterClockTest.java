@@ -84,8 +84,6 @@ public class IncrementCounterClockTest
         IncrementCounterClock clock;
         IncrementCounterClock other;
 
-//TODO: FIXME (when delete strategy implemented, modify test)
-/*
         // greater than
         clock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1L), FBUtilities.toByteArray(10L)
@@ -115,7 +113,13 @@ public class IncrementCounterClockTest
         assert clock.compare(other) == IClock.ClockRelationship.LESS_THAN;
 
         // disjoint: not possible
-*/
+    }
+
+    @Test
+    public void testDiff() throws UnknownHostException
+    {
+        IncrementCounterClock clock;
+        IncrementCounterClock other;
 
         // greater than
         clock = new IncrementCounterClock(new byte[0]);
@@ -123,7 +127,7 @@ public class IncrementCounterClockTest
 
         other = new IncrementCounterClock(new byte[0]);
 
-        assert clock.compare(other) == IClock.ClockRelationship.GREATER_THAN;
+        assert clock.diff(other) == IClock.ClockRelationship.GREATER_THAN;
 
         // equal
         clock = new IncrementCounterClock(new byte[0]);
@@ -132,7 +136,7 @@ public class IncrementCounterClockTest
         other = new IncrementCounterClock(new byte[0]);
         other.update(InetAddress.getByAddress(FBUtilities.toByteArray(1)), 1L);
 
-        assert clock.compare(other) == IClock.ClockRelationship.EQUAL;
+        assert clock.diff(other) == IClock.ClockRelationship.EQUAL;
 
         // less than
         clock = new IncrementCounterClock(new byte[0]);
@@ -141,7 +145,7 @@ public class IncrementCounterClockTest
         other.update(InetAddress.getByAddress(FBUtilities.toByteArray(1)), 1L);
         other.update(InetAddress.getByAddress(FBUtilities.toByteArray(1)), 1L);
 
-        assert clock.compare(other) == IClock.ClockRelationship.LESS_THAN;
+        assert clock.diff(other) == IClock.ClockRelationship.LESS_THAN;
 
         // disjoint
         clock = new IncrementCounterClock(new byte[0]);
@@ -153,7 +157,7 @@ public class IncrementCounterClockTest
         other.update(InetAddress.getByAddress(FBUtilities.toByteArray(9)), 1L);
         other.update(InetAddress.getByAddress(FBUtilities.toByteArray(1)), 1L);
 
-        assert clock.compare(other) == IClock.ClockRelationship.DISJOINT;
+        assert clock.diff(other) == IClock.ClockRelationship.DISJOINT;
     }
 
     @Test
@@ -263,10 +267,8 @@ public class IncrementCounterClockTest
         clock.cleanNodeCounts(InetAddress.getByAddress(FBUtilities.toByteArray(9)));
         bytes = clock.context();
 
-        // verify that node: 0.0.0.9 is reset
-        assert   9 == FBUtilities.byteArrayToInt(bytes,  3*stepLength);
-        assert  0L == FBUtilities.byteArrayToLong(bytes, 3*stepLength + idLength);
-        assert  2L == FBUtilities.byteArrayToLong(bytes, 3*stepLength + idLength + countLength);
+        // node: 0.0.0.9 should be removed
+        assert 4 * stepLength == bytes.length;
 
         // verify that the other nodes are unmodified
         assert    5 == FBUtilities.byteArrayToInt(bytes,  0*stepLength);
@@ -281,9 +283,9 @@ public class IncrementCounterClockTest
         assert 15L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength);
         assert  3L == FBUtilities.byteArrayToLong(bytes, 2*stepLength + idLength + countLength);
 
-        assert   7 == FBUtilities.byteArrayToInt(bytes,  4*stepLength);
-        assert  1L == FBUtilities.byteArrayToLong(bytes, 4*stepLength + idLength);
-        assert  1L == FBUtilities.byteArrayToLong(bytes, 4*stepLength + idLength + countLength);
+        assert   7 == FBUtilities.byteArrayToInt(bytes,  3*stepLength);
+        assert  1L == FBUtilities.byteArrayToLong(bytes, 3*stepLength + idLength);
+        assert  1L == FBUtilities.byteArrayToLong(bytes, 3*stepLength + idLength + countLength);
     }
 
     @Test
