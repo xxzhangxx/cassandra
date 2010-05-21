@@ -47,17 +47,17 @@ public class TimestampClock implements IClock
     {
         assert other instanceof TimestampClock : "Wrong class type.";
 
-        int compare = (new Long(timestamp)).compareTo(
-            new Long(((TimestampClock)other).timestamp()));
-        if (compare > 0)
+        long otherTimestamp = ((TimestampClock)other).timestamp();
+        
+        if (timestamp > otherTimestamp)
         {
             return ClockRelationship.GREATER_THAN;
         }
-        else if (compare == 0)
+        else if (timestamp == otherTimestamp)
         {
             return ClockRelationship.EQUAL;
         }
-        // compare < 0
+        // timestamp < otherTimestamp
         return ClockRelationship.LESS_THAN;
     }
 

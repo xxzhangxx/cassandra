@@ -228,16 +228,16 @@ public class IncrementCounterContext implements IContext
             highestRightTimestamp = Math.max(rightTimestamp, highestRightTimestamp);
         }
 
-        int compare = Long.valueOf(highestLeftTimestamp).compareTo(Long.valueOf(highestRightTimestamp));
-        if (compare < 0)
-        {
-            return ContextRelationship.LESS_THAN;
-        }
-        else if (compare > 0)
+        if (highestLeftTimestamp > highestRightTimestamp)
         {
             return ContextRelationship.GREATER_THAN;
         }
-        return ContextRelationship.EQUAL;
+        else if (highestLeftTimestamp == highestRightTimestamp)
+        {
+            return ContextRelationship.EQUAL;
+        }
+        // highestLeftTimestamp < highestRightTimestamp
+        return ContextRelationship.LESS_THAN;
     }
 
     /**
