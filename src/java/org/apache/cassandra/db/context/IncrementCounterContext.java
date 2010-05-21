@@ -347,6 +347,9 @@ public class IncrementCounterContext implements IContext
         }
 
         // check final lengths
+//TODO: FIX: right now, this is broken until we modify the counter structure to be:
+//           [timestamp + [(node id, count), ...]]
+//           because, we use node 0.0.0.0 as a flag node for deletes
         if (leftIndex < left.length)
         {
             if (relationship == ContextRelationship.EQUAL) {
