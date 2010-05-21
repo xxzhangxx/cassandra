@@ -269,21 +269,19 @@ public class IncrementCounterContext implements IContext
                                                              idLength);
             if (compareId == 0)
             {
-                // calculate comparison
-                long compareCount =
-                    FBUtilities.byteArrayToLong(left, leftIndex + idLength) -
-                    FBUtilities.byteArrayToLong(right, rightIndex + idLength);
+                long leftCount  = FBUtilities.byteArrayToLong(left,  leftIndex  + idLength);
+                long rightCount = FBUtilities.byteArrayToLong(right, rightIndex + idLength);
 
                 // advance indexes
-                leftIndex += stepLength;
+                leftIndex  += stepLength;
                 rightIndex += stepLength;
 
-                // process comparison
-                if (compareCount == 0)
+                // process count comparisons
+                if (leftCount == rightCount)
                 {
                     continue;
                 }
-                else if (compareCount > 0)
+                else if (leftCount > rightCount)
                 {
                     if (relationship == ContextRelationship.EQUAL) {
                         relationship = ContextRelationship.GREATER_THAN;
@@ -297,7 +295,7 @@ public class IncrementCounterContext implements IContext
                         return ContextRelationship.DISJOINT;
                     }
                 }
-                else // compareCount < 0
+                else // leftCount < rightCount
                 {
                     if (relationship == ContextRelationship.EQUAL) {
                         relationship = ContextRelationship.LESS_THAN;
