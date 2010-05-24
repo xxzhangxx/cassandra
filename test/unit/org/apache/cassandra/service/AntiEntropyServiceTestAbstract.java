@@ -44,16 +44,17 @@ import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class AntiEntropyServiceTest extends CleanupHelper
+public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
 {
     // table and column family to test against
     public AntiEntropyService aes;
 
-    public static String tablename;
-    public static String cfname;
-    public static InetAddress LOCAL, REMOTE;
+    public String tablename;
+    public String cfname;
+    public IClock clock;
+    public InetAddress LOCAL, REMOTE;
 
-    private static boolean initialized;
+    private boolean initialized;
 
     @Before
     public void prepare() throws Exception
@@ -61,8 +62,7 @@ public class AntiEntropyServiceTest extends CleanupHelper
         if (!initialized)
         {
             LOCAL = FBUtilities.getLocalAddress();
-            tablename = "Keyspace4";
-
+            
             StorageService.instance.initServer();
             // generate a fake endpoint for which we can spoof receiving/sending trees
             TokenMetadata tmd = StorageService.instance.getTokenMetadata();
@@ -71,7 +71,6 @@ public class AntiEntropyServiceTest extends CleanupHelper
             tmd.updateNormalToken(part.getMinimumToken(), REMOTE);
             assert tmd.isMember(REMOTE);
 
-            cfname = Table.open(tablename).getColumnFamilies().iterator().next();
             initialized = true;
         }
         aes = AntiEntropyService.instance;
@@ -108,7 +107,7 @@ public class AntiEntropyServiceTest extends CleanupHelper
         List<RowMutation> rms = new LinkedList<RowMutation>();
         RowMutation rm;
         rm = new RowMutation(tablename, "key1");
-        rm.add(new QueryPath(cfname, null, "Column1".getBytes()), "asdf".getBytes(), new TimestampClock(0));
+        rm.add(new QueryPath(cfname, null, "Column1".getBytes()), "asdf".getBytes(), clock);
         rms.add(rm);
         Util.writeColumnFamily(rms);
 
@@ -166,7 +165,7 @@ public class AntiEntropyServiceTest extends CleanupHelper
         // populate column family
         List<RowMutation> rms = new LinkedList<RowMutation>();
         RowMutation rm = new RowMutation(tablename, "key");
-        rm.add(new QueryPath(cfname, null, "Column1".getBytes()), "asdf".getBytes(), new TimestampClock(0));
+        rm.add(new QueryPath(cfname, null, "Column1".getBytes()), "asdf".getBytes(), clock);
         rms.add(rm);
         // with two SSTables
         Util.writeColumnFamily(rms);

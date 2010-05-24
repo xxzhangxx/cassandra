@@ -23,7 +23,7 @@
    <CommitLogSync>batch</CommitLogSync>
    <CommitLogSyncBatchWindowInMS>1.0</CommitLogSyncBatchWindowInMS>
    <Partitioner>org.apache.cassandra.dht.CollatingOrderPreservingPartitioner</Partitioner>
-   <RpcTimeoutInMillis>5000</RpcTimeoutInMillis>
+   <RpcTimeoutInMillis>20000</RpcTimeoutInMillis>
    <ListenAddress>127.0.0.1</ListenAddress>
    <StoragePort>7010</StoragePort>
    <ThriftPort>9170</ThriftPort>
@@ -73,6 +73,7 @@
        <ColumnFamily Name="Standard3"/>
        <ColumnFamily ColumnType="Super" Name="Super3"/>
        <ColumnFamily ColumnType="Super" CompareSubcolumnsWith="TimeUUIDType" Name="Super4"/>
+       <ColumnFamily ColumnType="IncrementCounter" CompareWith="BytesType" ReconcileWith="IncrementCounterReconciler" Name="IncrementCounter1"/>
        <ReplicaPlacementStrategy>org.apache.cassandra.locator.RackUnawareStrategy</ReplicaPlacementStrategy>
        <ReplicationFactor>3</ReplicationFactor>
        <EndPointSnitch>org.apache.cassandra.locator.EndPointSnitch</EndPointSnitch>
