@@ -525,6 +525,7 @@ public class CassandraServer implements Cassandra {
                         ClockType.create(clockType),
                         DatabaseDescriptor.getComparator(compare),
                         subCompare.length() == 0 ? null : DatabaseDescriptor.getComparator(subCompare),
+                        DatabaseDescriptor.getReconciler(cfDef.reconciler.toString()),
                         cfDef.comment == null ? D_CF_COMMENT : cfDef.comment.toString(), 
                         cfDef.row_cache_size == null ? D_CF_ROWCACHE : cfDef.row_cache_size,
                         cfDef.preload_row_cache == null ? D_CF_PRELOAD_ROWCACHE : cfDef.preload_row_cache,

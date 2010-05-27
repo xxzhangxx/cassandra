@@ -22,6 +22,7 @@ import org.apache.cassandra.auth.AllowAllAuthenticator;
 import org.apache.cassandra.auth.IAuthenticator;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.commitlog.CommitLog;
+import org.apache.cassandra.db.context.AbstractReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.db.marshal.TimeUUIDType;
@@ -507,11 +508,29 @@ public class DatabaseDescriptor
                     throw new ConfigurationException("compare_subcolumns_with is only a valid attribute on super columnfamilies (not regular columnfamily " + cf.name + ")");
                 }
                 
+                // default
+                if (cf.clock_type == null)
+                    cf.clock_type = ClockType.Timestamp;
+                
+                AbstractReconciler reconciler = null;
+                if (cf.clock_type.isContext())
+                {
+                    if (cf.reconciler == null || "".equals(cf.reconciler))
+                    {
+                        throw new ConfigurationException("Must specify reconciler on context-based columnfamilies: " + cf.name);
+                    }
+                    reconciler = getReconciler(cf.reconciler);
+                }
+                else if (cf.reconciler != null)
+                {
+                    throw new ConfigurationException("Reconciler is only a valid attribute on context-based columnfamilies (not regular / super columnfamily " + cf.name + ")");
+                }
+                
                 if (cf.read_repair_chance < 0.0 || cf.read_repair_chance > 1.0)
                 {                        
                     throw new ConfigurationException("read_repair_chance must be between 0.0 and 1.0");
                 }
-                cfDefs[j++] = new CFMetaData(keyspace.name, cf.name, cfType, ClockType.Timestamp, comparator, subcolumnComparator, cf.comment, cf.rows_cached, cf.preload_row_cache, cf.keys_cached, cf.read_repair_chance);
+                cfDefs[j++] = new CFMetaData(keyspace.name, cf.name, cfType, cf.clock_type, comparator, subcolumnComparator, reconciler, cf.comment, cf.rows_cached, cf.preload_row_cache, cf.keys_cached, cf.read_repair_chance);
             }
             defs.add(new KSMetaData(keyspace.name, strategyClass, keyspace.replication_factor, cfDefs));
             
@@ -554,6 +573,55 @@ public class DatabaseDescriptor
         try
         {
             return typeClass.getConstructor().newInstance();
+        }
+        catch (InstantiationException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        catch (IllegalAccessException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        catch (InvocationTargetException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+        catch (NoSuchMethodException e)
+        {
+            ConfigurationException ex = new ConfigurationException(e.getMessage());
+            ex.initCause(e);
+            throw ex;
+        }
+    }
+
+    public static AbstractReconciler getReconciler(String reconcileWith) throws ConfigurationException
+    {
+        if (reconcileWith == null || "".equals(reconcileWith))
+        {
+            return null;
+        }
+        
+        Class<? extends AbstractReconciler> reconcilerClass;
+        {
+            String className = reconcileWith.contains(".") ? reconcileWith : "org.apache.cassandra.db.context." + reconcileWith;
+            try
+            {
+                reconcilerClass = (Class<? extends AbstractReconciler>)Class.forName(className);
+            }
+            catch (ClassNotFoundException e)
+            {
+                throw new ConfigurationException("Unable to load class " + className);
+            }
+        }
+        try
+        {
+            return reconcilerClass.getConstructor().newInstance();
         }
         catch (InstantiationException e)
         {
@@ -880,6 +948,15 @@ public class DatabaseDescriptor
     public static int getStageQueueSize()
     {
         return stageQueueSize_;
+    }
+
+    public static AbstractReconciler getReconciler(String tableName, String cfName)
+    {
+        assert tableName != null;
+        CFMetaData cfmd = getCFMetaData(tableName, cfName);
+        if (cfmd == null)
+            throw new NullPointerException("Unknown ColumnFamily " + cfName + " in keyspace " + tableName);
+        return cfmd.reconciler;
     }
 
     /**

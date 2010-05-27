@@ -153,6 +153,16 @@ public class Column implements IColumn
         return null;
     }
 
+    public IColumn diffForIncrementCounter(IColumn column)
+    {
+        // need to use alternate code path for counters (data encapsulated in clock)
+        if (ClockRelationship.GREATER_THAN == ((IncrementCounterClock)column.clock()).diff(clock))
+        {
+            return column;
+        }
+        return null;
+    }
+
     public void updateDigest(MessageDigest digest)
     {
         digest.update(name);

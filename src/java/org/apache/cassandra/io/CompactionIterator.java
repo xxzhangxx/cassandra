@@ -49,7 +49,7 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
     protected static final int FILE_BUFFER_SIZE = 1024 * 1024;
 
     private final List<SSTableIdentityIterator> rows = new ArrayList<SSTableIdentityIterator>();
-    private final int gcBefore;
+    protected final int gcBefore;
     private final boolean major;
 
     private long totalBytes;
@@ -97,6 +97,12 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
         rows.add(current);
     }
 
+//TODO: TEST
+    protected ColumnFamily calculatePurgedColumnFamily(ColumnFamily cf)
+    {
+        return major ? ColumnFamilyStore.removeDeleted(cf, gcBefore) : cf;
+    }
+
     protected CompactedRow getReduced()
     {
         assert rows.size() > 0;
@@ -129,7 +135,9 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
                         cf.addAll(thisCF);
                     }
                 }
-                ColumnFamily cfPurged = major ? ColumnFamilyStore.removeDeleted(cf, gcBefore) : cf;
+//TODO: TEST
+//                ColumnFamily cfPurged = major ? ColumnFamilyStore.removeDeleted(cf, gcBefore) : cf;
+                ColumnFamily cfPurged = calculatePurgedColumnFamily(cf);
                 if (cfPurged == null)
                     return null;
                 ColumnFamily.serializer().serializeWithIndexes(cfPurged, buffer);

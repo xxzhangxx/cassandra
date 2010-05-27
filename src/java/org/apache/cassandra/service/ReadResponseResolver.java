@@ -79,12 +79,32 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             ReadResponse result = ReadResponse.serializer().deserialize(new DataInputStream(bufIn));
             if (result.isDigestQuery())
             {
+//TODO: TEST (compare multiple digests)
+                if (isDigestQuery)
+                {
+                    byte[] resultDigest = result.digest();
+                    if (!Arrays.equals(resultDigest, digest))
+                    {
+                        /* Wrap the key as the context in this exception */
+                        String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(resultDigest), FBUtilities.bytesToHex(digest));
+                        throw new DigestMismatchException(s);
+                    }
+                }
                 digest = result.digest();
                 isDigestQuery = true;
             }
             else
             {
-                versions.add(result.row().cf);
+//TODO: MODIFY: [not deterministic] clean counts from remote replicas
+                ColumnFamily cf = result.row().cf;
+                if (!FBUtilities.getLocalAddress().equals(response.getFrom()) &&
+                    cf != null && cf.getClockType() == ClockType.IncrementCounter)
+                {
+                    cf = cf.cloneMe();
+                    cf.cleanForIncrementCounter();
+                }
+
+                versions.add(cf);
                 endpoints.add(response.getFrom());
                 key = result.row().key;
             }
@@ -112,6 +132,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 		return new Row(key, resolved);
 	}
 
+//TODO: TEST
     /**
      * For each row version, compare with resolved (the superset of all row versions);
      * if it is missing anything, send a mutation to the endpoint it come from.
@@ -126,6 +147,15 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 
             // create and send the row mutation message based on the diff
             RowMutation rowMutation = new RowMutation(table, key.key);
+//TODO: TEST (clean remote node's counts, when sending read repair)
+            if (diffCf.getClockType() == ClockType.IncrementCounter)
+            {
+                diffCf.cleanForIncrementCounter(endpoints.get(i));
+//TODO: MODIFY: the check in ColumnFamilyStore.removeDeleted() appears better
+                if (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete())
+                    continue;
+            }
+
             rowMutation.add(diffCf);
             RowMutationMessage rowMutationMessage = new RowMutationMessage(rowMutation);
             Message repairMessage;
@@ -141,6 +171,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         }
     }
 
+//TODO: TEST
     static ColumnFamily resolveSuperset(List<ColumnFamily> versions)
     {
         assert versions.size() > 0;
@@ -149,7 +180,9 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             if (cf != null)
             {
-                resolved = cf.cloneMe();
+//TODO: TEST (shallow clone for incr counters)
+//                resolved = cf.cloneMe();
+                resolved = cf.cloneMeShallow();
                 break;
             }
         }

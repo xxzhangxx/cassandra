@@ -24,11 +24,12 @@ import java.util.Comparator;
 import java.util.Arrays;
 import org.apache.commons.lang.ArrayUtils;
 
+import org.apache.cassandra.db.IncrementCounterClock;
 import org.apache.cassandra.db.KeyspaceNotDefinedException;
 import org.apache.cassandra.db.ColumnFamily;
+import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.IColumn;
 import org.apache.cassandra.db.ColumnFamilyType;
-import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.MarshalException;
@@ -243,11 +244,15 @@ public class ThriftValidation
 
     public static IClock validateClock(Clock clock) throws InvalidRequestException
     {
+        if (clock.isSetTimestamp() && clock.isSetContext())
+        {
+            throw new InvalidRequestException("Clock must have one of timestamp or context, but not both");
+        }
         if (clock.isSetTimestamp())
         {
             return new TimestampClock(clock.getTimestamp());
         }
-        throw new InvalidRequestException("Clock must have one a timestamp");
+        return new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
     }
 
     public static void validateMutation(String keyspace, String cfName, Mutation mut)

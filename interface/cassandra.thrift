@@ -59,7 +59,8 @@ const string VERSION = "7.0.0"
  *                   are made about what the timestamp represents, but using microseconds-since-epoch is customary.
  */
 struct Clock {
-   1: required i64 timestamp,
+   1: optional i64 timestamp,
+   2: optional binary context, # version
 }
 
 /** Basic unit of data within a ColumnFamily.
@@ -160,10 +161,10 @@ exception AuthorizationException {
  *   ZERO         Not supported, because it doesn't make sense.
  *   ANY          Not supported. You probably want ONE instead.
  *   ONE          Will return the record returned by the first node to respond. A consistency check is always done in a background thread to fix any consistency issues when ConsistencyLevel.ONE is used. This means subsequent calls will have correct data even if the initial read gets an older value. (This is called 'read repair'.)
- *   QUORUM       Will query all storage nodes and return the record with the most recent timestamp once it has at least a majority of replicas reported. Again, the remaining replicas will be checked in the background.
- *   DCQUORUM     Returns the record with the most recent timestamp once a majority of replicas within the local datacenter have replied.
- *   DCQUORUMSYNC Returns the record with the most recent timestamp once a majority of replicas within each datacenter have replied.
- *   ALL          Queries all storage nodes and returns the record with the most recent timestamp.
+ *   QUORUM       Will query all storage nodes and return the record with the most recent clock once it has at least a majority of replicas reported. Again, the remaining replicas will be checked in the background.
+ *   DCQUORUM     Returns the record with the most recent clock once a majority of replicas within the local datacenter have replied.
+ *   DCQUORUMSYNC Returns the record with the most recent clock once a majority of replicas within each datacenter have replied.
+ *   ALL          Queries all storage nodes and returns the record with the most recent clock.
 */
 enum ConsistencyLevel {
     ZERO = 0,
@@ -322,10 +323,11 @@ struct CfDef {
     4: optional string clock_type="Timestamp",
     5: optional string comparator_type="BytesType",
     6: optional string subcomparator_type="",
-    7: optional string comment="",
-    8: optional double row_cache_size=0,
-    9: optional bool preload_row_cache=0,
-    10: optional double key_cache_size=200000,
+    7: optional string reconciler="",
+    8: optional string comment="",
+    9: optional double row_cache_size=0,
+    10: optional bool preload_row_cache=0,
+    11: optional double key_cache_size=200000
 }
 
 /* describes a keyspace. */
