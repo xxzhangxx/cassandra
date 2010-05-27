@@ -22,6 +22,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 
@@ -311,25 +313,106 @@ public class RowMutation
 
     private static void deleteColumnOrSuperColumnToRowMutation(RowMutation rm, String cfName, Deletion del)
     {
+        IClock deleteClock = unthriftifyClockForDelete(del.clock);
         if (del.predicate != null && del.predicate.column_names != null)
         {
             for(byte[] c : del.predicate.column_names)
             {
                 if (del.super_column == null && DatabaseDescriptor.getColumnFamilyType(rm.table_, cfName) == ColumnFamilyType.Super)
-                    rm.delete(new QueryPath(cfName, c), unthriftifyClock(del.clock));
+                    rm.delete(new QueryPath(cfName, c), deleteClock);
                 else
-                    rm.delete(new QueryPath(cfName, del.super_column, c), unthriftifyClock(del.clock));
+                    rm.delete(new QueryPath(cfName, del.super_column, c), deleteClock);
             }
         }
         else
         {
-            rm.delete(new QueryPath(cfName, del.super_column), unthriftifyClock(del.clock));
+            rm.delete(new QueryPath(cfName, del.super_column), deleteClock);
         }
     }
 
     private static IClock unthriftifyClock(Clock clock)
     {
-        return new TimestampClock(clock.getTimestamp());
+        if (clock.isSetTimestamp())
+        {
+            return new TimestampClock(clock.getTimestamp());
+        }
+        else if(!clock.isSetContext())
+        {
+            return new IncrementCounterClock(clock.context);
+        }
+        return null;
+    }
+
+//TODO: REMOVE (temporary fix, until clock context structure modified)
+    private static IClock unthriftifyClockForDelete(Clock clock)
+    {
+        if (clock.isSetTimestamp())
+        {
+            return new TimestampClock(clock.getTimestamp());
+        }
+
+        IClock cassandra_clock = new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
+        try
+        {
+            ((IncrementCounterClock)cassandra_clock).update(InetAddress.getByAddress(new byte[4]), 0L);
+        }
+        catch (UnknownHostException e)
+        {
+            assert false : "We need to temporarily use 0.0.0.0 as a flag node for delete.";
+        }
+        return cassandra_clock;
+    }
+
+//TODO: TEST
+    // XXX: should only be called by: db.Table : apply()
+    // update the context of all Columns in this RowMutation
+    public void updateClocks(InetAddress node)
+    {
+        for (Map.Entry<Integer, ColumnFamily> entry : modifications_.entrySet())
+        {
+            ColumnFamily cf = entry.getValue();
+            ClockType clockType = cf.getClockType();
+            if (clockType == ClockType.IncrementCounter)
+            {
+                updateIncrementCounterClocks(node, cf);
+            }
+        }
+    }
+
+    private void updateIncrementCounterClocks(InetAddress node, ColumnFamily cf)
+    {
+        // standard column family
+        if (!cf.isSuper())
+        {
+            for (IColumn col : cf.getSortedColumns())
+            {
+                if (col.isMarkedForDelete())
+                    continue;
+
+//TODO: MODIFY: prob need to create new Column()
+                // update in-place, although Column is (abstractly) immutable
+                ((IncrementCounterClock)col.clock()).update(
+                    node,
+                    FBUtilities.byteArrayToLong(col.value()));
+
+            }
+            return;
+        }
+
+        // super column family
+        for (IColumn col : cf.getSortedColumns())
+        {
+            for (IColumn subCol : col.getSubColumns())
+            {
+                if (subCol.isMarkedForDelete())
+                    continue;
+
+//TODO: MODIFY: prob need to create new Column()
+                ((IncrementCounterClock)subCol.clock()).update(
+                    node,
+                    FBUtilities.byteArrayToLong(subCol.value()));
+            }
+        }
     }
 }
 

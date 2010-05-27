@@ -21,7 +21,8 @@ import org.apache.cassandra.io.ICompactSerializer2;
 
 public enum ClockType
 {
-    Timestamp;
+    Timestamp,
+    IncrementCounter;
 
     public final static ClockType create(String name)
     {
@@ -38,11 +39,35 @@ public enum ClockType
 
     public final IClock minClock()
     {
-        return TimestampClock.MIN_VALUE;
+        switch (this)
+        {
+        case Timestamp:
+            return TimestampClock.MIN_VALUE;
+        case IncrementCounter:
+            return IncrementCounterClock.MIN_VALUE;
+        default:
+            return null;
+        }
     }
 
     public final ICompactSerializer2<IClock> serializer()
     {
-        return TimestampClock.SERIALIZER;
+        switch (this)
+        {
+        case Timestamp:
+            return TimestampClock.SERIALIZER;
+        case IncrementCounter:
+            return IncrementCounterClock.SERIALIZER;
+        default:
+            return null;
+        }
+    }
+    
+    public boolean isContext()
+    {
+        if (this == IncrementCounter)
+            return true;
+        else
+            return false;
     }
 }

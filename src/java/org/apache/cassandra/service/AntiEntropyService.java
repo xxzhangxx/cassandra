@@ -25,6 +25,7 @@ import java.util.concurrent.*;
 
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.db.ClockType;
 import org.apache.cassandra.db.CompactionManager;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DecoratedKey;
@@ -651,7 +652,7 @@ public class AntiEntropyService
             try
             {
                 List<Range> ranges = new ArrayList<Range>(differences);
-                List<SSTableReader> sstables = CompactionManager.instance.submitAnticompaction(cfstore, ranges, remote).get();
+                List<SSTableReader> sstables = CompactionManager.instance.submitAESCompaction(cfstore, ranges, remote).get();
                 StreamOut.transferSSTables(remote, sstables, cf.left);
             }
             catch(Exception e)

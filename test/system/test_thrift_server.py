@@ -1183,6 +1183,103 @@ class TestMutations(ThriftTester):
         def req():
             client.describe_ring('system')
         _expect_exception(req, InvalidRequestException)
+
+    def test_incr_standard_insert(self):
+        d1 = 12
+        d2 = -21
+        d3 = 35
+        d1p = struct.pack('>q', d1)
+        d2p = struct.pack('>q', d2)
+        d3p = struct.pack('>q', d3)
+        _set_keyspace('Keyspace1')
+        # insert positive and negative values and check the counts
+        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv1 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv1.column.value)[0] == d1
+
+        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d2p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv2 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv2.column.value)[0] == (d1+d2)
+
+        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d3p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv3 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
+
+    def test_incr_super_insert(self):
+        d1 = -234
+        d2 = 52345
+        d3 = 3123
+        d1p = struct.pack('>q', d1)
+        d2p = struct.pack('>q', d2)
+        d3p = struct.pack('>q', d3)
+        _set_keyspace('Keyspace1')
+        client.insert('key1', ColumnParent('SuperIncrementCounter1', 'sc1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv1 = client.get('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv1.column.value)[0] == d1
+
+        client.insert('key1', ColumnParent('SuperIncrementCounter1', 'sc1'), Column('c1', d2p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv2 = client.get('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv2.column.value)[0] == (d1+d2)
+
+        client.insert('key1', ColumnParent('SuperIncrementCounter1', 'sc1'), Column('c1', d3p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv3 = client.get('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
+
+    def test_incr_standard_remove(self):
+        d1 = 124
+        d1p = struct.pack('>q', d1)
+
+        _set_keyspace('Keyspace1')
+        # insert value and check it exists
+        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv1 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv1.column.value)[0] == d1
+
+        # remove the previous column and check that it is gone
+        client.remove('key1', ColumnPath('IncrementCounter1', column='c1'), Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        _assert_no_columnpath('key1', ColumnPath('IncrementCounter1', column='c1'))
+
+        # insert again and this time delete the whole row, check that it is gone
+        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d1, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv2 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv2.column.value)[0] == d1
+        client.remove('key1', ColumnPath('IncrementCounter1'), Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        _assert_no_columnpath('key1', ColumnPath('IncrementCounter1', column='c1'))
+
+    def test_incr_super_remove(self):
+        d1 = 52345
+        d1p = struct.pack('>q', d1)
+
+        _set_keyspace('Keyspace1')
+        # insert value and check it exists
+        client.insert('key1', ColumnParent('SuperIncrementCounter1', 'sc1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv1 = client.get('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv1.column.value)[0] == d1
+
+        # remove the previous column and check that it is gone
+        client.remove('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        _assert_no_columnpath('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'))
+
+        # insert again and this time delete the whole row, check that it is gone
+        client.insert('key1', ColumnParent('SuperIncrementCounter1', 'sc1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        rv2 = client.get('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv2.column.value)[0] == d1
+        client.remove('key1', ColumnPath('SuperIncrementCounter1', 'sc1'), Clock(), ConsistencyLevel.ONE)
+        time.sleep(0.1)
+        _assert_no_columnpath('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'))
         
 class TestTruncate(ThriftTester):
     def test_truncate(self):
@@ -1199,3 +1296,4 @@ class TestTruncate(ThriftTester):
         client.truncate('Keyspace1', 'Super1')
         assert _big_slice('key1', ColumnParent('Super1')) == []
         assert _big_slice('key1', ColumnParent('Super1', 'sc1')) == []
+        

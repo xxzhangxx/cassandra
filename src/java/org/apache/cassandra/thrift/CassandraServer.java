@@ -19,6 +19,9 @@
 package org.apache.cassandra.thrift;
 
 import java.io.IOException;
+//TODO: REMOVE (temporary, until counter context is refactored)
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 
@@ -443,6 +446,20 @@ public class CassandraServer implements Cassandra.Iface
         ThriftValidation.validateColumnPathOrParent(keySpace.get(), column_path);
 
         IClock cassandra_clock = ThriftValidation.validateClock(clock);
+//TODO: MODIFY (modify counter clock structure to be more compact: timestamp + [(node id, count)])
+        //XXX: temp impl, until clock context structure refactored
+        ClockType type = cassandra_clock.type();
+        if (type == ClockType.IncrementCounter)
+        {
+            try
+            {
+                ((IncrementCounterClock)cassandra_clock).update(InetAddress.getByAddress(new byte[4]), 0L);
+            }
+            catch (UnknownHostException e)
+            {
+                assert false : "We need to temporarily use 0.0.0.0 as a flag node for delete.";
+            }
+        }
 
         RowMutation rm = new RowMutation(keySpace.get(), key);
         rm.delete(new QueryPath(column_path), cassandra_clock);

@@ -23,7 +23,8 @@
       },
       {"name": "Clock", "type": "record",
           "fields": [
-            {"name": "timestamp", "type": "long"}
+            {"name": "timestamp", "type": "long"},
+            {"name": "context", "type": ["bytes", "null"]}
         ]
       },
       {"name": "Column", "type": "record",

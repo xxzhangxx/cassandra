@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.db;
 
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -226,6 +227,12 @@ public class ColumnFamily implements IColumnContainer
     */
     public void addColumn(IColumn column)
     {
+        if (clockType == ClockType.IncrementCounter)
+        {
+            addColumnForIncrementCounter(column);
+            return;
+        }
+
         byte[] name = column.name();
         IColumn oldColumn = columns.putIfAbsent(name, column);
         if (oldColumn != null)
@@ -246,6 +253,56 @@ public class ColumnFamily implements IColumnContainer
                     reconciledColumn = reconciler.reconcile((Column)column, (Column)oldColumn);
                     // try to re-update value, again
                 }
+            }
+        }
+    }
+
+    private void addColumnForIncrementCounter(IColumn newColumn)
+    {
+        byte[] name = newColumn.name();
+        IColumn oldColumn = columns.putIfAbsent(name, newColumn);
+        // if not present already, then return
+        if (oldColumn == null)
+        {
+            return;
+        }
+
+        // SuperColumn
+        if (oldColumn instanceof SuperColumn)
+        {
+            ((SuperColumn)oldColumn).putColumn(newColumn);
+            return;
+        }
+
+        // calculate reconciled col from old (existing) col and new col
+        IColumn reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
+        while (!columns.replace(name, oldColumn, reconciledColumn))
+        {
+            // if unable to replace, then get updated old (existing) col
+            oldColumn = columns.get(name);
+            // re-calculate reconciled col from updated old col and original new col
+            reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
+            // try to re-update value, again
+        }
+    }
+
+    public void cleanForIncrementCounter()
+    {
+        cleanForIncrementCounter(FBUtilities.getLocalAddress());
+    }
+
+//TODO: REFACTOR? (modify: 1) where CF is sanitized to be on read side; 2) how CF is sanitized)
+//TODO: TEST (clean remote replica counts for read repair)
+    public void cleanForIncrementCounter(InetAddress node)
+    {
+//TODO: MODIFY: support SuperColumn-type CF
+        for (IColumn column : getSortedColumns())
+        {
+            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
+            clock.cleanNodeCounts(node);
+            if (0 == clock.context().length)
+            {
+                remove(column.name());
             }
         }
     }
@@ -322,7 +379,7 @@ public class ColumnFamily implements IColumnContainer
             }
             else
             {
-                IColumn columnDiff = columnInternal.diff(columnExternal);
+                IColumn columnDiff = clockType == ClockType.IncrementCounter ? columnInternal.diffForIncrementCounter(columnExternal) : columnInternal.diff(columnExternal);
                 if (columnDiff != null)
                 {
                     cfDiff.addColumn(columnDiff);
