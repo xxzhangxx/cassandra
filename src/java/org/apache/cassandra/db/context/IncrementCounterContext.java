@@ -31,23 +31,30 @@ import org.apache.log4j.Logger;
 /**
  * An implementation of a distributed increment-only counter context.
  *
- * The data structure is a list of (node id, count) pairs.  As a value is updated,
- * the node updating the value will increment its associated count.  The
- * aggregated count can then be determined by rolling up all the counts from each
+ * The data structure is:
+ *   1) timestamp, and
+ *   2) a list of (node id, count) pairs.
+ *
+ * On update:
+ *   1) update timestamp to max(timestamp, local time), and
+ *   2) the node updating the value will increment its associated content.
+ *
+ * The aggregated count can then be determined by rolling up all the counts from each
  * (node id, count) pair.  NOTE: only a given node id may increment its associated
  * count and care must be taken that (node id, count) pairs are correctly made
  * consistent.
  */
 public class IncrementCounterContext implements IContext
 {
+    private static final int timestampLength = 8; // long
+
     private static final byte[] id;
     private static final int idLength;
     private static final FBUtilities.ByteArrayWrapper idWrapper;
 
-    private static final int countLength     = 8; // long
-    private static final int timestampLength = 8; // long
+    private static final int countLength = 8; // long
 
-    private static final int stepLength; // length: id + count + timestamp
+    private static final int stepLength; // length: id + count
 
     // lazy-load singleton
     private static class LazyHolder
@@ -61,7 +68,7 @@ public class IncrementCounterContext implements IContext
         idLength = id.length;
         idWrapper = new FBUtilities.ByteArrayWrapper(id);
 
-        stepLength = idLength + countLength + timestampLength;
+        stepLength = idLength + countLength;
     }
 
     public static IncrementCounterContext instance()
@@ -81,22 +88,21 @@ public class IncrementCounterContext implements IContext
      */
     public byte[] create()
     {
-        return ArrayUtils.EMPTY_BYTE_ARRAY;
+        return FBUtilities.toByteArray(System.currentTimeMillis());
     }
 
-    // write a tuple (node id, count, timestamp) at the front
+    // write a tuple (node id, count) at the front
     protected static void writeElement(byte[] context, byte[] id_, long count)
     {
-        writeElementAtStepOffset(context, 0, id_, count, System.currentTimeMillis());
+        writeElementAtStepOffset(context, 0, id_, count);
     }
 
-    // write a tuple (node id, count, timestamp) at step offset
-    protected static void writeElementAtStepOffset(byte[] context, int stepOffset, byte[] id_, long count, long timestamp)
+    // write a tuple (node id, count) at step offset
+    protected static void writeElementAtStepOffset(byte[] context, int stepOffset, byte[] id_, long count)
     {
-        int offset = stepOffset * stepLength;
+        int offset = timestampLength + (stepOffset * stepLength);
         System.arraycopy(id_, 0, context, offset, idLength);
         FBUtilities.copyIntoBytes(context, offset + idLength, count);
-        FBUtilities.copyIntoBytes(context, offset + idLength + countLength, timestamp);
     }
 
     /**
@@ -115,11 +121,14 @@ public class IncrementCounterContext implements IContext
 
     public byte[] update(byte[] context, InetAddress node, long delta)
     {
+        // update timestamp
+        FBUtilities.copyIntoBytes(context, 0, System.currentTimeMillis());
+
         // calculate node id
         byte[] nodeId = node.getAddress();
 
         // look for this node id
-        for (int offset = 0; offset < context.length; offset += stepLength)
+        for (int offset = timestampLength; offset < context.length; offset += stepLength)
         {
             if (FBUtilities.compareByteSubArrays(context, offset, nodeId, 0, idLength) != 0)
                 continue;
@@ -127,8 +136,13 @@ public class IncrementCounterContext implements IContext
             // node id found: increment count, shift to front
             long count = FBUtilities.byteArrayToLong(context, offset + idLength);
 
-            System.arraycopy(context, 0, context, stepLength, offset);
-            writeElement(context, nodeId, count+delta);
+            System.arraycopy(
+                context,
+                timestampLength,
+                context,
+                timestampLength + stepLength,
+                offset - timestampLength);
+            writeElement(context, nodeId, count + delta);
 
             return context;
         }
@@ -137,8 +151,14 @@ public class IncrementCounterContext implements IContext
         byte[] previous = context;
         context = new byte[previous.length + stepLength];
 
+        System.arraycopy(previous, 0, context, 0, timestampLength);
         writeElement(context, nodeId, delta);
-        System.arraycopy(previous, 0, context, stepLength, previous.length);
+        System.arraycopy(
+            previous,
+            timestampLength,
+            context,
+            timestampLength + stepLength,
+            previous.length - timestampLength);
 
         return context;
     }
@@ -160,19 +180,23 @@ public class IncrementCounterContext implements IContext
     // partition bytes of step length in context (for quicksort)
     protected static int partitionElements(byte[] context, int left, int right, int pivotIndex)
     {
-        byte[] pivotValue = ArrayUtils.subarray(context, pivotIndex, pivotIndex+stepLength);
-        swapElement(context, pivotIndex, right);
-        int storeIndex = left;
-        for (int i = left; i < right; i += stepLength)
+        int leftOffset  = timestampLength + (left       * stepLength);
+        int rightOffset = timestampLength + (right      * stepLength);
+        int pivotOffset = timestampLength + (pivotIndex * stepLength);
+
+        byte[] pivotValue = ArrayUtils.subarray(context, pivotOffset, pivotOffset + stepLength);
+        swapElement(context, pivotOffset, rightOffset);
+        int storeOffset = leftOffset;
+        for (int i = leftOffset; i < rightOffset; i += stepLength)
         {
             if (FBUtilities.compareByteSubArrays(context, i, pivotValue, 0, stepLength) <= 0)
             {
-                swapElement(context, i, storeIndex);
-                storeIndex += stepLength;
+                swapElement(context, i, storeOffset);
+                storeOffset += stepLength;
             }
         }
-        swapElement(context, storeIndex, right);
-        return storeIndex;
+        swapElement(context, storeOffset, rightOffset);
+        return (storeOffset - timestampLength) / stepLength;
     }
 
     // quicksort helper
@@ -181,23 +205,20 @@ public class IncrementCounterContext implements IContext
         if (right <= left) return;
 
         int pivotIndex = (left + right) / 2;
-        pivotIndex -= pivotIndex % stepLength;
         int pivotIndexNew = partitionElements(context, left, right, pivotIndex);
-        sortElementsByIdHelper(context, left, pivotIndexNew - stepLength);
-        sortElementsByIdHelper(context, pivotIndexNew + stepLength, right);
+        sortElementsByIdHelper(context, left, pivotIndexNew - 1);
+        sortElementsByIdHelper(context, pivotIndexNew + 1, right);
     }
 
     // quicksort context by id
     protected static byte[] sortElementsById(byte[] context)
     {
-        if ((context.length % stepLength) != 0)
-        {
-            throw new IllegalArgumentException("The context array isn't a multiple of step length.");
-        }
-
-        byte[] sorted = ArrayUtils.clone(context);
-        sortElementsByIdHelper(sorted, 0, sorted.length - stepLength);
-        return sorted;
+        assert 0 == ((context.length - timestampLength) % stepLength) : "context size is not correct.";
+        sortElementsByIdHelper(
+            context,
+            0,
+            (int)((context.length - timestampLength) / stepLength) - 1);
+        return context;
     }
 
     /**
@@ -214,30 +235,18 @@ public class IncrementCounterContext implements IContext
      */
     public ContextRelationship compare(byte[] left, byte[] right)
     {
-        long highestLeftTimestamp = Long.MIN_VALUE;
-        for (int offset = 0; offset < left.length; offset += stepLength)
-        {
-            long leftTimestamp = FBUtilities.byteArrayToLong(left, offset + idLength + countLength);
-            highestLeftTimestamp = Math.max(leftTimestamp, highestLeftTimestamp);
-        }
-
-        long highestRightTimestamp = Long.MIN_VALUE;
-        for (int offset = 0; offset < right.length; offset += stepLength)
-        {
-            long rightTimestamp = FBUtilities.byteArrayToLong(right, offset + idLength + countLength);
-            highestRightTimestamp = Math.max(rightTimestamp, highestRightTimestamp);
-        }
-
-        int compare = Long.valueOf(highestLeftTimestamp).compareTo(Long.valueOf(highestRightTimestamp));
-        if (compare < 0)
+        long leftTimestamp  = FBUtilities.byteArrayToLong(left,  0);
+        long rightTimestamp = FBUtilities.byteArrayToLong(right, 0);
+        
+        if (leftTimestamp < rightTimestamp)
         {
             return ContextRelationship.LESS_THAN;
         }
-        else if (compare > 0)
+        else if (leftTimestamp == rightTimestamp)
         {
-            return ContextRelationship.GREATER_THAN;
+            return ContextRelationship.EQUAL;
         }
-        return ContextRelationship.EQUAL;
+        return ContextRelationship.GREATER_THAN;
     }
 
     /**
@@ -259,12 +268,12 @@ public class IncrementCounterContext implements IContext
 
         ContextRelationship relationship = ContextRelationship.EQUAL;
 
-        int leftIndex = 0;
-        int rightIndex = 0;
+        int leftIndex  = timestampLength;
+        int rightIndex = timestampLength;
         while (leftIndex < left.length && rightIndex < right.length)
         {
             // compare id bytes
-            int compareId = FBUtilities.compareByteSubArrays(left, leftIndex,
+            int compareId = FBUtilities.compareByteSubArrays(left,  leftIndex,
                                                              right, rightIndex,
                                                              idLength);
             if (compareId == 0)
@@ -347,9 +356,6 @@ public class IncrementCounterContext implements IContext
         }
 
         // check final lengths
-//TODO: FIX: right now, this is broken until we modify the counter structure to be:
-//           [timestamp + [(node id, count), ...]]
-//           because, we use node 0.0.0.0 as a flag node for deletes
         if (leftIndex < left.length)
         {
             if (relationship == ContextRelationship.EQUAL) {
@@ -383,74 +389,74 @@ public class IncrementCounterContext implements IContext
     public byte[] merge(List<byte[]> contexts)
     {
         // strategy:
-        //   map id -> count, timestamp pairs
-        //      1) local id:  sum counts; keep highest timestamp
-        //      2) remote id: keep highest count (reconcile)
-        //   create an array sorted by timestamp
-        //   create a context from sorted array
-        Map<FBUtilities.ByteArrayWrapper, Pair<Long, Long>> contextsMap =
-            new HashMap<FBUtilities.ByteArrayWrapper, Pair<Long, Long>>();
+        //   1) take highest timestamp
+        //   2) map id -> count
+        //      a) local id:  sum counts; keep highest timestamp
+        //      b) remote id: keep highest count (reconcile)
+        //   3) create a context from sorted array
+        long highestTimestamp = Long.MIN_VALUE;
+        Map<FBUtilities.ByteArrayWrapper, Long> contextsMap =
+            new HashMap<FBUtilities.ByteArrayWrapper, Long>();
         for (byte[] context : contexts)
         {
-            for (int offset = 0; offset < context.length; offset += stepLength)
+            // take highest timestamp
+            highestTimestamp = Math.max(FBUtilities.byteArrayToLong(context, 0), highestTimestamp);
+
+            // map id -> count
+            for (int offset = timestampLength; offset < context.length; offset += stepLength)
             {
                 FBUtilities.ByteArrayWrapper id = new FBUtilities.ByteArrayWrapper(
                         ArrayUtils.subarray(context, offset, offset + idLength));
                 long count = FBUtilities.byteArrayToLong(context, offset + idLength);
-                long timestamp = FBUtilities.byteArrayToLong(context, offset + idLength + countLength);
 
                 if (!contextsMap.containsKey(id))
                 {
-                    contextsMap.put(id, new Pair<Long, Long>(count, timestamp));
+                    contextsMap.put(id, count);
                     continue;
                 }
 
                 // local id: sum counts
                 if (this.idWrapper.equals(id))
                 {
-                    Pair<Long, Long> countTimestampPair = contextsMap.get(id);
-                    contextsMap.put(id, new Pair<Long, Long>(
-                        count + countTimestampPair.left,
-                        // note: keep higher timestamp (for delete marker)
-                        Math.max(timestamp, countTimestampPair.right)));
+                    contextsMap.put(id, count + (Long)contextsMap.get(id));
                     continue;
                 }
 
                 // remote id: keep highest count
-                if (((Pair<Long, Long>)contextsMap.get(id)).left < count)
+                if ((Long)contextsMap.get(id) < count)
                 {
-                    contextsMap.put(id, new Pair<Long, Long>(count, timestamp));
+                    contextsMap.put(id, count);
                 }
             }
         }
 
-        List<Map.Entry<FBUtilities.ByteArrayWrapper, Pair<Long, Long>>> contextsList =
-            new ArrayList<Map.Entry<FBUtilities.ByteArrayWrapper, Pair<Long, Long>>>(
+        List<Map.Entry<FBUtilities.ByteArrayWrapper, Long>> contextsList =
+            new ArrayList<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>(
                     contextsMap.entrySet());
         Collections.sort(
             contextsList,
-            new Comparator<Map.Entry<FBUtilities.ByteArrayWrapper, Pair<Long, Long>>>()
+            new Comparator<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>()
             {
                 public int compare(
-                    Map.Entry<FBUtilities.ByteArrayWrapper, Pair<Long, Long>> e1,
-                    Map.Entry<FBUtilities.ByteArrayWrapper, Pair<Long, Long>> e2)
+                    Map.Entry<FBUtilities.ByteArrayWrapper, Long> e1,
+                    Map.Entry<FBUtilities.ByteArrayWrapper, Long> e2)
                 {
                     // reversed
-                    return e2.getValue().right.compareTo(e1.getValue().right);
+                    return e2.getValue().compareTo(e1.getValue());
                 }
             });
 
         int length = contextsList.size();
-        byte[] merged = new byte[length * stepLength];
+        byte[] merged = new byte[timestampLength + (length * stepLength)];
+        FBUtilities.copyIntoBytes(merged, 0, highestTimestamp);
         for (int i = 0; i < length; i++)
         {
-            Map.Entry<FBUtilities.ByteArrayWrapper, Pair<Long, Long>> entry = contextsList.get(i);
+            Map.Entry<FBUtilities.ByteArrayWrapper, Long> entry = contextsList.get(i);
             writeElementAtStepOffset(
                 merged,
                 i,
                 entry.getKey().data,
-                entry.getValue().left.longValue(),
-                entry.getValue().right.longValue());
+                entry.getValue().longValue());
         }
         return merged;
     }
@@ -467,14 +473,16 @@ public class IncrementCounterContext implements IContext
         context = sortElementsById(context);
 
         StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        for (int offset = 0; offset < context.length; offset += stepLength)
+        sb.append("{");
+        sb.append(FBUtilities.byteArrayToLong(context, 0));
+        sb.append(" + [");
+        for (int offset = timestampLength; offset < context.length; offset += stepLength)
         {
-            if (offset > 0)
+            if (offset != timestampLength)
             {
                 sb.append(",");
             }
-            sb.append("{");
+            sb.append("(");
             try
             {
                 InetAddress address = InetAddress.getByAddress(
@@ -487,11 +495,9 @@ public class IncrementCounterContext implements IContext
             }
             sb.append(", ");
             sb.append(FBUtilities.byteArrayToLong(context, offset + idLength));
-            sb.append(", ");
-            sb.append(FBUtilities.byteArrayToLong(context, offset + idLength + countLength));
-            sb.append("}");
+            sb.append(")");
         }
-        sb.append("]");
+        sb.append("]}");
         return sb.toString();
     }
 
@@ -500,7 +506,7 @@ public class IncrementCounterContext implements IContext
     {
         long total = 0;
 
-        for (int offset = 0; offset < context.length; offset += stepLength)
+        for (int offset = timestampLength; offset < context.length; offset += stepLength)
         {
             long count = FBUtilities.byteArrayToLong(context, offset + idLength);
             total += count;
@@ -516,7 +522,7 @@ public class IncrementCounterContext implements IContext
         byte[] nodeId = node.getAddress();
 
         // look for this node id
-        for (int offset = 0; offset < context.length; offset += stepLength)
+        for (int offset = timestampLength; offset < context.length; offset += stepLength)
         {
             if (FBUtilities.compareByteSubArrays(context, offset, nodeId, 0, idLength) != 0)
                 continue;
