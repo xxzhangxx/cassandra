@@ -48,6 +48,7 @@ import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ClockType;
+import org.apache.cassandra.db.ColumnFamilyType;
 import org.apache.cassandra.db.RangeSliceCommand;
 import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.ReadResponse;
@@ -309,15 +310,20 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     private static void mutateIncrementCounter(RowMutation rm, Message unhintedMessage, Multimap<InetAddress, InetAddress> hintedEndpoints, 
-            AbstractWriteResponseHandler responseHandler, ConsistencyLevel consistency_level) throws IOException
+            AbstractWriteResponseHandler responseHandler, ConsistencyLevel consistency_level) throws IOException, UnavailableException
     {
         // NOTE: only CL.ONE supported AND only one server can be written to
         assert ConsistencyLevel.ONE == consistency_level : "Context-based CFs only support ConsistencyLevel.ONE!!!";
-        Random generator = new Random();
-        Set<InetAddress> destinationSet = hintedEndpoints.keySet();
+
+        List<InetAddress> liveEndpoints = StorageService.instance.getLiveNaturalEndpoints(rm.getTable(), rm.key());
+        if (liveEndpoints.isEmpty()) {
+            throw new UnavailableException();
+        }
+
+        InetAddress firstDestination = liveEndpoints.get(0);
+
         // local write
-        if (destinationSet.contains(FBUtilities.getLocalAddress()))
-        {
+        if (firstDestination.equals(FBUtilities.getLocalAddress())) {
 //TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (local)
             rm.updateClocks(FBUtilities.getLocalAddress());
             insertLocalMessage(rm, responseHandler);
@@ -325,13 +331,8 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // remote write
-        InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
-        InetAddress randomDestination = destinations[generator.nextInt(destinations.length)];
 //TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (not local)
-        rm.updateClocks(randomDestination);
-
-        Collection<InetAddress> targets = hintedEndpoints.asMap().get(randomDestination);
-        assert (targets.size() != 1 || !targets.iterator().next().equals(randomDestination)) : "Context-based CFs do not support Hinted Hand-off.";
+        rm.updateClocks(firstDestination);
 
         // belongs on a different server.  send it there.
         if (unhintedMessage == null)
@@ -340,9 +341,9 @@ public class StorageProxy implements StorageProxyMBean
             MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
         }
         if (logger.isDebugEnabled())
-            logger.debug("insert writing key " + rm.key() + " to " + unhintedMessage.getMessageId() + "@" + randomDestination);
+            logger.debug("insert writing key " + rm.key() + " to " + unhintedMessage.getMessageId() + "@" + firstDestination);
 //TODO: MODIFY: add support for ResponseHandler? (iterate through other destinations on failure?)
-        MessagingService.instance.sendOneWay(unhintedMessage, randomDestination);
+        MessagingService.instance.sendOneWay(unhintedMessage, firstDestination);
     }
 
     private static void insertLocalMessage(final RowMutation rm, final AbstractWriteResponseHandler responseHandler)
@@ -377,7 +378,19 @@ public class StorageProxy implements StorageProxyMBean
 
         for (ReadCommand command: commands)
         {
-            InetAddress endpoint = StorageService.instance.findSuitableEndpoint(command.table, command.key);
+            ColumnFamilyType cfType = DatabaseDescriptor.getColumnFamilyType(command.table, command.queryPath.columnFamilyName);
+            InetAddress endpoint = null;
+            if (cfType.isContext()) {
+                List<InetAddress> liveEndpoints = StorageService.instance.getLiveNaturalEndpoints(command.table, command.key);
+                if (liveEndpoints.isEmpty()) {
+                    throw new UnavailableException();
+                }
+                // For context types, we always want to try and read from the first node in the ring.
+                endpoint = liveEndpoints.get(0);
+            } else {
+                endpoint = StorageService.instance.findSuitableEndpoint(command.table, command.key);
+            }
+
             Message message = command.makeReadMessage();
 
             if (logger.isDebugEnabled())
@@ -417,8 +430,17 @@ public class StorageProxy implements StorageProxyMBean
 
             for (ReadCommand command: commands)
             {
-                List<InetAddress> endpoints = StorageService.instance.getNaturalEndpoints(command.table, command.key);
-                boolean foundLocal = endpoints.contains(FBUtilities.getLocalAddress());
+                List<InetAddress> endpoints = StorageService.instance.getLiveNaturalEndpoints(command.table, command.key);
+                Boolean foundLocal = null;
+                ColumnFamilyType cfType = DatabaseDescriptor.getColumnFamilyType(command.table, command.queryPath.columnFamilyName);
+                if (cfType.isContext()) {
+                    if (endpoints.isEmpty()) {
+                        throw new UnavailableException();
+                    }
+                    foundLocal = endpoints.get(0).equals(FBUtilities.getLocalAddress());
+                } else {
+                    foundLocal = endpoints.contains(FBUtilities.getLocalAddress());
+                }
                 //TODO: Throw InvalidRequest if we're in bootstrap mode?
                 if (foundLocal && !StorageService.instance.isBootstrapMode())
                 {

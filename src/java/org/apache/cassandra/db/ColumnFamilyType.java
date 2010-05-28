@@ -17,13 +17,24 @@
  */
 package org.apache.cassandra.db;
 
+import org.apache.cassandra.io.ICompactSerializer2;
+
 /**
  * column family type enum
  */
 public enum ColumnFamilyType
 {
-    Standard,
-    Super;
+    Standard(0),
+    Super(ColumnFamilyType.SUPER),
+    IncrementCounter(ColumnFamilyType.INCR_COUNT),
+    SuperIncrementCounter(ColumnFamilyType.SUPER | ColumnFamilyType.INCR_COUNT);
+
+    private final static int SUPER      = 1;
+    private final static int INCR_COUNT = 1 << 1;
+
+    private final boolean isSuper;
+    private final boolean isContext;
+    private final boolean isIncrementCounter;
 
     public final static ColumnFamilyType create(String name)
     {
@@ -35,5 +46,47 @@ public enum ColumnFamilyType
         {
             return null;
         }
+    }
+
+    ColumnFamilyType(int flags)
+    {
+        this.isSuper            = (SUPER      & flags) > 0;
+        this.isIncrementCounter = (INCR_COUNT & flags) > 0;
+
+        this.isContext = this.isIncrementCounter;
+    }
+
+    public final boolean isSuper()
+    {
+        return isSuper;
+    }
+
+    public final boolean isContext()
+    {
+        return isContext;
+    }
+
+    public final boolean isIncrementCounter()
+    {
+        return isIncrementCounter;
+    }
+
+    public final IClock minClock()
+    {
+        if (isIncrementCounter)
+        {
+            return IncrementCounterClock.MIN_VALUE;
+        }
+        return TimestampClock.MIN_VALUE;
+    }
+
+    public final ICompactSerializer2<IClock> clockSerializer()
+    {
+        if (isIncrementCounter)
+        {
+            return IncrementCounterClock.SERIALIZER;
+        }
+
+        return TimestampClock.SERIALIZER;
     }
 }
