@@ -652,6 +652,7 @@ public class CassandraServer implements Cassandra.Iface
         try
         {
             AddColumnFamily add = new AddColumnFamily(convertToCFMetaData(cf_def));
+
             add.apply();
             add.announce();
             return DatabaseDescriptor.getDefsVersion().toString();
