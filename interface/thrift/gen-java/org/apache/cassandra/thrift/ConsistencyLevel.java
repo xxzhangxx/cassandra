@@ -53,10 +53,10 @@ import org.apache.thrift.TEnum;
  *   ZERO         Not supported, because it doesn't make sense.
  *   ANY          Not supported. You probably want ONE instead.
  *   ONE          Will return the record returned by the first node to respond. A consistency check is always done in a background thread to fix any consistency issues when ConsistencyLevel.ONE is used. This means subsequent calls will have correct data even if the initial read gets an older value. (This is called 'read repair'.)
- *   QUORUM       Will query all storage nodes and return the record with the most recent timestamp once it has at least a majority of replicas reported. Again, the remaining replicas will be checked in the background.
- *   DCQUORUM     Returns the record with the most recent timestamp once a majority of replicas within the local datacenter have replied.
- *   DCQUORUMSYNC Returns the record with the most recent timestamp once a majority of replicas within each datacenter have replied.
- *   ALL          Queries all storage nodes and returns the record with the most recent timestamp.
+ *   QUORUM       Will query all storage nodes and return the record with the most recent clock once it has at least a majority of replicas reported. Again, the remaining replicas will be checked in the background.
+ *   DCQUORUM     Returns the record with the most recent clock once a majority of replicas within the local datacenter have replied.
+ *   DCQUORUMSYNC Returns the record with the most recent clock once a majority of replicas within each datacenter have replied.
+ *   ALL          Queries all storage nodes and returns the record with the most recent clock.
  */
 public enum ConsistencyLevel implements TEnum {
   ZERO(0),
