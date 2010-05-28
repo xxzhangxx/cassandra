@@ -54,11 +54,11 @@ public class IncrementCounterReconciler extends AbstractReconciler
                 int leftLocalDeleteTime  = FBUtilities.byteArrayToInt(left.value());
                 int rightLocalDeleteTime = FBUtilities.byteArrayToInt(right.value());
 
-            return new DeletedColumn(
-                left.name(),
-                leftLocalDeleteTime >= rightLocalDeleteTime ? left.value() : right.value(),
-                mergeClocks(left, right));
-        }
+                return new DeletedColumn(
+                    left.name(),
+                    leftLocalDeleteTime >= rightLocalDeleteTime ? left.value() : right.value(),
+                    mergeClocks(left, right));
+            }
 
             // delete + live: use compare() to determine which side to take
             // note: tombstone always wins ties.

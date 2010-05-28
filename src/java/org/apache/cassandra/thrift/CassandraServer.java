@@ -42,6 +42,8 @@ import org.slf4j.LoggerFactory;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.context.AbstractReconciler;
+import org.apache.cassandra.db.context.TimestampReconciler;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.MarshalException;
 import org.apache.cassandra.dht.AbstractBounds;
@@ -651,6 +653,9 @@ public class CassandraServer implements Cassandra.Iface
             {
               throw new InvalidRequestException("Invalid column type " + cf_def.column_type);
             }
+            AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(cf_def.reconciler);
+            if (reconciler == null)
+                reconciler = new TimestampReconciler(); // default
             CFMetaData cfm = new CFMetaData(
                         cf_def.table,
                         cf_def.name,
@@ -658,7 +663,7 @@ public class CassandraServer implements Cassandra.Iface
                         ClockType.create(cf_def.clock_type),
                         DatabaseDescriptor.getComparator(cf_def.comparator_type),
                         cf_def.subcomparator_type.length() == 0 ? null : DatabaseDescriptor.getComparator(cf_def.subcomparator_type),
-                        DatabaseDescriptor.getReconciler(cf_def.reconciler),
+                        reconciler,
                         cf_def.comment,
                         cf_def.row_cache_size,
                         cf_def.preload_row_cache,
@@ -762,6 +767,9 @@ public class CassandraServer implements Cassandra.Iface
                 {
                     throw new InvalidRequestException("Invalid column type " + cfDef.column_type);
                 }
+                AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(cfDef.reconciler);
+                if (reconciler == null)
+                    reconciler = new TimestampReconciler(); // default
                 CFMetaData cfm = new CFMetaData(
                         cfDef.table,
                         cfDef.name,
@@ -769,7 +777,7 @@ public class CassandraServer implements Cassandra.Iface
                         ClockType.create(cfDef.clock_type),
                         DatabaseDescriptor.getComparator(cfDef.comparator_type),
                         cfDef.subcomparator_type.length() == 0 ? null : DatabaseDescriptor.getComparator(cfDef.subcomparator_type),
-                        DatabaseDescriptor.getReconciler(cfDef.reconciler),
+                        reconciler,
                         cfDef.comment,
                         cfDef.row_cache_size,
                         cfDef.preload_row_cache,

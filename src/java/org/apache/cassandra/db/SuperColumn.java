@@ -183,47 +183,20 @@ public class SuperColumn implements IColumn, IColumnContainer
     {
     	assert column instanceof Column : "A super column can only contain simple columns";
 
-        if (clockType == ClockType.IncrementCounter)
-        {
-            addColumnForIncrementCounter(column);
-            return;
-        }
-
         byte[] name = column.name();
         IColumn oldColumn = columns_.putIfAbsent(name, column);
     	if (oldColumn != null)
         {
-            ClockRelationship rel = ((Column)oldColumn).comparePriority((Column)column);
-            while (ClockRelationship.GREATER_THAN != rel)
+            IColumn reconciledColumn = reconciler.reconcile((Column)column, (Column)oldColumn);
+            while (!columns_.replace(name, oldColumn, reconciledColumn))
             {
-                if (columns_.replace(name, oldColumn, column))
-                    break;
+                // if unable to replace, then get updated old (existing) col
                 oldColumn = columns_.get(name);
-                rel = ((Column)oldColumn).comparePriority((Column)column);
+                // re-calculate reconciled col from updated old col and original new col
+                reconciledColumn = reconciler.reconcile((Column)column, (Column)oldColumn);
+                // try to re-update value, again
             }
     	}
-    }
-
-    private void addColumnForIncrementCounter(IColumn newColumn)
-    {
-        byte[] name = newColumn.name();
-        IColumn oldColumn = columns_.putIfAbsent(name, newColumn);
-        // if not present already, then return
-        if (oldColumn == null)
-        {
-            return;
-        }
-
-        // calculate reconciled col from old (existing) col and new col
-        IColumn reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
-        while (!columns_.replace(name, oldColumn, reconciledColumn))
-        {
-            // if unable to replace, then get updated old (existing) col
-            oldColumn = columns_.get(name);
-            // re-calculate reconciled col from updated old col and original new col
-            reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
-            // try to re-update value, again
-        }
     }
 
     /*

@@ -43,6 +43,8 @@ import org.apache.cassandra.config.ConfigurationException;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.KSMetaData;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.context.AbstractReconciler;
+import org.apache.cassandra.db.context.TimestampReconciler;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.MarshalException;
 import org.apache.cassandra.db.migration.AddKeyspace;
@@ -517,6 +519,9 @@ public class CassandraServer implements Cassandra {
                 clockType = cfDef.clock_type == null ? D_CF_CFCLOCKTYPE : cfDef.clock_type.toString();
                 compare = cfDef.comparator_type == null ? D_CF_COMPTYPE : cfDef.comparator_type.toString();
                 subCompare = cfDef.subcomparator_type == null ? D_CF_SUBCOMPTYPE : cfDef.subcomparator_type.toString();
+                AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(cfDef.reconciler.toString());
+                if (reconciler == null)
+                    reconciler = new TimestampReconciler(); // default
                 
                 CFMetaData cfmeta = new CFMetaData(
                         cfDef.keyspace.toString(),
@@ -525,7 +530,7 @@ public class CassandraServer implements Cassandra {
                         ClockType.create(clockType),
                         DatabaseDescriptor.getComparator(compare),
                         subCompare.length() == 0 ? null : DatabaseDescriptor.getComparator(subCompare),
-                        DatabaseDescriptor.getReconciler(cfDef.reconciler.toString()),
+                        reconciler,
                         cfDef.comment == null ? D_CF_COMMENT : cfDef.comment.toString(), 
                         cfDef.row_cache_size == null ? D_CF_ROWCACHE : cfDef.row_cache_size,
                         cfDef.preload_row_cache == null ? D_CF_PRELOAD_ROWCACHE : cfDef.preload_row_cache,

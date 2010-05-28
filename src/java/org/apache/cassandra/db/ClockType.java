@@ -24,6 +24,10 @@ public enum ClockType
     Timestamp,
     IncrementCounter;
 
+    /**
+     * @param name must match the name of one of the enum values.
+     * @return the clock type specified or null of not found.
+     */
     public final static ClockType create(String name)
     {
         assert name != null;
@@ -63,6 +67,9 @@ public enum ClockType
         }
     }
     
+    /**
+     * @return if the clock type uses the context part of the clock.
+     */
     public boolean isContext()
     {
         if (this == IncrementCounter)

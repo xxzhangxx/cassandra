@@ -23,6 +23,7 @@ import org.apache.cassandra.auth.IAuthenticator;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.commitlog.CommitLog;
 import org.apache.cassandra.db.context.AbstractReconciler;
+import org.apache.cassandra.db.context.TimestampReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.db.marshal.TimeUUIDType;
@@ -512,20 +513,18 @@ public class DatabaseDescriptor
                 if (cf.clock_type == null)
                     cf.clock_type = ClockType.Timestamp;
                 
-                AbstractReconciler reconciler = null;
+                
                 if (cf.clock_type.isContext())
                 {
                     if (cf.reconciler == null || "".equals(cf.reconciler))
                     {
                         throw new ConfigurationException("Must specify reconciler on context-based columnfamilies: " + cf.name);
                     }
-                    reconciler = getReconciler(cf.reconciler);
                 }
-                else if (cf.reconciler != null)
-                {
-                    throw new ConfigurationException("Reconciler is only a valid attribute on context-based columnfamilies (not regular / super columnfamily " + cf.name + ")");
-                }
-                
+                AbstractReconciler reconciler = getReconciler(cf.reconciler);
+                if (reconciler == null)
+                    reconciler = new TimestampReconciler(); // default
+                 
                 if (cf.read_repair_chance < 0.0 || cf.read_repair_chance > 1.0)
                 {                        
                     throw new ConfigurationException("read_repair_chance must be between 0.0 and 1.0");

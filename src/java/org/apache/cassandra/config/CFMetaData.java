@@ -37,6 +37,7 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.cassandra.db.ColumnFamilyType;
 import org.apache.cassandra.db.ClockType;
 import org.apache.cassandra.db.context.AbstractReconciler;
+import org.apache.cassandra.db.context.TimestampReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.utils.Pair;
 
@@ -56,10 +57,10 @@ public final class CFMetaData
     
     private static final BiMap<Pair<String, String>, Integer> cfIdMap = HashBiMap.<Pair<String, String>, Integer>create();
     
-    public static final CFMetaData StatusCf = new CFMetaData(Table.SYSTEM_TABLE, SystemTable.STATUS_CF, ColumnFamilyType.Standard, ClockType.Timestamp, new UTF8Type(), null, null, "persistent metadata for the local node", 0, false, 0.01, 0);
-    public static final CFMetaData HintsCf = new CFMetaData(Table.SYSTEM_TABLE, HintedHandOffManager.HINTS_CF, ColumnFamilyType.Super, ClockType.Timestamp, new UTF8Type(), new BytesType(), null, "hinted handoff data", 0, false, 0.01, 1);
-    public static final CFMetaData MigrationsCf = new CFMetaData(Table.SYSTEM_TABLE, Migration.MIGRATIONS_CF, ColumnFamilyType.Standard, ClockType.Timestamp, new TimeUUIDType(), null, null, "individual schema mutations", 0, false, 2);
-    public static final CFMetaData SchemaCf = new CFMetaData(Table.SYSTEM_TABLE, Migration.SCHEMA_CF, ColumnFamilyType.Standard, ClockType.Timestamp, new UTF8Type(), null, null, "current state of the schema", 0, false, 3);
+    public static final CFMetaData StatusCf = new CFMetaData(Table.SYSTEM_TABLE, SystemTable.STATUS_CF, ColumnFamilyType.Standard, ClockType.Timestamp, new UTF8Type(), null, new TimestampReconciler(), "persistent metadata for the local node", 0, false, 0.01, 0);
+    public static final CFMetaData HintsCf = new CFMetaData(Table.SYSTEM_TABLE, HintedHandOffManager.HINTS_CF, ColumnFamilyType.Super, ClockType.Timestamp, new UTF8Type(), new BytesType(), new TimestampReconciler(), "hinted handoff data", 0, false, 0.01, 1);
+    public static final CFMetaData MigrationsCf = new CFMetaData(Table.SYSTEM_TABLE, Migration.MIGRATIONS_CF, ColumnFamilyType.Standard, ClockType.Timestamp, new TimeUUIDType(), null, new TimestampReconciler(), "individual schema mutations", 0, false, 2);
+    public static final CFMetaData SchemaCf = new CFMetaData(Table.SYSTEM_TABLE, Migration.SCHEMA_CF, ColumnFamilyType.Standard, ClockType.Timestamp, new UTF8Type(), null, new TimestampReconciler(), "current state of the schema", 0, false, 3);
 
     /**
      * @return An immutable mapping of (ksname,cfname) to id.
@@ -198,8 +199,7 @@ public final class CFMetaData
         dout.writeBoolean(cfm.subcolumnComparator != null);
         if (cfm.subcolumnComparator != null)
             dout.writeUTF(cfm.subcolumnComparator.getClass().getName());
-        if (cfm.clockType.isContext())
-            dout.writeUTF(cfm.reconciler.getClass().getName());
+        dout.writeUTF(cfm.reconciler.getClass().getName());
         dout.writeBoolean(cfm.comment != null);
         if (cfm.comment != null)
             dout.writeUTF(cfm.comment);
@@ -240,7 +240,7 @@ public final class CFMetaData
         AbstractReconciler reconciler = null;
         try
         {
-            reconciler = clockType.isContext() ? (AbstractReconciler)Class.forName(din.readUTF()).newInstance() : null;
+            reconciler = (AbstractReconciler)Class.forName(din.readUTF()).newInstance();
         }
         catch (Exception ex)
         {
