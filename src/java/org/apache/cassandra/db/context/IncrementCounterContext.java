@@ -122,6 +122,10 @@ public class IncrementCounterContext implements IContext
     public byte[] update(byte[] context, InetAddress node, long delta)
     {
         // update timestamp
+        if (context.length == 0)
+        {
+            context = new byte[timestampLength];
+        }
         FBUtilities.copyIntoBytes(context, 0, System.currentTimeMillis());
 
         // calculate node id

@@ -1048,7 +1048,7 @@ class TestMutations(ThriftTester):
         kspaces = client.describe_keyspaces()
         assert len(kspaces) == 5, kspaces # ['system', 'Keyspace2', 'Keyspace3', 'Keyspace1', 'Keyspace4']
         ks1 = client.describe_keyspace("Keyspace1")
-        assert set(ks1.keys()) == set(['Super1', 'Standard1', 'Standard2', 'StandardLong1', 'StandardLong2', 'Super3', 'Super2', 'Super4'])
+        assert set(ks1.keys()) == set(['Super1', 'Standard1', 'Standard2', 'StandardLong1', 'StandardLong2', 'Super3', 'Super2', 'Super4', 'IncrementCounter1', 'SuperIncrementCounter1'])
         sysks = client.describe_keyspace("system")
 
     def test_describe(self):
@@ -1243,7 +1243,7 @@ class TestMutations(ThriftTester):
         _assert_no_columnpath('key1', ColumnPath('IncrementCounter1', column='c1'))
 
         # insert again and this time delete the whole row, check that it is gone
-        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d1, Clock()), ConsistencyLevel.ONE)
+        client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
         time.sleep(0.1)
         rv2 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)
         assert struct.unpack('>q', rv2.column.value)[0] == d1
@@ -1263,7 +1263,7 @@ class TestMutations(ThriftTester):
         assert struct.unpack('>q', rv1.column.value)[0] == d1
 
         # remove the previous column and check that it is gone
-        client.remove('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), ConsistencyLevel.ONE)
+        client.remove('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'), Clock(), ConsistencyLevel.ONE)
         time.sleep(0.1)
         _assert_no_columnpath('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'))
 
@@ -1291,4 +1291,4 @@ class TestTruncate(ThriftTester):
         client.truncate('Keyspace1', 'Super1')
         assert _big_slice('key1', ColumnParent('Super1')) == []
         assert _big_slice('key1', ColumnParent('Super1', 'sc1')) == []
-        
+
