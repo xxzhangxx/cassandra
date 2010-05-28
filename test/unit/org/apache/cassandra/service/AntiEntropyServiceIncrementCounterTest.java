@@ -11,7 +11,7 @@ public class AntiEntropyServiceIncrementCounterTest extends AntiEntropyServiceTe
     {
         tablename = "Keyspace4";
         cfname = "IncrementCounter1";
-        clock = new IncrementCounterClock(new byte[] {});
+        clock = new IncrementCounterClock();
     }
     
 }

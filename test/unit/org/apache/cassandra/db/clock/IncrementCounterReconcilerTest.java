@@ -52,10 +52,11 @@ public class IncrementCounterReconcilerTest
 
         // normal + normal
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(27L), FBUtilities.toByteArray(10L),
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),  FBUtilities.toByteArray(2L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L),  FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(10L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(27L),
+            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
+            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
+            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L)
             ));
         left = new Column(
             "x".getBytes(),
@@ -63,10 +64,11 @@ public class IncrementCounterReconcilerTest
             leftClock);
 
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(9L), FBUtilities.toByteArray(7L),
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(32L), FBUtilities.toByteArray(6L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(4L),  FBUtilities.toByteArray(5L),
-            FBUtilities.toByteArray(6), FBUtilities.toByteArray(2L),  FBUtilities.toByteArray(4L)
+            FBUtilities.toByteArray(7L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(1), FBUtilities.toByteArray(32L),
+            FBUtilities.toByteArray(5), FBUtilities.toByteArray(4L),
+            FBUtilities.toByteArray(6), FBUtilities.toByteArray(2L)
             ));
         right = new Column(
             "x".getBytes(),
@@ -112,10 +114,11 @@ public class IncrementCounterReconcilerTest
 
         // normal + delete: normal has higher timestamp
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L), FBUtilities.toByteArray(44L),
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),  FBUtilities.toByteArray(2L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L),  FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(44L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
+            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
+            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
+            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L)
             ));
         left = new Column(
             "x".getBytes(),
@@ -123,7 +126,8 @@ public class IncrementCounterReconcilerTest
             leftClock);
 
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L), FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(1L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L)
             ));
         right = new DeletedColumn(
             "x".getBytes(),
@@ -146,10 +150,11 @@ public class IncrementCounterReconcilerTest
         
         // normal + delete: delete has higher timestamp
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L), FBUtilities.toByteArray(4L),
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),  FBUtilities.toByteArray(2L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L),  FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(4L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
+            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
+            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
+            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L)
             ));
         left = new Column(
             "x".getBytes(),
@@ -157,7 +162,8 @@ public class IncrementCounterReconcilerTest
             leftClock);
 
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L), FBUtilities.toByteArray(100L)
+            FBUtilities.toByteArray(100L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L)
             ));
         right = new DeletedColumn(
             "x".getBytes(),
@@ -188,10 +194,11 @@ public class IncrementCounterReconcilerTest
             leftClock);
 
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L), FBUtilities.toByteArray(4L),
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),  FBUtilities.toByteArray(2L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L),  FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(4L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
+            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
+            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
+            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L)
             ));
         right = new Column(
             "x".getBytes(),
@@ -214,7 +221,8 @@ public class IncrementCounterReconcilerTest
 
         // delete + normal: normal has higher timestamp
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L), FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(1L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L)
             ));
         left = new DeletedColumn(
             "x".getBytes(),
@@ -222,10 +230,11 @@ public class IncrementCounterReconcilerTest
             leftClock);
 
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L), FBUtilities.toByteArray(44L),
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),  FBUtilities.toByteArray(2L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L),  FBUtilities.toByteArray(1L)
+            FBUtilities.toByteArray(44L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
+            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
+            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
+            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L)
             ));
         right = new Column(
             "x".getBytes(),
@@ -261,21 +270,13 @@ public class IncrementCounterReconcilerTest
         List<IClock> clocks;
 
         // delete + delete
-        leftClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L), FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),  FBUtilities.toByteArray(2L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(32L),  FBUtilities.toByteArray(1L)
-            ));
+        leftClock = new IncrementCounterClock(FBUtilities.toByteArray(3L));
         left = new DeletedColumn(
             "x".getBytes(),
             ByteBuffer.allocate(4).putInt(139).array(), // localDeleteTime secs
             leftClock);
 
-        rightClock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.toByteArray(1), FBUtilities.toByteArray(32L), FBUtilities.toByteArray(6L),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(4L),  FBUtilities.toByteArray(5L),
-            FBUtilities.toByteArray(6), FBUtilities.toByteArray(2L),  FBUtilities.toByteArray(4L)
-            ));
+        rightClock = new IncrementCounterClock(FBUtilities.toByteArray(6L));
         right = new DeletedColumn(
             "x".getBytes(),
             ByteBuffer.allocate(4).putInt(124).array(), // localDeleteTime secs
