@@ -200,28 +200,6 @@ public class SuperColumn implements IColumn, IColumnContainer
     	}
     }
 
-    private void addColumnForIncrementCounter(IColumn newColumn)
-    {
-        byte[] name = newColumn.name();
-        IColumn oldColumn = columns_.putIfAbsent(name, newColumn);
-        // if not present already, then return
-        if (oldColumn == null)
-        {
-            return;
-        }
-
-        // calculate reconciled col from old (existing) col and new col
-        IColumn reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
-        while (!columns_.replace(name, oldColumn, reconciledColumn))
-        {
-            // if unable to replace, then get updated old (existing) col
-            oldColumn = columns_.get(name);
-            // re-calculate reconciled col from updated old col and original new col
-            reconciledColumn = reconciler.reconcile((Column)oldColumn, (Column)newColumn);
-            // try to re-update value, again
-        }
-    }
-
     /*
      * Go through each sub column if it exists then as it to resolve itself
      * if the column does not exist then create it.

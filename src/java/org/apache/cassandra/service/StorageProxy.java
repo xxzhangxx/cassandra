@@ -227,89 +227,15 @@ public class StorageProxy implements StorageProxyMBean
                 responseHandlers.add(responseHandler);
                 Message unhintedMessage = null;
 
-//TODO: MODIFY: refactor this... (alternate code path for context-based clocks)
                 ClockType clockType = rm.getColumnFamilies().iterator().next().getClockType();
                 if (clockType == ClockType.IncrementCounter)
                 {
-                    // NOTE: only CL.ONE supported AND only one server can be written to
-                    assert ConsistencyLevel.ONE == consistency_level : "Context-based CFs only support ConsistencyLevel.ONE!!!";
-                    Random generator = new Random();
-                    Set<InetAddress> destinationSet = hintedEndpoints.keySet();
-                    // local write
-                    if (destinationSet.contains(FBUtilities.getLocalAddress()))
-                    {
-//TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (local)
-                        rm.updateClocks(FBUtilities.getLocalAddress());
-                        insertLocalMessage(rm, responseHandler);
-                        continue;
-                    }
-
-                    // remote write
-                    InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
-                    InetAddress randomDestination = destinations[generator.nextInt(destinations.length)];
-//TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (not local)
-                    rm.updateClocks(randomDestination);
-
-                    Collection<InetAddress> targets = hintedEndpoints.asMap().get(randomDestination);
-                    assert (targets.size() != 1 || !targets.iterator().next().equals(randomDestination)) : "Context-based CFs do not support Hinted Hand-off.";
-
-                    // belongs on a different server.  send it there.
-                    if (unhintedMessage == null)
-                    {
-                        unhintedMessage = rm.makeRowMutationMessage();
-                        MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
-                    }
-                    if (logger.isDebugEnabled())
-                        logger.debug("insert writing key " + rm.key() + " to " + unhintedMessage.getMessageId() + "@" + randomDestination);
-//TODO: MODIFY: add support for ResponseHandler? (iterate through other destinations on failure?)
-                    MessagingService.instance.sendOneWay(unhintedMessage, randomDestination);
-
-                    continue;
+                    mutateIncrementCounter(rm, unhintedMessage, hintedEndpoints, responseHandler, consistency_level);
                 }
-
-                for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
+                else if (clockType == ClockType.Timestamp)
                 {
-                    InetAddress destination = entry.getKey();
-                    Collection<InetAddress> targets = entry.getValue();
-
-                    if (targets.size() == 1 && targets.iterator().next().equals(destination))
-                    {
-                        // unhinted writes
-                        if (destination.equals(FBUtilities.getLocalAddress()))
-                        {
-                            insertLocalMessage(rm, responseHandler);
-                        }
-                        else
-                        {
-                            // belongs on a different server.  send it there.
-                            if (unhintedMessage == null)
-                            {
-                                unhintedMessage = rm.makeRowMutationMessage();
-                                MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
-                            }
-                            if (logger.isDebugEnabled())
-                                logger.debug("insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + unhintedMessage.getMessageId() + "@" + destination);
-                            MessagingService.instance.sendOneWay(unhintedMessage, destination);
-                        }
-                    }
-                    else
-                    {
-                        // hinted
-                        Message hintedMessage = rm.makeRowMutationMessage();
-                        for (InetAddress target : targets)
-                        {
-                            if (!target.equals(destination))
-                            {
-                                addHintHeader(hintedMessage, target);
-                                if (logger.isDebugEnabled())
-                                    logger.debug("insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + hintedMessage.getMessageId() + "@" + destination + " for " + target);
-                            }
-                        }
-                        // (non-destination hints are part of the callback and count towards consistency only under CL.ANY)
-                        if (writeEndpoints.contains(destination) || consistency_level == ConsistencyLevel.ANY)
-                            MessagingService.instance.addCallback(responseHandler, hintedMessage.getMessageId());
-                        MessagingService.instance.sendOneWay(hintedMessage, destination);
-                    }
+                    mutateTimestamp(consistency_level, rm, writeEndpoints, hintedEndpoints, responseHandler,
+                        unhintedMessage);
                 }
             }
             // wait for writes.  throws timeoutexception if necessary
@@ -330,6 +256,93 @@ public class StorageProxy implements StorageProxyMBean
             writeStats.addNano(System.nanoTime() - startTime);
         }
 
+    }
+
+    private static void mutateTimestamp(ConsistencyLevel consistency_level, RowMutation rm,
+            Collection<InetAddress> writeEndpoints, Multimap<InetAddress, InetAddress> hintedEndpoints,
+            final AbstractWriteResponseHandler responseHandler, Message unhintedMessage) throws IOException
+    {
+        for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
+        {
+            InetAddress destination = entry.getKey();
+            Collection<InetAddress> targets = entry.getValue();
+
+            if (targets.size() == 1 && targets.iterator().next().equals(destination))
+            {
+                // unhinted writes
+                if (destination.equals(FBUtilities.getLocalAddress()))
+                {
+                    insertLocalMessage(rm, responseHandler);
+                }
+                else
+                {
+                    // belongs on a different server.  send it there.
+                    if (unhintedMessage == null)
+                    {
+                        unhintedMessage = rm.makeRowMutationMessage();
+                        MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
+                    }
+                    if (logger.isDebugEnabled())
+                        logger.debug("insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + unhintedMessage.getMessageId() + "@" + destination);
+                    MessagingService.instance.sendOneWay(unhintedMessage, destination);
+                }
+            }
+            else
+            {
+                // hinted
+                Message hintedMessage = rm.makeRowMutationMessage();
+                for (InetAddress target : targets)
+                {
+                    if (!target.equals(destination))
+                    {
+                        addHintHeader(hintedMessage, target);
+                        if (logger.isDebugEnabled())
+                            logger.debug("insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + hintedMessage.getMessageId() + "@" + destination + " for " + target);
+                    }
+                }
+                // (non-destination hints are part of the callback and count towards consistency only under CL.ANY)
+                if (writeEndpoints.contains(destination) || consistency_level == ConsistencyLevel.ANY)
+                    MessagingService.instance.addCallback(responseHandler, hintedMessage.getMessageId());
+                MessagingService.instance.sendOneWay(hintedMessage, destination);
+            }
+        }
+    }
+
+    private static void mutateIncrementCounter(RowMutation rm, Message unhintedMessage, Multimap<InetAddress, InetAddress> hintedEndpoints, 
+            AbstractWriteResponseHandler responseHandler, ConsistencyLevel consistency_level) throws IOException
+    {
+        // NOTE: only CL.ONE supported AND only one server can be written to
+        assert ConsistencyLevel.ONE == consistency_level : "Context-based CFs only support ConsistencyLevel.ONE!!!";
+        Random generator = new Random();
+        Set<InetAddress> destinationSet = hintedEndpoints.keySet();
+        // local write
+        if (destinationSet.contains(FBUtilities.getLocalAddress()))
+        {
+//TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (local)
+            rm.updateClocks(FBUtilities.getLocalAddress());
+            insertLocalMessage(rm, responseHandler);
+            return;
+        }
+
+        // remote write
+        InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
+        InetAddress randomDestination = destinations[generator.nextInt(destinations.length)];
+//TODO: MODIFY: RM.updateClocks() that updates specific node endpoint (not local)
+        rm.updateClocks(randomDestination);
+
+        Collection<InetAddress> targets = hintedEndpoints.asMap().get(randomDestination);
+        assert (targets.size() != 1 || !targets.iterator().next().equals(randomDestination)) : "Context-based CFs do not support Hinted Hand-off.";
+
+        // belongs on a different server.  send it there.
+        if (unhintedMessage == null)
+        {
+            unhintedMessage = rm.makeRowMutationMessage();
+            MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
+        }
+        if (logger.isDebugEnabled())
+            logger.debug("insert writing key " + rm.key() + " to " + unhintedMessage.getMessageId() + "@" + randomDestination);
+//TODO: MODIFY: add support for ResponseHandler? (iterate through other destinations on failure?)
+        MessagingService.instance.sendOneWay(unhintedMessage, randomDestination);
     }
 
     private static void insertLocalMessage(final RowMutation rm, final AbstractWriteResponseHandler responseHandler)
