@@ -287,7 +287,7 @@ public class SuperColumn implements IColumn, IColumnContainer
                 columnDiff.addColumn(subColumn);
             } else
             {
-                IColumn subColumnDiff = columnInternal.diffForIncrementCounter(subColumn);
+                IColumn subColumnDiff = columnInternal.clock().diff(subColumn, columnInternal);
                 if (subColumnDiff != null)
                 {
                     columnDiff.addColumn(subColumnDiff);

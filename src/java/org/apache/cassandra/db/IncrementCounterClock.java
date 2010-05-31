@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.apache.commons.lang.ArrayUtils;
 
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.db.context.IContext.ContextRelationship;
 import org.apache.cassandra.db.context.IncrementCounterContext;
 import org.apache.cassandra.io.ICompactSerializer2;
@@ -66,6 +67,20 @@ public class IncrementCounterClock implements IClock
         assert other instanceof IncrementCounterClock : "Wrong class type.";
 
         ContextRelationship rel = contextManager.compare(context, ((IncrementCounterClock)other).context());
+        return convertClockRelationship(rel);
+    }
+
+    public ClockRelationship diff(IClock other)
+    {
+        assert other instanceof IncrementCounterClock : "Wrong class type.";
+
+        ContextRelationship rel = contextManager.diff(context, ((IncrementCounterClock)other).context());
+        return convertClockRelationship(rel);
+    }
+    
+    //TODO can't we reduce the clock relationships into one?
+    private ClockRelationship convertClockRelationship(ContextRelationship rel)
+    {
         switch (rel)
         {
             case EQUAL:
@@ -78,23 +93,16 @@ public class IncrementCounterClock implements IClock
                 return ClockRelationship.DISJOINT;
         }
     }
-
-    public ClockRelationship diff(IClock other)
+    
+    @Override
+    public IColumn diff(IColumn left, IColumn right)
     {
-        assert other instanceof IncrementCounterClock : "Wrong class type.";
-
-        ContextRelationship rel = contextManager.diff(context, ((IncrementCounterClock)other).context());
-        switch (rel)
+        // data encapsulated in clock
+        if (ClockRelationship.GREATER_THAN == ((IncrementCounterClock)left.clock()).diff(right.clock()))
         {
-            case EQUAL:
-                return ClockRelationship.EQUAL;
-            case GREATER_THAN:
-                return ClockRelationship.GREATER_THAN;
-            case LESS_THAN:
-                return ClockRelationship.LESS_THAN;
-            default: // DISJOINT
-                return ClockRelationship.DISJOINT;
+            return left;
         }
+        return null;
     }
 
     public IClock getSuperset(List<IClock> otherClocks)
@@ -136,6 +144,7 @@ public class IncrementCounterClock implements IClock
     {
         return ClockType.IncrementCounter;
     }
+
 }
 
 class IncrementCounterClockSerializer implements ICompactSerializer2<IClock> 

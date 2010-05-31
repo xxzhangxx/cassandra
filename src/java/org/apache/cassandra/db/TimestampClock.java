@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.apache.commons.lang.ArrayUtils;
 
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.io.ICompactSerializer2;
 
 /**
@@ -101,6 +102,16 @@ public class TimestampClock implements IClock
     public String toString()
     {
         return Long.toString(timestamp);
+    }
+
+    @Override
+    public IColumn diff(IColumn left, IColumn right)
+    {
+        if (ClockRelationship.GREATER_THAN == left.clock().compare(right.clock()))
+        {
+            return left;
+        }
+        return null;
     }
 }
 

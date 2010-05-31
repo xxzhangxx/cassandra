@@ -146,21 +146,7 @@ public class Column implements IColumn
 
     public IColumn diff(IColumn column)
     {
-        if (ClockRelationship.GREATER_THAN == column.clock().compare(clock))
-        {
-            return column;
-        }
-        return null;
-    }
-
-    public IColumn diffForIncrementCounter(IColumn column)
-    {
-        // need to use alternate code path for counters (data encapsulated in clock)
-        if (ClockRelationship.GREATER_THAN == ((IncrementCounterClock)column.clock()).diff(clock))
-        {
-            return column;
-        }
-        return null;
+        return clock.diff(column, this);
     }
 
     public void updateDigest(MessageDigest digest)

@@ -344,7 +344,7 @@ public class ColumnFamily implements IColumnContainer
             }
             else
             {
-                IColumn columnDiff = clockType == ClockType.IncrementCounter ? columnInternal.diffForIncrementCounter(columnExternal) : columnInternal.diff(columnExternal);
+                IColumn columnDiff = columnInternal.diff(columnExternal);
                 if (columnDiff != null)
                 {
                     cfDiff.addColumn(columnDiff);

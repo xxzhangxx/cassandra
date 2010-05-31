@@ -48,6 +48,8 @@ public interface IClock
      */
     public IClock getSuperset(List<IClock> otherClocks);
 
+    public IColumn diff(IColumn left, IColumn right);
+    
     /**
      * @return number of bytes this type of clock
      * uses up when serialized.
