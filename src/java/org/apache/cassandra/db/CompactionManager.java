@@ -667,7 +667,7 @@ public class CompactionManager implements CompactionManagerMBean
         protected ColumnFamily calculatePurgedColumnFamily(ColumnFamily cf)
         {
             cf = super.calculatePurgedColumnFamily(cf);
-            cf.cleanForIncrementCounter(remoteAddress);
+            cf.cleanContext(remoteAddress);
             // same check as ColumnFamilyStore.removeDeleted()
             if (cf.getColumnCount() == 0 && cf.getLocalDeletionTime() <= gcBefore)
                 return null;

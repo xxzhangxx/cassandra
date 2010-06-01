@@ -145,6 +145,23 @@ public class IncrementCounterClock implements IClock
         return ClockType.IncrementCounter;
     }
 
+    @Override
+    public void cleanContext(IColumnContainer cc, InetAddress node)
+    {
+        //TODO: REFACTOR? (modify: 1) where CF is sanitized to be on read side; 2) how CF is sanitized)
+        //TODO: TEST (clean remote replica counts for read repair)
+        //TODO: MODIFY: support SuperColumn-type CF
+        
+        for (IColumn column : cc.getSortedColumns())
+        {
+            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
+            clock.cleanNodeCounts(node);
+            if (0 == clock.context().length)
+            {
+                cc.remove(column.name());
+            }
+        }
+    }
 }
 
 class IncrementCounterClockSerializer implements ICompactSerializer2<IClock> 

@@ -251,27 +251,17 @@ public class ColumnFamily implements IColumnContainer
         }
     }
 
-    public void cleanForIncrementCounter()
+    /**
+     * Clean the context for the specified node in a clock
+     * specific manner. Used for example in the increment counter
+     * to clear counts from a node.
+     * @param node Node to clear the context from.
+     */
+    public void cleanContext(InetAddress node)
     {
-        cleanForIncrementCounter(FBUtilities.getLocalAddress());
+        markedForDeleteAt.get().cleanContext(this, node);
     }
-
-//TODO: REFACTOR? (modify: 1) where CF is sanitized to be on read side; 2) how CF is sanitized)
-//TODO: TEST (clean remote replica counts for read repair)
-    public void cleanForIncrementCounter(InetAddress node)
-    {
-//TODO: MODIFY: support SuperColumn-type CF
-        for (IColumn column : getSortedColumns())
-        {
-            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
-            clock.cleanNodeCounts(node);
-            if (0 == clock.context().length)
-            {
-                remove(column.name());
-            }
-        }
-    }
-
+    
     public IColumn getColumn(byte[] name)
     {
         return columns.get(name);

@@ -101,7 +101,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
                     cf != null && cf.getClockType() == ClockType.IncrementCounter)
                 {
                     cf = cf.cloneMe();
-                    cf.cleanForIncrementCounter();
+                    cf.cleanContext(FBUtilities.getLocalAddress());
                 }
 
                 versions.add(cf);
@@ -148,13 +148,10 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             // create and send the row mutation message based on the diff
             RowMutation rowMutation = new RowMutation(table, key.key);
 //TODO: TEST (clean remote node's counts, when sending read repair)
-            if (diffCf.getClockType() == ClockType.IncrementCounter)
-            {
-                diffCf.cleanForIncrementCounter(endpoints.get(i));
+            diffCf.cleanContext(endpoints.get(i));
 //TODO: MODIFY: the check in ColumnFamilyStore.removeDeleted() appears better
-                if (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete())
-                    continue;
-            }
+            if (diffCf.getClockType() == ClockType.IncrementCounter && (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete()))
+                continue;
 
             rowMutation.add(diffCf);
             RowMutationMessage rowMutationMessage = new RowMutationMessage(rowMutation);

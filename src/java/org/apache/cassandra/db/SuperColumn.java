@@ -76,7 +76,7 @@ public class SuperColumn implements IColumn, IColumnContainer
         return (AbstractType)columns_.comparator();
     }
 
-    public ClockType getColumnType()
+    public ClockType getClockType()
     {
         return clockType;
     }
@@ -116,6 +116,11 @@ public class SuperColumn implements IColumn, IColumnContainer
     public Collection<IColumn> getSubColumns()
     {
     	return columns_.values();
+    }
+    
+    public Collection<IColumn> getSortedColumns()
+    {
+        return getSubColumns();
     }
 
     public IColumn getSubColumn(byte[] columnName)
