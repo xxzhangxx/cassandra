@@ -1,0 +1,9 @@
+.classpath
+.project
+.settings/
+build/
+interface/avro/
+interface/thrift/gen-py/
+src/gen-java/
+test/system/*.pyc
+
