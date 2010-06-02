@@ -19,9 +19,6 @@
 package org.apache.cassandra.thrift;
 
 import java.io.IOException;
-//TODO: REMOVE (temporary, until counter context is refactored)
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 
@@ -437,7 +434,6 @@ public class CassandraServer implements Cassandra.Iface
     public void remove(byte[] key, ColumnPath column_path, Clock clock, ConsistencyLevel consistency_level)
     throws InvalidRequestException, UnavailableException, TimedOutException
     {
-
         if (logger.isDebugEnabled())
             logger.debug("remove");
 

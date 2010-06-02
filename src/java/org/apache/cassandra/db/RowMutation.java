@@ -313,20 +313,19 @@ public class RowMutation
 
     private static void deleteColumnOrSuperColumnToRowMutation(RowMutation rm, String cfName, Deletion del)
     {
-        IClock deleteClock = unthriftifyClock(del.clock);
         if (del.predicate != null && del.predicate.column_names != null)
         {
             for(byte[] c : del.predicate.column_names)
             {
                 if (del.super_column == null && DatabaseDescriptor.getColumnFamilyType(rm.table_, cfName) == ColumnFamilyType.Super)
-                    rm.delete(new QueryPath(cfName, c), deleteClock);
+                    rm.delete(new QueryPath(cfName, c), unthriftifyClock(del.clock));
                 else
-                    rm.delete(new QueryPath(cfName, del.super_column, c), deleteClock);
+                    rm.delete(new QueryPath(cfName, del.super_column, c), unthriftifyClock(del.clock));
             }
         }
         else
         {
-            rm.delete(new QueryPath(cfName, del.super_column), deleteClock);
+            rm.delete(new QueryPath(cfName, del.super_column), unthriftifyClock(del.clock));
         }
     }
 

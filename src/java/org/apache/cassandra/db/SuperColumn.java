@@ -35,7 +35,6 @@ import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.clock.AbstractReconciler;
-
 import org.apache.cassandra.utils.FBUtilities;
 
 
@@ -53,7 +52,6 @@ public class SuperColumn implements IColumn, IColumnContainer
     private AtomicInteger localDeletionTime = new AtomicInteger(Integer.MIN_VALUE);
     private AtomicReference<IClock> markedForDeleteAt;
     private AbstractReconciler reconciler;
-    private ClockType clockType;
 
     public SuperColumn(byte[] name, AbstractType comparator, ClockType clockType, AbstractReconciler reconciler)
     {
@@ -68,22 +66,11 @@ public class SuperColumn implements IColumn, IColumnContainer
         columns_ = columns;
         this.reconciler = reconciler;
         markedForDeleteAt = new AtomicReference<IClock>(clockType.minClock());
-        this.clockType = clockType;
     }
 
     public AbstractType getComparator()
     {
         return (AbstractType)columns_.comparator();
-    }
-
-    public ClockType getClockType()
-    {
-        return clockType;
-    }
-
-    public AbstractReconciler getReconciler()
-    {
-        return reconciler;
     }
 
     public SuperColumn cloneMeShallow()
@@ -235,7 +222,6 @@ public class SuperColumn implements IColumn, IColumnContainer
     {
         IClock _markedForDeleteAt = markedForDeleteAt.get();
         IColumn columnDiff = new SuperColumn(columnNew.name(), ((SuperColumn)columnNew).getComparator(), _markedForDeleteAt.type(), reconciler);
-
         ClockRelationship rel = columnNew.getMarkedForDeleteAt().compare(_markedForDeleteAt);
         if (ClockRelationship.GREATER_THAN == rel)
         {
