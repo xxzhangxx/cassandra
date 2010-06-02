@@ -252,7 +252,7 @@ public class ThriftValidation
         {
             return new TimestampClock(clock.getTimestamp());
         }
-        return new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
+        return new IncrementCounterClock();
     }
 
     public static void validateMutation(String keyspace, String cfName, Mutation mut)

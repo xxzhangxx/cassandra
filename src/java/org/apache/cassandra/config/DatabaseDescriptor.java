@@ -531,7 +531,6 @@ public class DatabaseDescriptor
                     else
                         throw new ConfigurationException("No reconciler specified for column family " + cf.name);
                 }
-
                 if (cf.read_repair_chance < 0.0 || cf.read_repair_chance > 1.0)
                 {                        
                     throw new ConfigurationException("read_repair_chance must be between 0.0 and 1.0");

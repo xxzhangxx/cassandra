@@ -313,7 +313,7 @@ public class RowMutation
 
     private static void deleteColumnOrSuperColumnToRowMutation(RowMutation rm, String cfName, Deletion del)
     {
-        IClock deleteClock = unthriftifyClockForDelete(del.clock);
+        IClock deleteClock = unthriftifyClock(del.clock);
         if (del.predicate != null && del.predicate.column_names != null)
         {
             for(byte[] c : del.predicate.column_names)
@@ -341,26 +341,6 @@ public class RowMutation
             return new IncrementCounterClock(clock.context);
         }
         return null;
-    }
-
-//TODO: REMOVE (temporary fix, until clock context structure modified)
-    private static IClock unthriftifyClockForDelete(Clock clock)
-    {
-        if (clock.isSetTimestamp())
-        {
-            return new TimestampClock(clock.getTimestamp());
-        }
-
-        IClock cassandra_clock = new IncrementCounterClock(ArrayUtils.EMPTY_BYTE_ARRAY);
-        try
-        {
-            ((IncrementCounterClock)cassandra_clock).update(InetAddress.getByAddress(new byte[4]), 0L);
-        }
-        catch (UnknownHostException e)
-        {
-            assert false : "We need to temporarily use 0.0.0.0 as a flag node for delete.";
-        }
-        return cassandra_clock;
     }
 
 //TODO: TEST

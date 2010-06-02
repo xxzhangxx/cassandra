@@ -437,6 +437,7 @@ public class CassandraServer implements Cassandra.Iface
     public void remove(byte[] key, ColumnPath column_path, Clock clock, ConsistencyLevel consistency_level)
     throws InvalidRequestException, UnavailableException, TimedOutException
     {
+
         if (logger.isDebugEnabled())
             logger.debug("remove");
 
@@ -446,20 +447,6 @@ public class CassandraServer implements Cassandra.Iface
         ThriftValidation.validateColumnPathOrParent(keySpace.get(), column_path);
 
         IClock cassandra_clock = ThriftValidation.validateClock(clock);
-//TODO: MODIFY (modify counter clock structure to be more compact: timestamp + [(node id, count)])
-        //XXX: temp impl, until clock context structure refactored
-        ClockType type = cassandra_clock.type();
-        if (type == ClockType.IncrementCounter)
-        {
-            try
-            {
-                ((IncrementCounterClock)cassandra_clock).update(InetAddress.getByAddress(new byte[4]), 0L);
-            }
-            catch (UnknownHostException e)
-            {
-                assert false : "We need to temporarily use 0.0.0.0 as a flag node for delete.";
-            }
-        }
 
         RowMutation rm = new RowMutation(keySpace.get(), key);
         rm.delete(new QueryPath(column_path), cassandra_clock);
