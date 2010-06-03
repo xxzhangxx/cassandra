@@ -57,6 +57,13 @@ public interface IClock
      * @param node Node to clean for.
      */
     public void cleanContext(IColumnContainer cc, InetAddress node);
+
+    /**
+     * Update context of columns in column family.
+     * @param cf Column family to update.
+     * @param node Update for this node.
+     */
+    public void update(ColumnFamily cf, InetAddress node);
     
     /**
      * @return number of bytes this type of clock

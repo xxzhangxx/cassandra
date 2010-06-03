@@ -119,6 +119,11 @@ public class TimestampClock implements IClock
     public void cleanContext(IColumnContainer cc, InetAddress node)
     {
     }
+
+    @Override
+    public void update(ColumnFamily cf, InetAddress node)
+    {
+    }
 }
 
 class TimestampClockSerializer implements ICompactSerializer2<IClock>

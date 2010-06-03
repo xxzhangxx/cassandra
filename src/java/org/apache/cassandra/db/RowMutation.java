@@ -342,55 +342,15 @@ public class RowMutation
         return null;
     }
 
-//TODO: TEST
-    // XXX: should only be called by: db.Table : apply()
-    // update the context of all Columns in this RowMutation
+    /**
+     * Update the context of all Columns in this RowMutation
+     */
     public void updateClocks(InetAddress node)
     {
         for (Map.Entry<Integer, ColumnFamily> entry : modifications_.entrySet())
         {
             ColumnFamily cf = entry.getValue();
-            ClockType clockType = cf.getClockType();
-            if (clockType == ClockType.IncrementCounter)
-            {
-                updateIncrementCounterClocks(node, cf);
-            }
-        }
-    }
-
-    private void updateIncrementCounterClocks(InetAddress node, ColumnFamily cf)
-    {
-        // standard column family
-        if (!cf.isSuper())
-        {
-            for (IColumn col : cf.getSortedColumns())
-            {
-                if (col.isMarkedForDelete())
-                    continue;
-
-//TODO: MODIFY: prob need to create new Column()
-                // update in-place, although Column is (abstractly) immutable
-                ((IncrementCounterClock)col.clock()).update(
-                    node,
-                    FBUtilities.byteArrayToLong(col.value()));
-
-            }
-            return;
-        }
-
-        // super column family
-        for (IColumn col : cf.getSortedColumns())
-        {
-            for (IColumn subCol : col.getSubColumns())
-            {
-                if (subCol.isMarkedForDelete())
-                    continue;
-
-//TODO: MODIFY: prob need to create new Column()
-                ((IncrementCounterClock)subCol.clock()).update(
-                    node,
-                    FBUtilities.byteArrayToLong(subCol.value()));
-            }
+            cf.getMarkedForDeleteAt().update(cf, node);
         }
     }
 }

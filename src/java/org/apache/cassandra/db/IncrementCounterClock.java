@@ -162,6 +162,39 @@ public class IncrementCounterClock implements IClock
             }
         }
     }
+
+    @Override
+    public void update(ColumnFamily cf, InetAddress node)
+    {
+        // standard column family
+        if (!cf.isSuper())
+        {
+            for (IColumn col : cf.getSortedColumns())
+            {
+                if (col.isMarkedForDelete())
+                    continue;
+
+                // TODO: MODIFY: prob need to create new Column()
+                // update in-place, although Column is (abstractly) immutable
+                ((IncrementCounterClock) col.clock()).update(node, FBUtilities.byteArrayToLong(col.value()));
+
+            }
+            return;
+        }
+
+        // super column family
+        for (IColumn col : cf.getSortedColumns())
+        {
+            for (IColumn subCol : col.getSubColumns())
+            {
+                if (subCol.isMarkedForDelete())
+                    continue;
+
+                // TODO: MODIFY: prob need to create new Column()
+                ((IncrementCounterClock) subCol.clock()).update(node, FBUtilities.byteArrayToLong(subCol.value()));
+            }
+        }
+    }
 }
 
 class IncrementCounterClockSerializer implements ICompactSerializer2<IClock> 
