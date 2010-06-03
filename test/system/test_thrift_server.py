@@ -1186,7 +1186,7 @@ class TestMutations(ThriftTester):
 
     def test_incr_standard_insert(self):
         d1 = 12
-        d2 = -21
+        d2 = 21
         d3 = 35
         d1p = struct.pack('>q', d1)
         d2p = struct.pack('>q', d2)
@@ -1209,7 +1209,7 @@ class TestMutations(ThriftTester):
         assert struct.unpack('>q', rv3.column.value)[0] == (d1+d2+d3)
 
     def test_incr_super_insert(self):
-        d1 = -234
+        d1 = 234
         d2 = 52345
         d3 = 3123
         d1p = struct.pack('>q', d1)
