@@ -18,7 +18,7 @@
  * under the License.
  * 
  */
-package org.apache.cassandra.db.context;
+package org.apache.cassandra.db.clock;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
