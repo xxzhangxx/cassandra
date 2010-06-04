@@ -36,10 +36,15 @@ public class TimestampClock implements IClock
 {
     private static Logger logger_ = Logger.getLogger(TimestampClock.class);
     public static TimestampClock MIN_VALUE = new TimestampClock(Long.MIN_VALUE);
-    public static TimestampClock ZERO_VALUE = new TimestampClock(0);
+    public static TimestampClock ZERO_VALUE = new TimestampClock(0L);
     public static ICompactSerializer2<IClock> SERIALIZER = new TimestampClockSerializer();
 
     private final long timestamp;
+
+    public TimestampClock()
+    {
+        this.timestamp = 0L;
+    }
 
     public TimestampClock(long timestamp)
     {

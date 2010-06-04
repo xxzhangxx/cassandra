@@ -337,7 +337,7 @@ public class RowMutation
         }
         else if(!clock.isSetContext())
         {
-            return new IncrementCounterClock(clock.context);
+            return new IncrementCounterClock();
         }
         return null;
     }
