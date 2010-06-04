@@ -49,6 +49,10 @@ public interface IClock
      */
     public IClock getSuperset(List<IClock> otherClocks);
 
+    /**
+     * @return compare the two cols and return the left one
+     * if it's greater, otherwise null.
+     */
     public IColumn diff(IColumn left, IColumn right);
 
     /**

@@ -25,11 +25,8 @@ import java.net.InetAddress;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.commons.lang.ArrayUtils;
-
-import org.apache.cassandra.db.IClock.ClockRelationship;
-import org.apache.cassandra.db.context.IContext.ContextRelationship;
-import org.apache.cassandra.db.context.IncrementCounterContext;
+import org.apache.cassandra.db.clock.IncrementCounterContext;
+import org.apache.cassandra.db.clock.IContext.ContextRelationship;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.utils.FBUtilities;
 

@@ -22,7 +22,6 @@ package org.apache.cassandra.db;
 
 
 import java.util.Collection;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 
 public interface IColumnContainer

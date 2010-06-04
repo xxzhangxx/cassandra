@@ -24,7 +24,6 @@ import org.apache.cassandra.db.Column;
 import org.apache.cassandra.db.DeletedColumn;
 import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.IncrementCounterClock;
-import org.apache.cassandra.db.context.IncrementCounterContext;
 import org.apache.cassandra.utils.FBUtilities;
 
 public class IncrementCounterReconciler extends AbstractReconciler

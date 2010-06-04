@@ -79,16 +79,10 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             ReadResponse result = ReadResponse.serializer().deserialize(new DataInputStream(bufIn));
             if (result.isDigestQuery())
             {
-//TODO: TEST (compare multiple digests)
                 if (isDigestQuery)
                 {
                     byte[] resultDigest = result.digest();
-                    if (!Arrays.equals(resultDigest, digest))
-                    {
-                        /* Wrap the key as the context in this exception */
-                        String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(resultDigest), FBUtilities.bytesToHex(digest));
-                        throw new DigestMismatchException(s);
-                    }
+                    checkDigest(key, digest, resultDigest);
                 }
                 digest = result.digest();
                 isDigestQuery = true;
@@ -97,8 +91,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             {
 //TODO: MODIFY: [not deterministic] clean counts from remote replicas
                 ColumnFamily cf = result.row().cf;
-                if (!FBUtilities.getLocalAddress().equals(response.getFrom()) &&
-                    cf != null && cf.getClockType() == ClockType.IncrementCounter)
+                if (!FBUtilities.getLocalAddress().equals(response.getFrom()) && cf != null)
                 {
                     cf = cf.cloneMe();
                     cf.cleanContext(FBUtilities.getLocalAddress());
@@ -115,12 +108,8 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             for (ColumnFamily cf : versions)
             {
-                if (!Arrays.equals(ColumnFamily.digest(cf), digest))
-                {
-                    /* Wrap the key as the context in this exception */
-                    String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(ColumnFamily.digest(cf)), FBUtilities.bytesToHex(digest));
-                    throw new DigestMismatchException(s);
-                }
+                byte[] resultDigest = ColumnFamily.digest(cf);
+                checkDigest(key, digest, resultDigest);
             }
         }
 
@@ -132,7 +121,16 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 		return new Row(key, resolved);
 	}
 
-//TODO: TEST
+    private void checkDigest(DecoratedKey key, byte[] digest, byte[] resultDigest) throws DigestMismatchException
+    {
+        if (!Arrays.equals(resultDigest, digest))
+        {
+            /* Wrap the key as the context in this exception */
+            String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(resultDigest), FBUtilities.bytesToHex(digest));
+            throw new DigestMismatchException(s);
+        }
+    }
+
     /**
      * For each row version, compare with resolved (the superset of all row versions);
      * if it is missing anything, send a mutation to the endpoint it come from.
@@ -147,10 +145,10 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 
             // create and send the row mutation message based on the diff
             RowMutation rowMutation = new RowMutation(table, key.key);
-//TODO: TEST (clean remote node's counts, when sending read repair)
+
             diffCf.cleanContext(endpoints.get(i));
-//TODO: MODIFY: the check in ColumnFamilyStore.removeDeleted() appears better
-            if (diffCf.getClockType() == ClockType.IncrementCounter && (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete()))
+
+            if (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete())
                 continue;
 
             rowMutation.add(diffCf);
@@ -168,7 +166,6 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         }
     }
 
-//TODO: TEST
     static ColumnFamily resolveSuperset(List<ColumnFamily> versions)
     {
         assert versions.size() > 0;
@@ -177,8 +174,6 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             if (cf != null)
             {
-//TODO: TEST (shallow clone for incr counters)
-//                resolved = cf.cloneMe();
                 resolved = cf.cloneMeShallow();
                 break;
             }

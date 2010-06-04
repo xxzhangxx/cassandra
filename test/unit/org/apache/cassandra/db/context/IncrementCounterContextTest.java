@@ -32,6 +32,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+import org.apache.cassandra.db.clock.IContext;
+import org.apache.cassandra.db.clock.IncrementCounterContext;
 import org.apache.cassandra.utils.FBUtilities;
 
 /**

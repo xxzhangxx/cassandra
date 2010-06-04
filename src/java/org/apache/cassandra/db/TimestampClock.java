@@ -25,9 +25,7 @@ import java.net.InetAddress;
 import java.util.List;
 
 import org.apache.log4j.Logger;
-import org.apache.commons.lang.ArrayUtils;
 
-import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.io.ICompactSerializer2;
 
 /**

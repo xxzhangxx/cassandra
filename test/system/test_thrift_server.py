@@ -1192,7 +1192,7 @@ class TestMutations(ThriftTester):
         d2p = struct.pack('>q', d2)
         d3p = struct.pack('>q', d3)
         _set_keyspace('Keyspace1')
-        # insert positive and negative values and check the counts
+        # insert positive values and check the counts
         client.insert('key1', ColumnParent('IncrementCounter1'), Column('c1', d1p, Clock()), ConsistencyLevel.ONE)
         time.sleep(0.1)
         rv1 = client.get('key1', ColumnPath('IncrementCounter1', column='c1'), ConsistencyLevel.ONE)

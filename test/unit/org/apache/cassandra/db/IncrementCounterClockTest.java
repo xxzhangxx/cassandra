@@ -30,7 +30,7 @@ import org.apache.cassandra.Util;
 
 import org.junit.Test;
 
-import org.apache.cassandra.db.context.IncrementCounterContext;
+import org.apache.cassandra.db.clock.IncrementCounterContext;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.utils.FBUtilities;
 
