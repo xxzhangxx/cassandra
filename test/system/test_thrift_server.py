@@ -1294,11 +1294,14 @@ class TestMutations(ThriftTester):
         keyed_mutations = dict({key: mutation_map})
         
         client.batch_mutate(keyed_mutations, ConsistencyLevel.ONE)
+        #print struct.unpack('>q', client.get(key, ColumnPath(cf, column='c1'), ConsistencyLevel.ONE).column.value)[0]
+        client.batch_mutate(keyed_mutations, ConsistencyLevel.ONE)
+        #print struct.unpack('>q', client.get(key, ColumnPath(cf, column='c1'), ConsistencyLevel.ONE).column.value)[0]
         
         time.sleep(0.1)
         
         rv = client.get(key, ColumnPath(cf, column='c1'), ConsistencyLevel.ONE)
-        assert struct.unpack('>q', rv.column.value)[0] == (d1+d2)        
+        assert struct.unpack('>q', rv.column.value)[0] == (d1+d1+d2+d2)      
         
 class TestTruncate(ThriftTester):
     def test_truncate(self):
