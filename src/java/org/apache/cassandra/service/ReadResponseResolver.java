@@ -147,8 +147,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             RowMutation rowMutation = new RowMutation(table, key.key);
 
             diffCf.cleanContext(endpoints.get(i));
-
-            if (diffCf.getColumnsMap().isEmpty() || !diffCf.isMarkedForDelete())
+            if (diffCf.getColumnsMap().isEmpty() && !diffCf.isMarkedForDelete())
                 continue;
 
             rowMutation.add(diffCf);
