@@ -147,6 +147,11 @@ public class RowMutation
             columnFamily = ColumnFamily.create(table_, path.columnFamilyName);
             modifications_.put(id, columnFamily);
         }
+        // TODO refactor
+        if (columnFamily.getClockType() == ClockType.IncrementCounter)
+        {
+            ((IncrementCounterClock) clock).update(FBUtilities.getLocalAddress(), FBUtilities.byteArrayToLong(value));
+        }
         columnFamily.addColumn(path, value, clock, timeToLive);
     }
 

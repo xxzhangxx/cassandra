@@ -1280,6 +1280,25 @@ class TestMutations(ThriftTester):
         client.remove('key1', ColumnPath('SuperIncrementCounter1', 'sc1'), Clock(), ConsistencyLevel.ONE)
         time.sleep(0.1)
         _assert_no_columnpath('key1', ColumnPath('SuperIncrementCounter1', 'sc1', 'c1'))
+
+    def test_batch_mutate_increment_columns_blocking(self):
+        d1 = 234
+        d2 = 52345
+        _set_keyspace('Keyspace1')
+        cf = 'IncrementCounter1'
+        key = 'key1'
+        values = [struct.pack('>q', d1), struct.pack('>q', d2)]
+        
+        mutations = [Mutation(ColumnOrSuperColumn(Column('c1', v, Clock()))) for v in values]
+        mutation_map = dict({cf: mutations})
+        keyed_mutations = dict({key: mutation_map})
+        
+        client.batch_mutate(keyed_mutations, ConsistencyLevel.ONE)
+        
+        time.sleep(0.1)
+        
+        rv = client.get(key, ColumnPath(cf, column='c1'), ConsistencyLevel.ONE)
+        assert struct.unpack('>q', rv.column.value)[0] == (d1+d2)        
         
 class TestTruncate(ThriftTester):
     def test_truncate(self):
