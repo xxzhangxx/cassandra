@@ -79,7 +79,6 @@ public class DefsTest extends CleanupHelper
     public void addNewCfToBogusTable() throws InterruptedException
     {
         CFMetaData newCf = new CFMetaData("MadeUpKeyspace", "NewCF", ColumnFamilyType.Standard, ClockType.Timestamp, UTF8Type.instance, null, new TimestampReconciler(), "new cf", 0, false, 0);
-
         try
         {
             new AddColumnFamily(newCf).apply();
@@ -105,7 +104,6 @@ public class DefsTest extends CleanupHelper
         
         // add a cf.
         CFMetaData newCf1 = new CFMetaData("Keyspace1", "MigrationCf_1", ColumnFamilyType.Standard, ClockType.Timestamp, UTF8Type.instance, null, new TimestampReconciler(), "Migration CF ", 0, false, 0);
-
         Migration m1 = new AddColumnFamily(newCf1);
         m1.apply();
         UUID ver1 = m1.getVersion();

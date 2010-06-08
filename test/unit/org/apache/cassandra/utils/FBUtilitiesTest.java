@@ -155,7 +155,7 @@ public class FBUtilitiesTest
         atomicClock.set(TimestampClock.MIN_VALUE);
         FBUtilities.atomicSetMax(atomicClock, new TimestampClock(1L));
         assert ((TimestampClock)atomicClock.get()).timestamp() == 1L;
-
+        
         // atomic == new
         atomicClock.set(new TimestampClock(3L));
         FBUtilities.atomicSetMax(atomicClock, new TimestampClock(3L));
@@ -166,6 +166,4 @@ public class FBUtilitiesTest
         FBUtilities.atomicSetMax(atomicClock, new TimestampClock(3L));
         assert ((TimestampClock)atomicClock.get()).timestamp() == 9L;
     } 
-
-
 }
