@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.LinkedList;
 
 import org.apache.cassandra.db.Column;
+import org.apache.cassandra.db.DBConstants;
 import org.apache.cassandra.db.DeletedColumn;
 import org.apache.cassandra.db.IClock;
 import org.apache.cassandra.db.IncrementCounterClock;
@@ -91,11 +92,30 @@ public class IncrementCounterReconciler extends AbstractReconciler
             }
         }
         else
-        {
+        {            
             // live + live: merge clocks; update value
             IClock clock = mergeClocks(left, right);
+            // only a timestamp in the clock, has not yet had update called on it.
+            // for example multiple mutates on one column in a batch
+            if (clock.size() == DBConstants.intSize_ + DBConstants.longSize_) 
+            {
+                long total = 0;
+                if (left.value().length == DBConstants.longSize_ && right.value().length == DBConstants.longSize_)
+                {
+                    total = FBUtilities.byteArrayToLong(left.value()) + FBUtilities.byteArrayToLong(right.value());
+                } else if (left.value().length == DBConstants.longSize_)
+                {
+                    total = FBUtilities.byteArrayToLong(left.value());
+                } else if (right.value().length == DBConstants.longSize_)
+                {
+                    total = FBUtilities.byteArrayToLong(right.value());
+                }
+                byte[] value = new byte[8];
+                FBUtilities.copyIntoBytes(value, 0, total);
+                return new Column(left.name(), value, clock);
+            }
+            
             byte[] value = contextManager.total(((IncrementCounterClock)clock).context());
-
             return new Column(left.name(), value, clock);
         }
     }
