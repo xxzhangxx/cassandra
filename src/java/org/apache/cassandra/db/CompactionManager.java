@@ -194,7 +194,6 @@ public class CompactionManager implements CompactionManagerMBean
         return executor.submit(callable);
     }
 
-//TODO: TEST (AES support for Counter CFs)
     public Future<List<SSTableReader>> submitAESCompaction(final ColumnFamilyStore cfStore, final Collection<Range> ranges, final InetAddress target)
     {
         Callable<List<SSTableReader>> callable = new Callable<List<SSTableReader>>()
@@ -488,7 +487,6 @@ public class CompactionManager implements CompactionManagerMBean
             new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables)));
     }
 
-//TODO: TEST (AES support for Counter CFs)
     private List<SSTableReader> doAESCompaction(ColumnFamilyStore cfs, Collection<SSTableReader> sstables, Collection<Range> ranges, InetAddress target)
             throws IOException
     {
@@ -650,7 +648,6 @@ public class CompactionManager implements CompactionManagerMBean
         }
     }
 
-//TODO: TEST (AES support for Counter CFs)
     private static class CounterAESCompactionIterator extends AntiCompactionIterator
     {
         private InetAddress remoteAddress;

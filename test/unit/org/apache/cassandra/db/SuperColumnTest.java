@@ -17,15 +17,12 @@
 */
 package org.apache.cassandra.db;
 
-
 import org.junit.Test;
 
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertNull;
-
 import static org.apache.cassandra.Util.concatByteArrays;
 import static org.apache.cassandra.Util.getBytes;
-
 import org.apache.cassandra.db.clock.IncrementCounterReconciler;
 import org.apache.cassandra.db.clock.TimestampReconciler;
 import org.apache.cassandra.db.marshal.LongType;
