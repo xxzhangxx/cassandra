@@ -65,6 +65,16 @@ keyspaces:
           column_type: Super
           clock_type: IncrementCounter
           reconciler: IncrementCounterReconciler
+          
+        - name: StandardCounter1
+          column_type: Standard
+          clock_type: StandardCounter
+          reconciler: StandardCounterReconciler 
+          
+        - name: SuperStandardCounter1
+          column_type: Super
+          clock_type: StandardCounter
+          reconciler: StandardCounterReconciler
 
     - name: Keyspace2
       replica_placement_strategy: org.apache.cassandra.locator.RackUnawareStrategy
@@ -109,3 +119,8 @@ keyspaces:
           column_type: Standard
           clock_type: IncrementCounter
           reconciler: IncrementCounterReconciler
+
+        - name: StandardCounter1
+          column_type: Standard
+          clock_type: StandardCounter
+          reconciler: StandardCounterReconciler
