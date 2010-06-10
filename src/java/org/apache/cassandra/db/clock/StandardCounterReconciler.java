@@ -17,21 +17,24 @@
  */
 package org.apache.cassandra.db.clock;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.LinkedList;
 
+import org.apache.commons.lang.ArrayUtils;
+
 import org.apache.cassandra.db.Column;
-import org.apache.cassandra.db.DeletedColumn;
 import org.apache.cassandra.db.IClock;
-import org.apache.cassandra.db.IncrementCounterClock;
+import org.apache.cassandra.db.IClock.ClockRelationship;
+import org.apache.cassandra.db.StandardCounterClock;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class IncrementCounterReconciler extends AbstractCounterReconciler
+public class StandardCounterReconciler extends AbstractCounterReconciler
 {
     // lazy-load singleton
     private static class LazyHolder
     {
-        private static final IncrementCounterContext contextManager = IncrementCounterContext.instance();
+        private static final StandardCounterContext contextManager = StandardCounterContext.instance();
     }
 
     protected AbstractCounterContext getContextManager()

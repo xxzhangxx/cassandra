@@ -28,36 +28,34 @@ import org.apache.cassandra.utils.FBUtilities;
 import org.apache.log4j.Logger;
 
 /**
- * An implementation of a distributed increment-only counter context.
+ * An implementation of a distributed counter context.
  *
- * The data structure is:
- *   1) timestamp, and
- *   2) a list of (node id, count) pairs.
+ * The context format is:
+ *   {timestamp + [(node id, incr count, decr count), ...]}
  *
  * On update:
- *   1) update timestamp to max(timestamp, local time), and
- *   2) the node updating the value will increment its associated content.
+ *   1) update timestamp to: max(timestamp, local time), and
+ *   2) node updating value will increment the associated count.
  *
- * The aggregated count can then be determined by rolling up all the counts from each
- * (node id, count) pair.  NOTE: only a given node id may increment its associated
- * count and care must be taken that (node id, count) pairs are correctly made
- * consistent.
+ * The aggregated count can be calculated by rolling up all the counts from each
+ * (node id, incr count, decr count) pair.
  */
-public class IncrementCounterContext extends AbstractCounterContext
+public class StandardCounterContext extends AbstractCounterContext
 {
-    private static final int countLength = 8; // long
+    private static final int incrCountLength = 8; // long
+    private static final int decrCountLength = 8; // long
 
-    private static final int stepLength = idLength + countLength;
+    private static final int stepLength = idLength + incrCountLength + decrCountLength;
 
     // lazy-load singleton
     private static class LazyHolder
     {
-        private static final IncrementCounterContext incrementCounterContext = new IncrementCounterContext();
+        private static final StandardCounterContext standardCounterContext = new StandardCounterContext();
     }
 
-    public static IncrementCounterContext instance()
+    public static StandardCounterContext instance()
     {
-        return LazyHolder.incrementCounterContext;
+        return LazyHolder.standardCounterContext;
     }
 
     protected int getStepLength()
@@ -65,18 +63,19 @@ public class IncrementCounterContext extends AbstractCounterContext
         return stepLength;
     }
 
-    // write a tuple (node id, count) at the front
-    protected static void writeElement(byte[] context, byte[] id_, long count)
+    // write a tuple (node id, incr count, decr count) at the front
+    protected void writeElement(byte[] context, byte[] id_, long incrCount, long decrCount)
     {
-        writeElementAtStepOffset(context, 0, id_, count);
+        writeElementAtStepOffset(context, 0, id_, incrCount, decrCount);
     }
 
-    // write a tuple (node id, count) at step offset
-    protected static void writeElementAtStepOffset(byte[] context, int stepOffset, byte[] id_, long count)
+    // write a tuple (node id, incr count, decr count) at step offset
+    protected void writeElementAtStepOffset(byte[] context, int stepOffset, byte[] id_, long incrCount, long decrCount)
     {
         int offset = timestampLength + (stepOffset * stepLength);
         System.arraycopy(id_, 0, context, offset, idLength);
-        FBUtilities.copyIntoBytes(context, offset + idLength, count);
+        FBUtilities.copyIntoBytes(context, offset + idLength, incrCount);
+        FBUtilities.copyIntoBytes(context, offset + idLength + incrCountLength, decrCount);
     }
 
     public byte[] update(byte[] context, InetAddress node, long delta)
@@ -86,6 +85,10 @@ public class IncrementCounterContext extends AbstractCounterContext
         // calculate node id
         byte[] nodeId = node.getAddress();
 
+        // calculate deltas
+        long incrDelta = delta > 0 ?  delta : 0;
+        long decrDelta = delta < 0 ? -delta : 0;
+
         // look for this node id
         for (int offset = timestampLength; offset < context.length; offset += stepLength)
         {
@@ -93,7 +96,8 @@ public class IncrementCounterContext extends AbstractCounterContext
                 continue;
 
             // node id found: increment count, shift to front
-            long count = FBUtilities.byteArrayToLong(context, offset + idLength);
+            long incrCount = FBUtilities.byteArrayToLong(context, offset + idLength);
+            long decrCount = FBUtilities.byteArrayToLong(context, offset + idLength + incrCountLength);
 
             System.arraycopy(
                 context,                        // src
@@ -101,7 +105,7 @@ public class IncrementCounterContext extends AbstractCounterContext
                 context,                        // dest
                 timestampLength + stepLength,   // destPos
                 offset - timestampLength);      // length
-            writeElement(context, nodeId, count + delta);
+            writeElement(context, nodeId, incrCount + incrDelta, decrCount + decrDelta);
 
             return context;
         }
@@ -111,7 +115,7 @@ public class IncrementCounterContext extends AbstractCounterContext
         context = new byte[previous.length + stepLength];
 
         System.arraycopy(previous, 0, context, 0, timestampLength);
-        writeElement(context, nodeId, delta);
+        writeElement(context, nodeId, incrDelta, decrDelta);
         System.arraycopy(
             previous,                           // src
             timestampLength,                    // srcPos
@@ -124,7 +128,42 @@ public class IncrementCounterContext extends AbstractCounterContext
 
     protected long tupleCountTotal(byte[] context, int index)
     {
-        return FBUtilities.byteArrayToLong(context, index + idLength);
+        return FBUtilities.byteArrayToLong(context, index + idLength) + 
+               FBUtilities.byteArrayToLong(context, index + idLength + incrCountLength);
+    }
+
+    private class StandardCounterNode
+    {
+        public long incrCount;
+        public long decrCount;
+
+        public StandardCounterNode(long incrCount, long decrCount)
+        {
+            this.incrCount = incrCount;
+            this.decrCount = decrCount;
+        }
+
+        public int compareTo(StandardCounterNode o)
+        {
+            long left  = incrCount   + decrCount;
+            long right = o.incrCount + o.decrCount;
+            if (left == right)
+            {
+                return 0;
+            }
+            else if (left > right)
+            {
+                return 1;
+            }
+            // left < right
+            return -1;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "(" + incrCount + "," + decrCount + ")";
+        }
     }
 
     /**
@@ -137,56 +176,61 @@ public class IncrementCounterContext extends AbstractCounterContext
     {
         // strategy:
         //   1) take highest timestamp
-        //   2) map id -> count
-        //      a) local id:  sum counts
-        //      b) remote id: keep highest count (reconcile)
+        //   2) map id -> (incr count, decr count) tuples
+        //      a) local id:  sum incr and decr counts, respectively
+        //      b) remote id: keep highest incr and decr counts (reconcile)
         //   3) create a context from sorted array
         long highestTimestamp = Long.MIN_VALUE;
-        Map<FBUtilities.ByteArrayWrapper, Long> contextsMap =
-            new HashMap<FBUtilities.ByteArrayWrapper, Long>();
+        Map<FBUtilities.ByteArrayWrapper, StandardCounterNode> contextsMap =
+            new HashMap<FBUtilities.ByteArrayWrapper, StandardCounterNode>();
         for (byte[] context : contexts)
         {
             // take highest timestamp
             highestTimestamp = Math.max(FBUtilities.byteArrayToLong(context, 0), highestTimestamp);
 
-            // map id -> count
+            // map id -> (incr count, decr count) tuple
             for (int offset = timestampLength; offset < context.length; offset += stepLength)
             {
                 FBUtilities.ByteArrayWrapper id = new FBUtilities.ByteArrayWrapper(
                         ArrayUtils.subarray(context, offset, offset + idLength));
-                long count = FBUtilities.byteArrayToLong(context, offset + idLength);
+                long incrCount = FBUtilities.byteArrayToLong(context, offset + idLength);
+                long decrCount = FBUtilities.byteArrayToLong(context, offset + idLength + incrCountLength);
 
                 if (!contextsMap.containsKey(id))
                 {
-                    contextsMap.put(id, count);
+                    contextsMap.put(id, new StandardCounterNode(incrCount, decrCount));
                     continue;
                 }
 
-                // local id: sum counts
+                StandardCounterNode node = contextsMap.get(id);
+
+                // local id: sum respective counts
                 if (this.idWrapper.equals(id))
                 {
-                    contextsMap.put(id, count + (Long)contextsMap.get(id));
+                    node.incrCount += incrCount;
+                    node.decrCount += decrCount;
                     continue;
                 }
 
-                // remote id: keep highest count
-                if ((Long)contextsMap.get(id) < count)
+                // remote id: keep highest set of counts
+                if ((node.incrCount + node.decrCount) < (incrCount + decrCount))
                 {
-                    contextsMap.put(id, count);
+                    node.incrCount = incrCount;
+                    node.decrCount = decrCount;
                 }
             }
         }
 
-        List<Map.Entry<FBUtilities.ByteArrayWrapper, Long>> contextsList =
-            new ArrayList<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>(
+        List<Map.Entry<FBUtilities.ByteArrayWrapper, StandardCounterNode>> contextsList =
+            new ArrayList<Map.Entry<FBUtilities.ByteArrayWrapper, StandardCounterNode>>(
                     contextsMap.entrySet());
         Collections.sort(
             contextsList,
-            new Comparator<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>()
+            new Comparator<Map.Entry<FBUtilities.ByteArrayWrapper, StandardCounterNode>>()
             {
                 public int compare(
-                    Map.Entry<FBUtilities.ByteArrayWrapper, Long> e1,
-                    Map.Entry<FBUtilities.ByteArrayWrapper, Long> e2)
+                    Map.Entry<FBUtilities.ByteArrayWrapper, StandardCounterNode> e1,
+                    Map.Entry<FBUtilities.ByteArrayWrapper, StandardCounterNode> e2)
                 {
                     // reversed
                     return e2.getValue().compareTo(e1.getValue());
@@ -198,12 +242,13 @@ public class IncrementCounterContext extends AbstractCounterContext
         FBUtilities.copyIntoBytes(merged, 0, highestTimestamp);
         for (int i = 0; i < length; i++)
         {
-            Map.Entry<FBUtilities.ByteArrayWrapper, Long> entry = contextsList.get(i);
+            Map.Entry<FBUtilities.ByteArrayWrapper, StandardCounterNode> entry = contextsList.get(i);
             writeElementAtStepOffset(
                 merged,
                 i,
                 entry.getKey().data,
-                entry.getValue().longValue());
+                entry.getValue().incrCount,
+                entry.getValue().decrCount);
         }
         return merged;
     }
@@ -242,6 +287,8 @@ public class IncrementCounterContext extends AbstractCounterContext
             }
             sb.append(", ");
             sb.append(FBUtilities.byteArrayToLong(context, offset + idLength));
+            sb.append(", ");
+            sb.append(FBUtilities.byteArrayToLong(context, offset + idLength + incrCountLength));
             sb.append(")");
         }
         sb.append("]}");
@@ -255,8 +302,9 @@ public class IncrementCounterContext extends AbstractCounterContext
 
         for (int offset = timestampLength; offset < context.length; offset += stepLength)
         {
-            long count = FBUtilities.byteArrayToLong(context, offset + idLength);
-            total += count;
+            long incrCount = FBUtilities.byteArrayToLong(context, offset + idLength);
+            long decrCount = FBUtilities.byteArrayToLong(context, offset + idLength + incrCountLength);
+            total += incrCount - decrCount;
         }
 
         return FBUtilities.toByteArray(total);

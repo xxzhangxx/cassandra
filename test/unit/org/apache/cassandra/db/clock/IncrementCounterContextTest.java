@@ -32,8 +32,6 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-import org.apache.cassandra.db.clock.IContext;
-import org.apache.cassandra.db.clock.IncrementCounterContext;
 import org.apache.cassandra.utils.FBUtilities;
 
 /**
@@ -51,9 +49,11 @@ public class IncrementCounterContextTest
     private static final InetAddress idAddress;
     private static final byte[] id;
     private static final int idLength;
+
     private static final int countLength;
 
     private static final int stepLength;
+
     private static final int defaultEntries;
 
     static
@@ -63,7 +63,9 @@ public class IncrementCounterContextTest
         idAddress       = FBUtilities.getLocalAddress();
         id              = idAddress.getAddress();
         idLength        = 4; // size of int
+
         countLength     = 8; // size of long
+
         stepLength      = idLength + countLength;
 
         defaultEntries  = 10;
@@ -86,17 +88,20 @@ public class IncrementCounterContextTest
     {
         byte[] context;
 
+        long start = System.currentTimeMillis();
+        long timestamp;
+
         // update
         context = icc.create();
         context = icc.update(context, idAddress);
 
         assert context.length == (timestampLength + stepLength);
+
+        timestamp = FBUtilities.byteArrayToLong(context, 0);
+        assert (start <= timestamp) && (timestamp <= System.currentTimeMillis());
+
         assert FBUtilities.compareByteSubArrays(
-                context,
-                timestampLength,
-                id,
-                0,
-                idLength) == 0;
+                context, timestampLength, id, 0, idLength) == 0;
         assert FBUtilities.compareByteSubArrays(
                 context,
                 timestampLength + idLength,
@@ -108,6 +113,9 @@ public class IncrementCounterContextTest
         context = icc.create();
         context = icc.update(context, idAddress, 3L);
 
+        timestamp = FBUtilities.byteArrayToLong(context, 0);
+        assert (start <= timestamp) && (timestamp <= System.currentTimeMillis());
+
         assert context.length == (timestampLength + stepLength);
         assert FBUtilities.compareByteSubArrays(
                 context, timestampLength, id, 0, idLength) == 0;
@@ -118,7 +126,7 @@ public class IncrementCounterContextTest
     }
 
     @Test
-    public void testUpdatePresent()
+    public void testUpdatePresent() throws InterruptedException
     {
         byte[] context;
 
@@ -135,20 +143,13 @@ public class IncrementCounterContextTest
         assert context.length == (timestampLength + stepLength);
         assert 2L == FBUtilities.byteArrayToLong(context, timestampLength + idLength);
 
-        try
-        {
-            Thread.sleep(10);
-        }
-        catch (InterruptedException e)
-        {
-            assert false : "test requires a pause...";
-        }
+        Thread.sleep(10);
 
         // update w/ delta
         context = icc.update(context, idAddress, 25L);
 
         long created2 = FBUtilities.byteArrayToLong(context, 0);
-        assert (created <= created2) && (created2 <= System.currentTimeMillis());
+        assert (created < created2) && (created2 <= System.currentTimeMillis());
 
         assert context.length == (timestampLength + stepLength);
         assert 27L == FBUtilities.byteArrayToLong(context, timestampLength + idLength);
@@ -308,16 +309,12 @@ public class IncrementCounterContextTest
         byte[] right;
 
         // equality:
-        //   left:  no local timestamp
-        //   right: no local timestamp
         left  = FBUtilities.toByteArray(1L);
         right = FBUtilities.toByteArray(1L);
 
         assert IContext.ContextRelationship.EQUAL ==
             icc.compare(left, right);
 
-        // equality:
-        //   left, right: local timestamps equal
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
@@ -335,8 +332,6 @@ public class IncrementCounterContextTest
             icc.compare(left, right);
 
         // greater than:
-        //   left:  local timestamp
-        //   right: no local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
@@ -352,8 +347,6 @@ public class IncrementCounterContextTest
         assert IContext.ContextRelationship.GREATER_THAN ==
             icc.compare(left, right);
 
-        // greater than:
-        //   left's local timestamp > right's local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(11L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
@@ -371,8 +364,6 @@ public class IncrementCounterContextTest
             icc.compare(left, right);
 
         // less than:
-        //   left:  no local timestamp
-        //   right: local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(7L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
@@ -388,8 +379,6 @@ public class IncrementCounterContextTest
         assert IContext.ContextRelationship.LESS_THAN ==
             icc.compare(left, right);
 
-        // less than:
-        //   left's local timestamp < right's local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),

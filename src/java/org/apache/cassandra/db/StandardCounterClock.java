@@ -26,29 +26,30 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.apache.commons.lang.ArrayUtils;
 
 import org.apache.cassandra.db.clock.AbstractCounterContext;
-import org.apache.cassandra.db.clock.IncrementCounterContext;
 import org.apache.cassandra.db.clock.IContext.ContextRelationship;
+import org.apache.cassandra.db.clock.StandardCounterContext;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class IncrementCounterClock extends AbstractCounterClock
+public class StandardCounterClock extends AbstractCounterClock
 {
-    private static Logger logger = Logger.getLogger(IncrementCounterClock.class);
+    private static Logger logger = Logger.getLogger(StandardCounterClock.class);
 
-    public static IncrementCounterClock MIN_VALUE = new IncrementCounterClock(
+    public static StandardCounterClock MIN_VALUE = new StandardCounterClock(
         FBUtilities.toByteArray(Long.MIN_VALUE));
-    public static ICompactSerializer2<IClock> SERIALIZER = new IncrementCounterClockSerializer();
+    public static ICompactSerializer2<IClock> SERIALIZER = new StandardCounterClockSerializer();
 
-    private static IncrementCounterContext contextManager = IncrementCounterContext.instance();
+    private static StandardCounterContext contextManager = StandardCounterContext.instance();
 
-    public IncrementCounterClock()
+    public StandardCounterClock()
     {
         super();
     }
 
-    public IncrementCounterClock(byte[] context)
+    public StandardCounterClock(byte[] context)
     {
         super(context);
     }
@@ -60,7 +61,7 @@ public class IncrementCounterClock extends AbstractCounterClock
 
     protected AbstractCounterClock createClock(byte[] context)
     {
-        return new IncrementCounterClock(context);
+        return new StandardCounterClock(context);
     }
 
     public ICompactSerializer2<IClock> getSerializer()
@@ -71,14 +72,14 @@ public class IncrementCounterClock extends AbstractCounterClock
     @Override
     public ClockType type()
     {
-        return ClockType.IncrementCounter;
+        return ClockType.StandardCounter;
     }
 }
 
-class IncrementCounterClockSerializer extends AbstractCounterClockSerializer
+class StandardCounterClockSerializer extends AbstractCounterClockSerializer
 {
     protected AbstractCounterClock createClock(byte[] context)
     {
-        return new IncrementCounterClock(context);
+        return new StandardCounterClock(context);
     }
 }
