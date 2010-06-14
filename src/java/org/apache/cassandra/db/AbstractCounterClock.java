@@ -129,10 +129,14 @@ public abstract class AbstractCounterClock implements IClock
     {
         //TODO: REFACTOR? (modify: 1) where CF is sanitized to be on read side; 2) how CF is sanitized)
         //TODO: TEST (clean remote replica counts for read repair)
-        //TODO: MODIFY: support SuperColumn-type CF
         
         for (IColumn column : cc.getSortedColumns())
         {
+            if (column instanceof SuperColumn) {
+                cleanContext((IColumnContainer)column, node);
+                continue;
+            }
+
             AbstractCounterClock clock = (AbstractCounterClock)column.clock();
             clock.cleanNodeCounts(node);
             if (0 == clock.context().length)
