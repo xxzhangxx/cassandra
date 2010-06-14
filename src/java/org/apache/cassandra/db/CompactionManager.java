@@ -495,22 +495,18 @@ public class CompactionManager implements CompactionManagerMBean
         String compactionFileLocation = getCompactionFileLocation(cfs, sstables, target);
 
         ClockType clockType = DatabaseDescriptor.getClockType(cfs.getTable().name, cfs.getColumnFamilyName());
-        switch (clockType)
-        {
-            case Timestamp:
-                return performCompaction(
-                    cfs,
-                    sstables,
-                    compactionFileLocation,
-                    new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables)));
-            case IncrementCounter:
-                return performCompaction(
-                    cfs,
-                    sstables,
-                    compactionFileLocation,
-                    new CounterAESCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables), target));
-            default:
-                throw new IOException("Unexpected clock type: " + clockType + ", cannot perform AES compaction");
+        if (!clockType.isContext()) {
+            return performCompaction(
+                cfs,
+                sstables,
+                compactionFileLocation,
+                new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables)));
+        } else {
+            return performCompaction(
+                cfs,
+                sstables,
+                compactionFileLocation,
+                new CounterAESCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables), target));
         }
     }
 
