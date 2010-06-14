@@ -36,20 +36,29 @@ public class IncrementCounterReconciler extends AbstractReconciler
         contextManager = IncrementCounterContext.instance();
     }
 
-    private static IClock mergeClocks(Column left, Column right)
+    private IClock mergeClocks(Column left, Column right)
     {
         List<IClock> clocks = new LinkedList<IClock>();
         clocks.add(right.clock());
         return (IClock)left.clock().getSuperset(clocks);
     }
 
+    // note: called in addColumn(IColumn) to aggregate local node id's counts
     public Column reconcile(Column left, Column right)
     {
-        // note: called in addColumn(IColumn) to aggregate local node id's counts
-
-        if (left.isMarkedForDelete())
+        IncrementCounterClock leftClock = (IncrementCounterClock) left.clock();
+        IncrementCounterClock rightClock = (IncrementCounterClock) right.clock();
+        long maxDeleteTimestamp = Math.max(FBUtilities.byteArrayToLong(leftClock.context, IncrementCounterContext.TIMESTAMP_LENGTH),
+                FBUtilities.byteArrayToLong(rightClock.context, IncrementCounterContext.TIMESTAMP_LENGTH));
+        long leftTimestamp = FBUtilities.byteArrayToLong(leftClock.context);
+        long rightTimestamp = FBUtilities.byteArrayToLong(rightClock.context);
+        
+        // count as deleted if the timestamp is older then the highest known delete timestamp
+        boolean leftDeleted = left.isMarkedForDelete() || leftTimestamp < maxDeleteTimestamp;
+        boolean rightDeleted = right.isMarkedForDelete() || rightTimestamp < maxDeleteTimestamp;
+        if (leftDeleted)
         {
-            if (right.isMarkedForDelete())
+            if (rightDeleted)
             {
                 // delete + delete: keep later tombstone, higher clock
                 int leftLocalDeleteTime  = FBUtilities.byteArrayToInt(left.value());
@@ -61,6 +70,7 @@ public class IncrementCounterReconciler extends AbstractReconciler
                     mergeClocks(left, right));
             }
 
+            updateDeleteTimestamp(left.clock(), right.clock());
             // delete + live: use compare() to determine which side to take
             // note: tombstone always wins ties.
             switch (left.clock().compare(right.clock()))
@@ -75,8 +85,9 @@ public class IncrementCounterReconciler extends AbstractReconciler
                     // note: DISJOINT is not possible
             }
         }
-        else if (right.isMarkedForDelete())
+        else if (rightDeleted)
         {
+            updateDeleteTimestamp(right.clock(), left.clock());
             // live + delete: use compare() to determine which side to take
             // note: tombstone always wins ties.
             switch (left.clock().compare(right.clock()))
@@ -95,9 +106,9 @@ public class IncrementCounterReconciler extends AbstractReconciler
         {            
             // live + live: merge clocks; update value
             IClock clock = mergeClocks(left, right);
-            // only a timestamp in the clock, has not yet had update called on it.
+            // only timestamp and delete timestamp in the clock, has not yet had update called on it.
             // for example multiple mutates on one column in a batch
-            if (clock.size() == DBConstants.intSize_ + DBConstants.longSize_) 
+            if (clock.size() == DBConstants.intSize_ + IncrementCounterContext.HEADER_LENGTH) 
             {
                 long total = 0;
                 if (left.value().length == DBConstants.longSize_ && right.value().length == DBConstants.longSize_)
@@ -110,13 +121,19 @@ public class IncrementCounterReconciler extends AbstractReconciler
                 {
                     total = FBUtilities.byteArrayToLong(right.value());
                 }
-                byte[] value = new byte[8];
-                FBUtilities.copyIntoBytes(value, 0, total);
-                return new Column(left.name(), value, clock);
+                return new Column(left.name(), FBUtilities.toByteArray(total), clock);
             }
             
             byte[] value = contextManager.total(((IncrementCounterClock)clock).context());
             return new Column(left.name(), value, clock);
         }
+    }
+
+    private void updateDeleteTimestamp(IClock deletedClock, IClock liveClock)
+    {
+        IncrementCounterClock dc = (IncrementCounterClock) deletedClock;
+        IncrementCounterClock lc = (IncrementCounterClock) liveClock;
+        long deleteTime = Math.max(FBUtilities.byteArrayToLong(dc.context, 0), FBUtilities.byteArrayToLong(lc.context, 0));
+        FBUtilities.copyIntoBytes(lc.context, IncrementCounterContext.TIMESTAMP_LENGTH, deleteTime);
     }
 }

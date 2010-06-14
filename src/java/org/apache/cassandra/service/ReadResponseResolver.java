@@ -89,7 +89,6 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             }
             else
             {
-//TODO: MODIFY: [not deterministic] clean counts from remote replicas
                 ColumnFamily cf = result.row().cf;
                 if (!FBUtilities.getLocalAddress().equals(response.getFrom()) && cf != null)
                 {

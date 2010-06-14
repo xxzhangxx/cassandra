@@ -32,10 +32,11 @@ import org.apache.cassandra.utils.FBUtilities;
 
 public class IncrementCounterClock implements IClock
 {
-    public static IncrementCounterClock MIN_VALUE = new IncrementCounterClock(FBUtilities.toByteArray(Long.MIN_VALUE));
     public static ICompactSerializer2<IClock> SERIALIZER = new IncrementCounterClockSerializer();
 
     private static IncrementCounterContext contextManager = IncrementCounterContext.instance();
+    
+    public static IncrementCounterClock MIN_VALUE = new IncrementCounterClock(contextManager.createMin());
 
     public byte[] context;
 

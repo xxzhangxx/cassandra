@@ -26,12 +26,9 @@ import java.util.*;
 
 import org.apache.commons.lang.ArrayUtils;
 
-import org.apache.cassandra.Util;
-
-import static org.junit.Assert.assertEquals;
-
 import org.junit.Test;
 
+import org.apache.cassandra.Util;
 import org.apache.cassandra.db.clock.IContext;
 import org.apache.cassandra.db.clock.IncrementCounterContext;
 import org.apache.cassandra.utils.FBUtilities;
@@ -46,7 +43,7 @@ public class IncrementCounterContextTest
 {
     private static final IncrementCounterContext icc = new IncrementCounterContext();
 
-    private static final int timestampLength;
+    private static final int HEADER_LENGTH;
 
     private static final InetAddress idAddress;
     private static final byte[] id;
@@ -58,7 +55,7 @@ public class IncrementCounterContextTest
 
     static
     {
-        timestampLength = 8; // size of long
+        HEADER_LENGTH = IncrementCounterContext.HEADER_LENGTH; // 2x size of long
 
         idAddress       = FBUtilities.getLocalAddress();
         id              = idAddress.getAddress();
@@ -75,10 +72,11 @@ public class IncrementCounterContextTest
         long start = System.currentTimeMillis();
 
         byte[] context = icc.create();
-        assert context.length == timestampLength;
+        assert context.length == HEADER_LENGTH;
 
         long created = FBUtilities.byteArrayToLong(context, 0);
-        assert (start <= created) && (created <= System.currentTimeMillis());
+        assert (start <= created);
+        assert (created <= System.currentTimeMillis());
     }
 
     @Test
@@ -90,16 +88,16 @@ public class IncrementCounterContextTest
         context = icc.create();
         context = icc.update(context, idAddress);
 
-        assert context.length == (timestampLength + stepLength);
+        assert context.length == (HEADER_LENGTH + stepLength);
         assert FBUtilities.compareByteSubArrays(
                 context,
-                timestampLength,
+                HEADER_LENGTH,
                 id,
                 0,
                 idLength) == 0;
         assert FBUtilities.compareByteSubArrays(
                 context,
-                timestampLength + idLength,
+                HEADER_LENGTH + idLength,
                 FBUtilities.toByteArray(1L),
                 0,
                 countLength) == 0;
@@ -108,11 +106,11 @@ public class IncrementCounterContextTest
         context = icc.create();
         context = icc.update(context, idAddress, 3L);
 
-        assert context.length == (timestampLength + stepLength);
+        assert context.length == (HEADER_LENGTH + stepLength);
         assert FBUtilities.compareByteSubArrays(
-                context, timestampLength, id, 0, idLength) == 0;
+                context, HEADER_LENGTH, id, 0, idLength) == 0;
         assert FBUtilities.compareByteSubArrays(
-                context, (timestampLength + idLength),
+                context, (HEADER_LENGTH + idLength),
                 FBUtilities.toByteArray(3L), 0,
                 countLength) == 0;
     }
@@ -132,8 +130,8 @@ public class IncrementCounterContextTest
         assert (start <= created) && (created <= System.currentTimeMillis());
 
         context = icc.update(context, idAddress);
-        assert context.length == (timestampLength + stepLength);
-        assert 2L == FBUtilities.byteArrayToLong(context, timestampLength + idLength);
+        assert context.length == (HEADER_LENGTH + stepLength);
+        assert 2L == FBUtilities.byteArrayToLong(context, HEADER_LENGTH + idLength);
 
         try
         {
@@ -150,8 +148,8 @@ public class IncrementCounterContextTest
         long created2 = FBUtilities.byteArrayToLong(context, 0);
         assert (created <= created2) && (created2 <= System.currentTimeMillis());
 
-        assert context.length == (timestampLength + stepLength);
-        assert 27L == FBUtilities.byteArrayToLong(context, timestampLength + idLength);
+        assert context.length == (HEADER_LENGTH + stepLength);
+        assert 27L == FBUtilities.byteArrayToLong(context, HEADER_LENGTH + idLength);
     }
 
     @Test
@@ -159,7 +157,7 @@ public class IncrementCounterContextTest
     {
         byte[] context;
 
-        context = new byte[timestampLength + (stepLength * defaultEntries)];
+        context = new byte[HEADER_LENGTH + (stepLength * defaultEntries)];
 
         for (int i = 0; i < defaultEntries - 1; i++)
         {
@@ -177,11 +175,11 @@ public class IncrementCounterContextTest
 
         context = icc.update(context, idAddress, 10L);
 
-        assert context.length == (timestampLength + (stepLength * defaultEntries));
-        assert 11L == FBUtilities.byteArrayToLong(context, timestampLength + idLength);
+        assert context.length == (HEADER_LENGTH + (stepLength * defaultEntries));
+        assert 11L == FBUtilities.byteArrayToLong(context, HEADER_LENGTH + idLength);
         for (int i = 1; i < defaultEntries; i++)
         {
-            int offset = timestampLength + (i * stepLength);
+            int offset = HEADER_LENGTH + (i * stepLength);
             assert i-1 == FBUtilities.byteArrayToInt(context,  offset);
         }
     }
@@ -189,7 +187,7 @@ public class IncrementCounterContextTest
     @Test
     public void testUpdateNotPresent()
     {
-        byte[] context = new byte[timestampLength + (stepLength * 2)];
+        byte[] context = new byte[HEADER_LENGTH + (stepLength * 2)];
 
         for (int i = 0; i < 2; i++)
         {
@@ -202,11 +200,11 @@ public class IncrementCounterContextTest
 
         context = icc.update(context, idAddress, 328L);
 
-        assert context.length == (timestampLength + (stepLength * 3));
-        assert 328L == FBUtilities.byteArrayToLong(context, timestampLength + idLength);
+        assert context.length == (HEADER_LENGTH + (stepLength * 3));
+        assert 328L == FBUtilities.byteArrayToLong(context, HEADER_LENGTH + idLength);
         for (int i = 1; i < 3; i++)
         {
-            int offset = timestampLength + (i * stepLength);
+            int offset = HEADER_LENGTH + (i * stepLength);
             assert i-1 == FBUtilities.byteArrayToInt(context,  offset);
             assert  1L == FBUtilities.byteArrayToLong(context, offset + idLength);
         }
@@ -215,7 +213,7 @@ public class IncrementCounterContextTest
     @Test
     public void testSwapElement()
     {
-        byte[] context = new byte[timestampLength + (stepLength * 3)];
+        byte[] context = new byte[HEADER_LENGTH + (stepLength * 3)];
 
         for (int i = 0; i < 3; i++)
         {
@@ -225,21 +223,21 @@ public class IncrementCounterContextTest
                 FBUtilities.toByteArray(i),
                 1L);
         }
-        icc.swapElement(context, timestampLength, timestampLength + (2*stepLength));
+        icc.swapElement(context, HEADER_LENGTH, HEADER_LENGTH + (2*stepLength));
 
-        assert 2 == FBUtilities.byteArrayToInt(context, timestampLength);
-        assert 0 == FBUtilities.byteArrayToInt(context, timestampLength + (2*stepLength));
+        assert 2 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH);
+        assert 0 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + (2*stepLength));
 
-        icc.swapElement(context, timestampLength, timestampLength + (1*stepLength));
+        icc.swapElement(context, HEADER_LENGTH, HEADER_LENGTH + (1*stepLength));
 
-        assert 1 == FBUtilities.byteArrayToInt(context, timestampLength);
-        assert 2 == FBUtilities.byteArrayToInt(context, timestampLength + (1*stepLength));
+        assert 1 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH);
+        assert 2 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + (1*stepLength));
     }
 
     @Test
     public void testPartitionElements()
     {
-        byte[] context = new byte[timestampLength + stepLength * 10];
+        byte[] context = new byte[HEADER_LENGTH + stepLength * 10];
 
         icc.writeElementAtStepOffset(context, 0, FBUtilities.toByteArray(5), 1L);
         icc.writeElementAtStepOffset(context, 1, FBUtilities.toByteArray(3), 1L);
@@ -259,22 +257,22 @@ public class IncrementCounterContextTest
             2  // pivot
             );
 
-        assert 5 == FBUtilities.byteArrayToInt(context, timestampLength + 0*stepLength);
-        assert 3 == FBUtilities.byteArrayToInt(context, timestampLength + 1*stepLength);
-        assert 3 == FBUtilities.byteArrayToInt(context, timestampLength + 2*stepLength);
-        assert 2 == FBUtilities.byteArrayToInt(context, timestampLength + 3*stepLength);
-        assert 4 == FBUtilities.byteArrayToInt(context, timestampLength + 4*stepLength);
-        assert 1 == FBUtilities.byteArrayToInt(context, timestampLength + 5*stepLength);
-        assert 6 == FBUtilities.byteArrayToInt(context, timestampLength + 6*stepLength);
-        assert 8 == FBUtilities.byteArrayToInt(context, timestampLength + 7*stepLength);
-        assert 9 == FBUtilities.byteArrayToInt(context, timestampLength + 8*stepLength);
-        assert 7 == FBUtilities.byteArrayToInt(context, timestampLength + 9*stepLength);
+        assert 5 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 0*stepLength);
+        assert 3 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 1*stepLength);
+        assert 3 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 2*stepLength);
+        assert 2 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 3*stepLength);
+        assert 4 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 4*stepLength);
+        assert 1 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 5*stepLength);
+        assert 6 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 6*stepLength);
+        assert 8 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 7*stepLength);
+        assert 9 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 8*stepLength);
+        assert 7 == FBUtilities.byteArrayToInt(context, HEADER_LENGTH + 9*stepLength);
     }
 
     @Test
     public void testSortElementsById()
     {
-        byte[] context = new byte[timestampLength + (stepLength * 10)];
+        byte[] context = new byte[HEADER_LENGTH + (stepLength * 10)];
 
         icc.writeElementAtStepOffset(context, 0, FBUtilities.toByteArray(5), 1L);
         icc.writeElementAtStepOffset(context, 1, FBUtilities.toByteArray(3), 1L);
@@ -289,16 +287,16 @@ public class IncrementCounterContextTest
         
         byte[] sorted = icc.sortElementsById(context);
 
-        assert 1 == FBUtilities.byteArrayToInt(sorted, timestampLength + 0*stepLength);
-        assert 2 == FBUtilities.byteArrayToInt(sorted, timestampLength + 1*stepLength);
-        assert 3 == FBUtilities.byteArrayToInt(sorted, timestampLength + 2*stepLength);
-        assert 3 == FBUtilities.byteArrayToInt(sorted, timestampLength + 3*stepLength);
-        assert 4 == FBUtilities.byteArrayToInt(sorted, timestampLength + 4*stepLength);
-        assert 5 == FBUtilities.byteArrayToInt(sorted, timestampLength + 5*stepLength);
-        assert 6 == FBUtilities.byteArrayToInt(sorted, timestampLength + 6*stepLength);
-        assert 7 == FBUtilities.byteArrayToInt(sorted, timestampLength + 7*stepLength);
-        assert 8 == FBUtilities.byteArrayToInt(sorted, timestampLength + 8*stepLength);
-        assert 9 == FBUtilities.byteArrayToInt(sorted, timestampLength + 9*stepLength);
+        assert 1 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 0*stepLength);
+        assert 2 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 1*stepLength);
+        assert 3 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 2*stepLength);
+        assert 3 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 3*stepLength);
+        assert 4 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 4*stepLength);
+        assert 5 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 5*stepLength);
+        assert 6 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 6*stepLength);
+        assert 7 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 7*stepLength);
+        assert 8 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 8*stepLength);
+        assert 9 == FBUtilities.byteArrayToInt(sorted, HEADER_LENGTH + 9*stepLength);
     }
 
     @Test
@@ -310,8 +308,8 @@ public class IncrementCounterContextTest
         // equality:
         //   left:  no local timestamp
         //   right: no local timestamp
-        left  = FBUtilities.toByteArray(1L);
-        right = FBUtilities.toByteArray(1L);
+        left  = Util.concatByteArrays(FBUtilities.toByteArray(1L), FBUtilities.toByteArray(0L));
+        right = Util.concatByteArrays(FBUtilities.toByteArray(1L), FBUtilities.toByteArray(0L));
 
         assert IContext.ContextRelationship.EQUAL ==
             icc.compare(left, right);
@@ -320,12 +318,14 @@ public class IncrementCounterContextTest
         //   left, right: local timestamps equal
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
             );
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -339,12 +339,14 @@ public class IncrementCounterContextTest
         //   right: no local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
             );
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(4L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
@@ -356,12 +358,14 @@ public class IncrementCounterContextTest
         //   left's local timestamp > right's local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(11L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
             );
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -375,11 +379,13 @@ public class IncrementCounterContextTest
         //   right: local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(7L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
             );
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -392,12 +398,14 @@ public class IncrementCounterContextTest
         //   left's local timestamp < right's local timestamp
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
             );
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(122L),
+            FBUtilities.toByteArray(0L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -410,7 +418,7 @@ public class IncrementCounterContextTest
     @Test
     public void testDiff()
     {
-        byte[] left = new byte[timestampLength + (3 * stepLength)];
+        byte[] left = new byte[HEADER_LENGTH + (3 * stepLength)];
         byte[] right;
 
         // equality: equal nodes, all counts same
@@ -423,13 +431,13 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // greater than: left has superset of nodes (counts equal)
-        left = new byte[timestampLength + (4 * stepLength)];
+        left = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3),  3L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6),  2L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9),  1L);
         icc.writeElementAtStepOffset(left, 3, FBUtilities.toByteArray(12), 0L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 3L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L);
@@ -438,12 +446,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
         
         // less than: left has subset of nodes (counts equal)
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 3L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 1L);
 
-        right = new byte[timestampLength + (4 * stepLength)];
+        right = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3),  3L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6),  2L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9),  1L);
@@ -453,12 +461,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // greater than: equal nodes, but left has higher counts
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 3L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 3L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 3L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L);
@@ -467,12 +475,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // less than: equal nodes, but right has higher counts
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 3L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 3L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 3L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 9L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 3L);
@@ -481,12 +489,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // disjoint: right and left have disjoint node sets
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 1L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(4), 1L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 1L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 1L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 1L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L);
@@ -494,12 +502,12 @@ public class IncrementCounterContextTest
         assert IContext.ContextRelationship.DISJOINT ==
             icc.diff(left, right);
 
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 1L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(4), 1L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 1L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(2),  1L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6),  1L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(12), 1L);
@@ -508,12 +516,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // disjoint: equal nodes, but right and left have higher counts in differing nodes
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 1L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 3L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 1L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 1L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 1L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L);
@@ -521,12 +529,12 @@ public class IncrementCounterContextTest
         assert IContext.ContextRelationship.DISJOINT ==
             icc.diff(left, right);
 
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 2L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 3L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 1L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 1L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 9L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L);
@@ -535,13 +543,13 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // disjoint: left has more nodes, but lower counts
-        left = new byte[timestampLength + (4 * stepLength)];
+        left = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3),  2L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6),  3L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9),  1L);
         icc.writeElementAtStepOffset(left, 3, FBUtilities.toByteArray(12), 1L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 4L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 9L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L);
@@ -550,12 +558,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
         
         // disjoint: left has less nodes, but higher counts
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 5L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 3L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 2L);
 
-        right = new byte[timestampLength + (4 * stepLength)];
+        right = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3),  4L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6),  3L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9),  2L);
@@ -565,12 +573,12 @@ public class IncrementCounterContextTest
             icc.diff(left, right);
 
         // disjoint: mixed nodes and counts
-        left = new byte[timestampLength + (3 * stepLength)];
+        left = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 5L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 2L);
 
-        right = new byte[timestampLength + (4 * stepLength)];
+        right = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3),  4L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6),  3L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9),  2L);
@@ -579,13 +587,13 @@ public class IncrementCounterContextTest
         assert IContext.ContextRelationship.DISJOINT ==
             icc.diff(left, right);
 
-        left = new byte[timestampLength + (4 * stepLength)];
+        left = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(left, 0, FBUtilities.toByteArray(3), 5L);
         icc.writeElementAtStepOffset(left, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(7), 2L);
         icc.writeElementAtStepOffset(left, 3, FBUtilities.toByteArray(9), 2L);
 
-        right = new byte[timestampLength + (3 * stepLength)];
+        right = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(right, 0, FBUtilities.toByteArray(3), 4L);
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 3L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 2L);
@@ -601,7 +609,7 @@ public class IncrementCounterContextTest
 
         List<byte[]> contexts = new ArrayList<byte[]>();
 
-        byte[] bytes = new byte[timestampLength + (4 * stepLength)];
+        byte[] bytes = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(bytes, 0, FBUtilities.toByteArray(1), 1L);
         icc.writeElementAtStepOffset(bytes, 1, FBUtilities.toByteArray(2), 2L);
         icc.writeElementAtStepOffset(bytes, 2, FBUtilities.toByteArray(4), 3L);
@@ -612,7 +620,7 @@ public class IncrementCounterContextTest
             3L);
         contexts.add(bytes);
 
-        bytes = new byte[timestampLength + (3 * stepLength)];
+        bytes = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(bytes, 2, FBUtilities.toByteArray(5), 5L);
         icc.writeElementAtStepOffset(bytes, 1, FBUtilities.toByteArray(4), 4L);
         icc.writeElementAtStepOffset(
@@ -628,22 +636,22 @@ public class IncrementCounterContextTest
         assert 0  == FBUtilities.compareByteSubArrays(
             FBUtilities.getLocalAddress().getAddress(),
             0,
-            merged, timestampLength + 0*stepLength,
+            merged, HEADER_LENGTH + 0*stepLength,
             4);
-        assert 12L == FBUtilities.byteArrayToLong(merged, timestampLength + 0*stepLength + idLength);
+        assert 12L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
 
         // remote node id counts are reconciled (i.e. take max)
-        assert 5  == FBUtilities.byteArrayToInt(merged,  timestampLength + 1*stepLength);
-        assert 5L == FBUtilities.byteArrayToLong(merged, timestampLength + 1*stepLength + idLength);
+        assert 5  == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 1*stepLength);
+        assert 5L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 1*stepLength + idLength);
 
-        assert 4  == FBUtilities.byteArrayToInt(merged,  timestampLength + 2*stepLength);
-        assert 4L == FBUtilities.byteArrayToLong(merged, timestampLength + 2*stepLength + idLength);
+        assert 4  == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 2*stepLength);
+        assert 4L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 2*stepLength + idLength);
 
-        assert 2  == FBUtilities.byteArrayToInt(merged,  timestampLength + 3*stepLength);
-        assert 2L == FBUtilities.byteArrayToLong(merged, timestampLength + 3*stepLength + idLength);
+        assert 2  == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 3*stepLength);
+        assert 2L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 3*stepLength + idLength);
 
-        assert 1  == FBUtilities.byteArrayToInt(merged,  timestampLength + 4*stepLength);
-        assert 1L == FBUtilities.byteArrayToLong(merged, timestampLength + 4*stepLength + idLength);
+        assert 1  == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 4*stepLength);
+        assert 1L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 4*stepLength + idLength);
     }
 
     @Test
@@ -651,7 +659,7 @@ public class IncrementCounterContextTest
     {
         List<byte[]> contexts = new ArrayList<byte[]>();
 
-        byte[] bytes = new byte[timestampLength + (4 * stepLength)];
+        byte[] bytes = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(bytes, 0, FBUtilities.toByteArray(1), 1L);
         icc.writeElementAtStepOffset(bytes, 1, FBUtilities.toByteArray(2), 2L);
         icc.writeElementAtStepOffset(bytes, 2, FBUtilities.toByteArray(4), 3L);
@@ -662,7 +670,7 @@ public class IncrementCounterContextTest
             3L);
         contexts.add(bytes);
 
-        bytes = new byte[timestampLength + (3 * stepLength)];
+        bytes = new byte[HEADER_LENGTH + (3 * stepLength)];
         icc.writeElementAtStepOffset(bytes, 2, FBUtilities.toByteArray(5), 5L);
         icc.writeElementAtStepOffset(bytes, 1, FBUtilities.toByteArray(4), 4L);
         icc.writeElementAtStepOffset(
@@ -686,28 +694,28 @@ public class IncrementCounterContextTest
     @Test
     public void testCleanNodeCounts() throws UnknownHostException
     {
-        byte[] bytes = new byte[timestampLength + (4 * stepLength)];
+        byte[] bytes = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(bytes, 0, FBUtilities.toByteArray(1), 1L);
         icc.writeElementAtStepOffset(bytes, 1, FBUtilities.toByteArray(2), 2L);
         icc.writeElementAtStepOffset(bytes, 2, FBUtilities.toByteArray(4), 3L);
         icc.writeElementAtStepOffset(bytes, 3, FBUtilities.toByteArray(8), 4L);
 
-        assert 4  == FBUtilities.byteArrayToInt(bytes,  timestampLength + 2*stepLength);
-        assert 3L == FBUtilities.byteArrayToLong(bytes, timestampLength + 2*stepLength + idLength);
+        assert 4  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 2*stepLength);
+        assert 3L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 2*stepLength + idLength);
 
         bytes = icc.cleanNodeCounts(bytes, InetAddress.getByAddress(FBUtilities.toByteArray(4)));
 
         // node: 0.0.0.4 should be removed
-        assert (timestampLength + (3 * stepLength)) == bytes.length;
+        assert (HEADER_LENGTH + (3 * stepLength)) == bytes.length;
 
         // other nodes should be unaffected
-        assert 1  == FBUtilities.byteArrayToInt(bytes,  timestampLength + 0*stepLength);
-        assert 1L == FBUtilities.byteArrayToLong(bytes, timestampLength + 0*stepLength + idLength);
+        assert 1  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 0*stepLength);
+        assert 1L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 0*stepLength + idLength);
 
-        assert 2  == FBUtilities.byteArrayToInt(bytes,  timestampLength + 1*stepLength);
-        assert 2L == FBUtilities.byteArrayToLong(bytes, timestampLength + 1*stepLength + idLength);
+        assert 2  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 1*stepLength);
+        assert 2L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 1*stepLength + idLength);
 
-        assert 8  == FBUtilities.byteArrayToInt(bytes,  timestampLength + 2*stepLength);
-        assert 4L == FBUtilities.byteArrayToLong(bytes, timestampLength + 2*stepLength + idLength);
+        assert 8  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 2*stepLength);
+        assert 4L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 2*stepLength + idLength);
     }
 }
