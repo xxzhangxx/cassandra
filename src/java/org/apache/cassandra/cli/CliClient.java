@@ -18,6 +18,7 @@
 package org.apache.cassandra.cli;
 
 import org.apache.cassandra.auth.SimpleAuthenticator;
+import org.apache.cassandra.db.ClockType;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.thrift.*;
@@ -229,7 +230,7 @@ public class CliClient
             columnName = CliCompiler.getColumn(columnFamilySpec, 1).getBytes("UTF-8");
         }
 
-        Clock thrift_clock = new Clock().setTimestamp(timestampMicros());
+        Clock thrift_clock = getClock(columnFamily);
         thriftClient_.remove(key.getBytes(), new ColumnPath(columnFamily).setSuper_column(superColumnName).setColumn(columnName),
                              thrift_clock, ConsistencyLevel.ONE);
         css_.out.println(String.format("%s removed.", (columnSpecCnt == 0) ? "row" : "column"));
@@ -412,11 +413,32 @@ public class CliClient
         }
         
         // do the insert
-        Clock thrift_clock = new Clock().setTimestamp(timestampMicros());
+        Clock thrift_clock = getClock(columnFamily);
         thriftClient_.insert(key.getBytes(), new ColumnParent(columnFamily).setSuper_column(superColumnName),
                              new Column(columnName, value.getBytes(), thrift_clock), ConsistencyLevel.ONE);
         
         css_.out.println("Value inserted.");
+    }
+
+    private Clock getClock(String columnFamily) throws TException
+    {
+        try
+        {
+            Map<String, Map<String, String>> keyspaceMap = thriftClient_.describe_keyspace(this.keySpace);
+            Map<String, String> cfFeatures = keyspaceMap.get(columnFamily);
+            ClockType clockType = ClockType.create(cfFeatures.get("ClockType"));
+            switch (clockType)
+            {
+            case IncrementCounter:
+                return new Clock();
+            case Timestamp:
+                return new Clock().setTimestamp(timestampMicros());             
+            }
+        } catch (NotFoundException e)
+        {
+        }
+        // returning default if column family is not found
+        return new Clock().setTimestamp(timestampMicros()); // default
     }
     
     private void executeShowClusterName() throws TException
