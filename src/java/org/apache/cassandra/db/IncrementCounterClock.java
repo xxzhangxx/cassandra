@@ -76,7 +76,6 @@ public class IncrementCounterClock implements IClock
         return convertClockRelationship(rel);
     }
     
-    //TODO can't we reduce the clock relationships into one?
     private ClockRelationship convertClockRelationship(ContextRelationship rel)
     {
         switch (rel)
@@ -146,13 +145,31 @@ public class IncrementCounterClock implements IClock
     @Override
     public void cleanContext(IColumnContainer cc, InetAddress node)
     {
-        for (IColumn column : cc.getSortedColumns())
+        if (cc.getColumnFamilyType() == ColumnFamilyType.Super)
         {
-            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
-            clock.cleanNodeCounts(node);
-            if (0 == clock.context().length)
+            for (IColumn column : cc.getSortedColumns())
             {
-                cc.remove(column.name());
+                for (IColumn subCol : column.getSubColumns())
+                {
+                    IncrementCounterClock clock = (IncrementCounterClock)subCol.clock();
+                    clock.cleanNodeCounts(node);
+                    if (0 == clock.context().length)
+                    {
+                        ((SuperColumn) column).remove(subCol.name());
+                    }
+                }
+            }
+        } 
+        else if (cc.getColumnFamilyType() == ColumnFamilyType.Standard)
+        {
+            for (IColumn column : cc.getSortedColumns())
+            {
+                IncrementCounterClock clock = (IncrementCounterClock)column.clock();
+                clock.cleanNodeCounts(node);
+                if (0 == clock.context().length)
+                {
+                    cc.remove(column.name());
+                }
             }
         }
     }

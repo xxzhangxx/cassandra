@@ -34,6 +34,11 @@ public interface IColumnContainer
     public AbstractType getComparator();
 
     /**
+     * @return what kind of column container is this?
+     */
+    public ColumnFamilyType getColumnFamilyType();
+    
+    /**
      * @param name remove column with this name.
      */
     public void remove(byte[] name);
