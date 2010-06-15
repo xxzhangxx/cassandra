@@ -42,7 +42,7 @@ public class SSTableTracker implements Iterable<SSTableReader>
     private final String ksname;
     private final String cfname;
 
-    private final JMXInstrumentedCache<Pair<SSTable.Descriptor,DecoratedKey>,SSTable.PositionSize> keyCache;
+    private final JMXInstrumentedCache<Pair<SSTable.Descriptor,DecoratedKey>,Long> keyCache;
     private final JMXInstrumentedCache<DecoratedKey, ColumnFamily> rowCache;
 
     public SSTableTracker(String ksname, String cfname)
@@ -50,7 +50,7 @@ public class SSTableTracker implements Iterable<SSTableReader>
         this.ksname = ksname;
         this.cfname = cfname;
         sstables = Collections.emptySet();
-        keyCache = new JMXInstrumentedCache<Pair<SSTable.Descriptor,DecoratedKey>,SSTable.PositionSize>(ksname, cfname + "KeyCache", 0);
+        keyCache = new JMXInstrumentedCache<Pair<SSTable.Descriptor,DecoratedKey>,Long>(ksname, cfname + "KeyCache", 0);
         rowCache = new JMXInstrumentedCache<DecoratedKey, ColumnFamily>(ksname, cfname + "RowCache", 0);
     }
 
@@ -100,7 +100,7 @@ public class SSTableTracker implements Iterable<SSTableReader>
     {
         long keys = estimatedKeys();
 
-        if (!keyCache.isCapacityModified())
+        if (!keyCache.isCapacitySetManually())
         {
             int keyCacheSize = DatabaseDescriptor.getKeysCachedFor(ksname, cfname, keys);
             if (keyCacheSize != keyCache.getCapacity())
@@ -108,18 +108,18 @@ public class SSTableTracker implements Iterable<SSTableReader>
                 // update cache size for the new key volume
                 if (logger.isDebugEnabled())
                     logger.debug("key cache capacity for " + cfname + " is " + keyCacheSize);
-                keyCache.setCapacity(keyCacheSize);
+                keyCache.updateCapacity(keyCacheSize);
             }
         }
 
-        if (!rowCache.isCapacityModified())
+        if (!rowCache.isCapacitySetManually())
         {
             int rowCacheSize = DatabaseDescriptor.getRowsCachedFor(ksname, cfname, keys);
             if (rowCacheSize != rowCache.getCapacity())
             {
                 if (logger.isDebugEnabled())
                     logger.debug("row cache capacity for " + cfname + " is " + rowCacheSize);
-                rowCache.setCapacity(rowCacheSize);
+                rowCache.updateCapacity(rowCacheSize);
             }
         }
     }
@@ -176,7 +176,7 @@ public class SSTableTracker implements Iterable<SSTableReader>
         totalSize.addAndGet(-size);
     }
 
-    public JMXInstrumentedCache<Pair<SSTable.Descriptor, DecoratedKey>, SSTable.PositionSize> getKeyCache()
+    public JMXInstrumentedCache<Pair<SSTable.Descriptor, DecoratedKey>, Long> getKeyCache()
     {
         return keyCache;
     }

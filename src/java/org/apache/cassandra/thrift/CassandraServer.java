@@ -95,10 +95,6 @@ public class CassandraServer implements Cassandra.Iface
         {
             throw new InvalidRequestException("Consistency level zero may not be applied to read operations");
         }
-        if (consistency_level == ConsistencyLevel.ALL)
-        {
-            throw new InvalidRequestException("Consistency level all is not yet supported on read operations");
-        }
         if (consistency_level == ConsistencyLevel.ANY)
         {
             throw new InvalidRequestException("Consistency level any may not be applied to read operations");
@@ -608,6 +604,15 @@ public class CassandraServer implements Cassandra.Iface
         return level;
     }
 
+    public void logout()
+    {
+        keySpace.remove();
+        loginDone.remove();
+
+        if (logger.isDebugEnabled())
+            logger.debug("logout complete");
+    }
+
     protected void checkKeyspaceAndLoginAuthorized(AccessLevel level) throws InvalidRequestException
     {
         if (keySpace.get() == null)
@@ -653,7 +658,7 @@ public class CassandraServer implements Cassandra.Iface
         }
     }
 
-    public String system_drop_column_family(String keyspace, String column_family) throws InvalidRequestException, TException
+    public String system_drop_column_family(String column_family) throws InvalidRequestException, TException
     {
         checkKeyspaceAndLoginAuthorized(AccessLevel.FULL);
         
@@ -663,7 +668,7 @@ public class CassandraServer implements Cassandra.Iface
 
         try
         {
-            DropColumnFamily drop = new DropColumnFamily(keyspace, column_family, true);
+            DropColumnFamily drop = new DropColumnFamily(keySpace.get(), column_family, true);
             drop.apply();
             drop.announce();
             return DatabaseDescriptor.getDefsVersion().toString();
@@ -682,7 +687,7 @@ public class CassandraServer implements Cassandra.Iface
         }
     }
 
-    public String system_rename_column_family(String keyspace, String old_name, String new_name) throws InvalidRequestException, TException
+    public String system_rename_column_family(String old_name, String new_name) throws InvalidRequestException, TException
     {
         checkKeyspaceAndLoginAuthorized(AccessLevel.FULL);
         
@@ -692,7 +697,7 @@ public class CassandraServer implements Cassandra.Iface
 
         try
         {
-            RenameColumnFamily rename = new RenameColumnFamily(keyspace, old_name, new_name);
+            RenameColumnFamily rename = new RenameColumnFamily(keySpace.get(), old_name, new_name);
             rename.apply();
             rename.announce();
             return DatabaseDescriptor.getDefsVersion().toString();
@@ -855,14 +860,13 @@ public class CassandraServer implements Cassandra.Iface
                     cf_def.key_cache_size);
     }
 
-    @Override
-    public void truncate(String keyspace, String cfname) throws InvalidRequestException, UnavailableException, TException
+    public void truncate(String cfname) throws InvalidRequestException, UnavailableException, TException
     {
-        logger.debug("truncating {} in {}", cfname, keyspace);
+        logger.debug("truncating {} in {}", cfname, keySpace.get());
         checkKeyspaceAndLoginAuthorized(AccessLevel.FULL);
         try
         {
-            StorageProxy.truncateBlocking(keyspace, cfname);
+            StorageProxy.truncateBlocking(keySpace.get(), cfname);
         }
         catch (TimeoutException e)
         {
@@ -887,7 +891,6 @@ public class CassandraServer implements Cassandra.Iface
         keySpace.set(keyspace); 
     }
 
-    @Override
     public Map<String, List<String>> check_schema_agreement() throws TException, InvalidRequestException
     {
         logger.debug("checking schema agreement");      

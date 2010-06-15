@@ -41,6 +41,7 @@ import org.apache.cassandra.streaming.StreamOut;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.streaming.StreamOutManager;
 import org.apache.cassandra.utils.*;
 
 import org.slf4j.Logger;

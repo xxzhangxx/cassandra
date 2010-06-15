@@ -106,6 +106,8 @@ public class StreamOutManager
     
     public void addFilesToStream(PendingFile[] pendingFiles)
     {
+        // reset the condition in case this SOM is getting reused before it can be removed.
+        condition.reset();
         for (PendingFile pendingFile : pendingFiles)
         {
             if (logger.isDebugEnabled())
@@ -130,7 +132,7 @@ public class StreamOutManager
             File file = new File(files.get(0).getFilename());
             if (logger.isDebugEnabled())
               logger.debug("Streaming " + file.length() + " length file " + file + " ...");
-            MessagingService.instance.stream(file.getAbsolutePath(), 0L, file.length(), FBUtilities.getLocalAddress(), to);
+            MessagingService.instance.stream(file.getAbsolutePath(), to);
         }
     }
 

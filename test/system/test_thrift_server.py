@@ -640,6 +640,12 @@ class TestMutations(ThriftTester):
         column = Column('cttl1', 'value1', Clock(0), 0)
         _expect_exception(lambda: client.insert('key1', ColumnParent('Standard1'), column, ConsistencyLevel.ONE),
                           InvalidRequestException)
+        # don't allow super_column in Deletion for standard ColumnFamily
+        deletion = Deletion(Clock(1), 'supercolumn', None)
+        mutation = Mutation(deletion=deletion)
+        mutations = {'key' : {'Standard1' : [mutation]}}
+        _expect_exception(lambda: client.batch_mutate(mutations, ConsistencyLevel.QUORUM),
+                          InvalidRequestException)
 
     def test_batch_insert_super(self):
          _set_keyspace('Keyspace1')
@@ -1094,13 +1100,13 @@ class TestMutations(ThriftTester):
         assert 'NewColumnFamily' in ks1
         
         # rename
-        client.system_rename_column_family('Keyspace1', 'NewColumnFamily', 'RenameColumnFamily')
+        client.system_rename_column_family('NewColumnFamily', 'RenameColumnFamily')
         ks1 = client.describe_keyspace('Keyspace1')
         assert 'RenameColumnFamily' in ks1
         assert 'NewColumnFamily' not in ks1
         
         # drop
-        client.system_drop_column_family('Keyspace1', 'RenameColumnFamily')
+        client.system_drop_column_family('RenameColumnFamily')
         ks1 = client.describe_keyspace('Keyspace1')
         assert 'RenameColumnFamily' not in ks1
         assert 'NewColumnFamily' not in ks1
@@ -1117,13 +1123,13 @@ class TestMutations(ThriftTester):
         assert 'NewSuperColumnFamily' in ks1
         
         # rename
-        client.system_rename_column_family('Keyspace1', 'NewSuperColumnFamily', 'RenameSuperColumnFamily')
+        client.system_rename_column_family('NewSuperColumnFamily', 'RenameSuperColumnFamily')
         ks1 = client.describe_keyspace('Keyspace1')
         assert 'RenameSuperColumnFamily' in ks1
         assert 'NewSuperColumnFamily' not in ks1
         
         # drop
-        client.system_drop_column_family('Keyspace1', 'RenameSuperColumnFamily')
+        client.system_drop_column_family('RenameSuperColumnFamily')
         ks1 = client.describe_keyspace('Keyspace1')
         assert 'RenameSuperColumnFamily' not in ks1
         assert 'NewSuperColumnFamily' not in ks1
@@ -1311,11 +1317,11 @@ class TestTruncate(ThriftTester):
         _insert_super()
 
         # truncate Standard1
-        client.truncate('Keyspace1', 'Standard1')
+        client.truncate('Standard1')
         assert _big_slice('key1', ColumnParent('Standard1')) == []
 
         # truncate Super1
-        client.truncate('Keyspace1', 'Super1')
+        client.truncate('Super1')
         assert _big_slice('key1', ColumnParent('Super1')) == []
         assert _big_slice('key1', ColumnParent('Super1', 'sc1')) == []
 

@@ -23,12 +23,30 @@ dev
  * removed deprecated batch_insert and get_range_slice methods (CASSANDRA-1065)
  * add truncate thrift method (CASSANDRA-531)
  * http mini-interface using mx4j (CASSANDRA-1068)
+ * optimize away copy of sliced row on memtable read path (CASSANDRA-1046)
+ * replace constant-size 2GB mmaped segments and special casing for index 
+   entries spanning segment boundaries, with SegmentedFile that computes 
+   segments that always contain entire entries/rows (CASSANDRA-1117)
 
 
 0.6.3
  * retry to make streaming connections up to 8 times. (CASSANDRA-1019)
  * fix potential for duplicate rows seen by Hadoop jobs (CASSANDRA-1042)
  * reject describe_ring() calls on invalid keyspaces (CASSANDRA-1111)
+ * don't reject reads at CL.ALL (CASSANDRA-1152)
+ * reject deletions to supercolumns in CFs containing only standard
+   columns (CASSANDRA-1139)
+ * prefer sun jdk to openjdk in debian init script (CASSANDRA-1174)
+ * detect partioner config changes between restarts and fail fast 
+   (CASSANDRA-1146)
+ * use generation time to resolve node token reassignment disagreements
+   (CASSANDRA-1118)
+ * restructure the startup ordering of Gossiper and MessageService to avoid
+   timing anomalies (CASSANDRA-1160)
+ * detect incomplete commit log hearders (CASSANDRA-1119)
+ * force anti-entropy service to stream files on the stream stage to avoid
+   sending streams out of order (CASSANDRA-1169)
+ * remove inactive stream managers after AES streams files (CASSANDRA-1169)
 
 
 0.6.2

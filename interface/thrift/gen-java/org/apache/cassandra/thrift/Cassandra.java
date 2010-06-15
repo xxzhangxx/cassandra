@@ -135,10 +135,9 @@ public class Cassandra {
      * The operation succeeds only if all hosts in the cluster at available and will throw an UnavailableException if
      * some hosts are down.
      * 
-     * @param keyspace
      * @param cfname
      */
-    public void truncate(String keyspace, String cfname) throws InvalidRequestException, UnavailableException, TException;
+    public void truncate(String cfname) throws InvalidRequestException, UnavailableException, TException;
 
     /**
      * ask the cluster if they all are using the same migration id. returns a map of version->hosts-on-that-version.
@@ -208,19 +207,17 @@ public class Cassandra {
     /**
      * drops a column family. returns the new schema id.
      * 
-     * @param keyspace
      * @param column_family
      */
-    public String system_drop_column_family(String keyspace, String column_family) throws InvalidRequestException, TException;
+    public String system_drop_column_family(String column_family) throws InvalidRequestException, TException;
 
     /**
      * renames a column family. returns the new schema id.
      * 
-     * @param keyspace
      * @param old_name
      * @param new_name
      */
-    public String system_rename_column_family(String keyspace, String old_name, String new_name) throws InvalidRequestException, TException;
+    public String system_rename_column_family(String old_name, String new_name) throws InvalidRequestException, TException;
 
     /**
      * adds a keyspace and any column families that are part of it. returns the new schema id.
@@ -742,17 +739,16 @@ public class Cassandra {
       return;
     }
 
-    public void truncate(String keyspace, String cfname) throws InvalidRequestException, UnavailableException, TException
+    public void truncate(String cfname) throws InvalidRequestException, UnavailableException, TException
     {
-      send_truncate(keyspace, cfname);
+      send_truncate(cfname);
       recv_truncate();
     }
 
-    public void send_truncate(String keyspace, String cfname) throws TException
+    public void send_truncate(String cfname) throws TException
     {
       oprot_.writeMessageBegin(new TMessage("truncate", TMessageType.CALL, seqid_));
       truncate_args args = new truncate_args();
-      args.keyspace = keyspace;
       args.cfname = cfname;
       args.write(oprot_);
       oprot_.writeMessageEnd();
@@ -1055,17 +1051,16 @@ public class Cassandra {
       throw new TApplicationException(TApplicationException.MISSING_RESULT, "system_add_column_family failed: unknown result");
     }
 
-    public String system_drop_column_family(String keyspace, String column_family) throws InvalidRequestException, TException
+    public String system_drop_column_family(String column_family) throws InvalidRequestException, TException
     {
-      send_system_drop_column_family(keyspace, column_family);
+      send_system_drop_column_family(column_family);
       return recv_system_drop_column_family();
     }
 
-    public void send_system_drop_column_family(String keyspace, String column_family) throws TException
+    public void send_system_drop_column_family(String column_family) throws TException
     {
       oprot_.writeMessageBegin(new TMessage("system_drop_column_family", TMessageType.CALL, seqid_));
       system_drop_column_family_args args = new system_drop_column_family_args();
-      args.keyspace = keyspace;
       args.column_family = column_family;
       args.write(oprot_);
       oprot_.writeMessageEnd();
@@ -1092,17 +1087,16 @@ public class Cassandra {
       throw new TApplicationException(TApplicationException.MISSING_RESULT, "system_drop_column_family failed: unknown result");
     }
 
-    public String system_rename_column_family(String keyspace, String old_name, String new_name) throws InvalidRequestException, TException
+    public String system_rename_column_family(String old_name, String new_name) throws InvalidRequestException, TException
     {
-      send_system_rename_column_family(keyspace, old_name, new_name);
+      send_system_rename_column_family(old_name, new_name);
       return recv_system_rename_column_family();
     }
 
-    public void send_system_rename_column_family(String keyspace, String old_name, String new_name) throws TException
+    public void send_system_rename_column_family(String old_name, String new_name) throws TException
     {
       oprot_.writeMessageBegin(new TMessage("system_rename_column_family", TMessageType.CALL, seqid_));
       system_rename_column_family_args args = new system_rename_column_family_args();
-      args.keyspace = keyspace;
       args.old_name = old_name;
       args.new_name = new_name;
       args.write(oprot_);
@@ -1774,7 +1768,7 @@ public class Cassandra {
         iprot.readMessageEnd();
         truncate_result result = new truncate_result();
         try {
-          iface_.truncate(args.keyspace, args.cfname);
+          iface_.truncate(args.cfname);
         } catch (InvalidRequestException ire) {
           result.ire = ire;
         } catch (UnavailableException ue) {
@@ -2070,7 +2064,7 @@ public class Cassandra {
         iprot.readMessageEnd();
         system_drop_column_family_result result = new system_drop_column_family_result();
         try {
-          result.success = iface_.system_drop_column_family(args.keyspace, args.column_family);
+          result.success = iface_.system_drop_column_family(args.column_family);
         } catch (InvalidRequestException ire) {
           result.ire = ire;
         } catch (Throwable th) {
@@ -2108,7 +2102,7 @@ public class Cassandra {
         iprot.readMessageEnd();
         system_rename_column_family_result result = new system_rename_column_family_result();
         try {
-          result.success = iface_.system_rename_column_family(args.keyspace, args.old_name, args.new_name);
+          result.success = iface_.system_rename_column_family(args.old_name, args.new_name);
         } catch (InvalidRequestException ire) {
           result.ire = ire;
         } catch (Throwable th) {
@@ -13398,16 +13392,13 @@ public class Cassandra {
   public static class truncate_args implements TBase<truncate_args._Fields>, java.io.Serializable, Cloneable, Comparable<truncate_args>   {
     private static final TStruct STRUCT_DESC = new TStruct("truncate_args");
 
-    private static final TField KEYSPACE_FIELD_DESC = new TField("keyspace", TType.STRING, (short)1);
-    private static final TField CFNAME_FIELD_DESC = new TField("cfname", TType.STRING, (short)2);
+    private static final TField CFNAME_FIELD_DESC = new TField("cfname", TType.STRING, (short)1);
 
-    public String keyspace;
     public String cfname;
 
     /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
     public enum _Fields implements TFieldIdEnum {
-      KEYSPACE((short)1, "keyspace"),
-      CFNAME((short)2, "cfname");
+      CFNAME((short)1, "cfname");
 
       private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
       private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
@@ -13463,8 +13454,6 @@ public class Cassandra {
     // isset id assignments
 
     public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-      put(_Fields.KEYSPACE, new FieldMetaData("keyspace", TFieldRequirementType.REQUIRED, 
-          new FieldValueMetaData(TType.STRING)));
       put(_Fields.CFNAME, new FieldMetaData("cfname", TFieldRequirementType.REQUIRED, 
           new FieldValueMetaData(TType.STRING)));
     }});
@@ -13477,11 +13466,9 @@ public class Cassandra {
     }
 
     public truncate_args(
-      String keyspace,
       String cfname)
     {
       this();
-      this.keyspace = keyspace;
       this.cfname = cfname;
     }
 
@@ -13489,9 +13476,6 @@ public class Cassandra {
      * Performs a deep copy on <i>other</i>.
      */
     public truncate_args(truncate_args other) {
-      if (other.isSetKeyspace()) {
-        this.keyspace = other.keyspace;
-      }
       if (other.isSetCfname()) {
         this.cfname = other.cfname;
       }
@@ -13504,30 +13488,6 @@ public class Cassandra {
     @Deprecated
     public truncate_args clone() {
       return new truncate_args(this);
-    }
-
-    public String getKeyspace() {
-      return this.keyspace;
-    }
-
-    public truncate_args setKeyspace(String keyspace) {
-      this.keyspace = keyspace;
-      return this;
-    }
-
-    public void unsetKeyspace() {
-      this.keyspace = null;
-    }
-
-    /** Returns true if field keyspace is set (has been asigned a value) and false otherwise */
-    public boolean isSetKeyspace() {
-      return this.keyspace != null;
-    }
-
-    public void setKeyspaceIsSet(boolean value) {
-      if (!value) {
-        this.keyspace = null;
-      }
     }
 
     public String getCfname() {
@@ -13556,14 +13516,6 @@ public class Cassandra {
 
     public void setFieldValue(_Fields field, Object value) {
       switch (field) {
-      case KEYSPACE:
-        if (value == null) {
-          unsetKeyspace();
-        } else {
-          setKeyspace((String)value);
-        }
-        break;
-
       case CFNAME:
         if (value == null) {
           unsetCfname();
@@ -13581,9 +13533,6 @@ public class Cassandra {
 
     public Object getFieldValue(_Fields field) {
       switch (field) {
-      case KEYSPACE:
-        return getKeyspace();
-
       case CFNAME:
         return getCfname();
 
@@ -13598,8 +13547,6 @@ public class Cassandra {
     /** Returns true if field corresponding to fieldID is set (has been asigned a value) and false otherwise */
     public boolean isSet(_Fields field) {
       switch (field) {
-      case KEYSPACE:
-        return isSetKeyspace();
       case CFNAME:
         return isSetCfname();
       }
@@ -13622,15 +13569,6 @@ public class Cassandra {
     public boolean equals(truncate_args that) {
       if (that == null)
         return false;
-
-      boolean this_present_keyspace = true && this.isSetKeyspace();
-      boolean that_present_keyspace = true && that.isSetKeyspace();
-      if (this_present_keyspace || that_present_keyspace) {
-        if (!(this_present_keyspace && that_present_keyspace))
-          return false;
-        if (!this.keyspace.equals(that.keyspace))
-          return false;
-      }
 
       boolean this_present_cfname = true && this.isSetCfname();
       boolean that_present_cfname = true && that.isSetCfname();
@@ -13657,15 +13595,6 @@ public class Cassandra {
       int lastComparison = 0;
       truncate_args typedOther = (truncate_args)other;
 
-      lastComparison = Boolean.valueOf(isSetKeyspace()).compareTo(typedOther.isSetKeyspace());
-      if (lastComparison != 0) {
-        return lastComparison;
-      }
-      if (isSetKeyspace()) {        lastComparison = TBaseHelper.compareTo(keyspace, typedOther.keyspace);
-        if (lastComparison != 0) {
-          return lastComparison;
-        }
-      }
       lastComparison = Boolean.valueOf(isSetCfname()).compareTo(typedOther.isSetCfname());
       if (lastComparison != 0) {
         return lastComparison;
@@ -13688,14 +13617,7 @@ public class Cassandra {
           break;
         }
         switch (field.id) {
-          case 1: // KEYSPACE
-            if (field.type == TType.STRING) {
-              this.keyspace = iprot.readString();
-            } else { 
-              TProtocolUtil.skip(iprot, field.type);
-            }
-            break;
-          case 2: // CFNAME
+          case 1: // CFNAME
             if (field.type == TType.STRING) {
               this.cfname = iprot.readString();
             } else { 
@@ -13717,11 +13639,6 @@ public class Cassandra {
       validate();
 
       oprot.writeStructBegin(STRUCT_DESC);
-      if (this.keyspace != null) {
-        oprot.writeFieldBegin(KEYSPACE_FIELD_DESC);
-        oprot.writeString(this.keyspace);
-        oprot.writeFieldEnd();
-      }
       if (this.cfname != null) {
         oprot.writeFieldBegin(CFNAME_FIELD_DESC);
         oprot.writeString(this.cfname);
@@ -13736,14 +13653,6 @@ public class Cassandra {
       StringBuilder sb = new StringBuilder("truncate_args(");
       boolean first = true;
 
-      sb.append("keyspace:");
-      if (this.keyspace == null) {
-        sb.append("null");
-      } else {
-        sb.append(this.keyspace);
-      }
-      first = false;
-      if (!first) sb.append(", ");
       sb.append("cfname:");
       if (this.cfname == null) {
         sb.append("null");
@@ -13757,9 +13666,6 @@ public class Cassandra {
 
     public void validate() throws TException {
       // check for required fields
-      if (keyspace == null) {
-        throw new TProtocolException("Required field 'keyspace' was not present! Struct: " + toString());
-      }
       if (cfname == null) {
         throw new TProtocolException("Required field 'cfname' was not present! Struct: " + toString());
       }
@@ -19141,16 +19047,13 @@ public class Cassandra {
   public static class system_drop_column_family_args implements TBase<system_drop_column_family_args._Fields>, java.io.Serializable, Cloneable, Comparable<system_drop_column_family_args>   {
     private static final TStruct STRUCT_DESC = new TStruct("system_drop_column_family_args");
 
-    private static final TField KEYSPACE_FIELD_DESC = new TField("keyspace", TType.STRING, (short)1);
-    private static final TField COLUMN_FAMILY_FIELD_DESC = new TField("column_family", TType.STRING, (short)2);
+    private static final TField COLUMN_FAMILY_FIELD_DESC = new TField("column_family", TType.STRING, (short)1);
 
-    public String keyspace;
     public String column_family;
 
     /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
     public enum _Fields implements TFieldIdEnum {
-      KEYSPACE((short)1, "keyspace"),
-      COLUMN_FAMILY((short)2, "column_family");
+      COLUMN_FAMILY((short)1, "column_family");
 
       private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
       private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
@@ -19206,8 +19109,6 @@ public class Cassandra {
     // isset id assignments
 
     public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-      put(_Fields.KEYSPACE, new FieldMetaData("keyspace", TFieldRequirementType.REQUIRED, 
-          new FieldValueMetaData(TType.STRING)));
       put(_Fields.COLUMN_FAMILY, new FieldMetaData("column_family", TFieldRequirementType.REQUIRED, 
           new FieldValueMetaData(TType.STRING)));
     }});
@@ -19220,11 +19121,9 @@ public class Cassandra {
     }
 
     public system_drop_column_family_args(
-      String keyspace,
       String column_family)
     {
       this();
-      this.keyspace = keyspace;
       this.column_family = column_family;
     }
 
@@ -19232,9 +19131,6 @@ public class Cassandra {
      * Performs a deep copy on <i>other</i>.
      */
     public system_drop_column_family_args(system_drop_column_family_args other) {
-      if (other.isSetKeyspace()) {
-        this.keyspace = other.keyspace;
-      }
       if (other.isSetColumn_family()) {
         this.column_family = other.column_family;
       }
@@ -19247,30 +19143,6 @@ public class Cassandra {
     @Deprecated
     public system_drop_column_family_args clone() {
       return new system_drop_column_family_args(this);
-    }
-
-    public String getKeyspace() {
-      return this.keyspace;
-    }
-
-    public system_drop_column_family_args setKeyspace(String keyspace) {
-      this.keyspace = keyspace;
-      return this;
-    }
-
-    public void unsetKeyspace() {
-      this.keyspace = null;
-    }
-
-    /** Returns true if field keyspace is set (has been asigned a value) and false otherwise */
-    public boolean isSetKeyspace() {
-      return this.keyspace != null;
-    }
-
-    public void setKeyspaceIsSet(boolean value) {
-      if (!value) {
-        this.keyspace = null;
-      }
     }
 
     public String getColumn_family() {
@@ -19299,14 +19171,6 @@ public class Cassandra {
 
     public void setFieldValue(_Fields field, Object value) {
       switch (field) {
-      case KEYSPACE:
-        if (value == null) {
-          unsetKeyspace();
-        } else {
-          setKeyspace((String)value);
-        }
-        break;
-
       case COLUMN_FAMILY:
         if (value == null) {
           unsetColumn_family();
@@ -19324,9 +19188,6 @@ public class Cassandra {
 
     public Object getFieldValue(_Fields field) {
       switch (field) {
-      case KEYSPACE:
-        return getKeyspace();
-
       case COLUMN_FAMILY:
         return getColumn_family();
 
@@ -19341,8 +19202,6 @@ public class Cassandra {
     /** Returns true if field corresponding to fieldID is set (has been asigned a value) and false otherwise */
     public boolean isSet(_Fields field) {
       switch (field) {
-      case KEYSPACE:
-        return isSetKeyspace();
       case COLUMN_FAMILY:
         return isSetColumn_family();
       }
@@ -19365,15 +19224,6 @@ public class Cassandra {
     public boolean equals(system_drop_column_family_args that) {
       if (that == null)
         return false;
-
-      boolean this_present_keyspace = true && this.isSetKeyspace();
-      boolean that_present_keyspace = true && that.isSetKeyspace();
-      if (this_present_keyspace || that_present_keyspace) {
-        if (!(this_present_keyspace && that_present_keyspace))
-          return false;
-        if (!this.keyspace.equals(that.keyspace))
-          return false;
-      }
 
       boolean this_present_column_family = true && this.isSetColumn_family();
       boolean that_present_column_family = true && that.isSetColumn_family();
@@ -19400,15 +19250,6 @@ public class Cassandra {
       int lastComparison = 0;
       system_drop_column_family_args typedOther = (system_drop_column_family_args)other;
 
-      lastComparison = Boolean.valueOf(isSetKeyspace()).compareTo(typedOther.isSetKeyspace());
-      if (lastComparison != 0) {
-        return lastComparison;
-      }
-      if (isSetKeyspace()) {        lastComparison = TBaseHelper.compareTo(keyspace, typedOther.keyspace);
-        if (lastComparison != 0) {
-          return lastComparison;
-        }
-      }
       lastComparison = Boolean.valueOf(isSetColumn_family()).compareTo(typedOther.isSetColumn_family());
       if (lastComparison != 0) {
         return lastComparison;
@@ -19431,14 +19272,7 @@ public class Cassandra {
           break;
         }
         switch (field.id) {
-          case 1: // KEYSPACE
-            if (field.type == TType.STRING) {
-              this.keyspace = iprot.readString();
-            } else { 
-              TProtocolUtil.skip(iprot, field.type);
-            }
-            break;
-          case 2: // COLUMN_FAMILY
+          case 1: // COLUMN_FAMILY
             if (field.type == TType.STRING) {
               this.column_family = iprot.readString();
             } else { 
@@ -19460,11 +19294,6 @@ public class Cassandra {
       validate();
 
       oprot.writeStructBegin(STRUCT_DESC);
-      if (this.keyspace != null) {
-        oprot.writeFieldBegin(KEYSPACE_FIELD_DESC);
-        oprot.writeString(this.keyspace);
-        oprot.writeFieldEnd();
-      }
       if (this.column_family != null) {
         oprot.writeFieldBegin(COLUMN_FAMILY_FIELD_DESC);
         oprot.writeString(this.column_family);
@@ -19479,14 +19308,6 @@ public class Cassandra {
       StringBuilder sb = new StringBuilder("system_drop_column_family_args(");
       boolean first = true;
 
-      sb.append("keyspace:");
-      if (this.keyspace == null) {
-        sb.append("null");
-      } else {
-        sb.append(this.keyspace);
-      }
-      first = false;
-      if (!first) sb.append(", ");
       sb.append("column_family:");
       if (this.column_family == null) {
         sb.append("null");
@@ -19500,9 +19321,6 @@ public class Cassandra {
 
     public void validate() throws TException {
       // check for required fields
-      if (keyspace == null) {
-        throw new TProtocolException("Required field 'keyspace' was not present! Struct: " + toString());
-      }
       if (column_family == null) {
         throw new TProtocolException("Required field 'column_family' was not present! Struct: " + toString());
       }
@@ -19878,19 +19696,16 @@ public class Cassandra {
   public static class system_rename_column_family_args implements TBase<system_rename_column_family_args._Fields>, java.io.Serializable, Cloneable, Comparable<system_rename_column_family_args>   {
     private static final TStruct STRUCT_DESC = new TStruct("system_rename_column_family_args");
 
-    private static final TField KEYSPACE_FIELD_DESC = new TField("keyspace", TType.STRING, (short)1);
-    private static final TField OLD_NAME_FIELD_DESC = new TField("old_name", TType.STRING, (short)2);
-    private static final TField NEW_NAME_FIELD_DESC = new TField("new_name", TType.STRING, (short)3);
+    private static final TField OLD_NAME_FIELD_DESC = new TField("old_name", TType.STRING, (short)1);
+    private static final TField NEW_NAME_FIELD_DESC = new TField("new_name", TType.STRING, (short)2);
 
-    public String keyspace;
     public String old_name;
     public String new_name;
 
     /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
     public enum _Fields implements TFieldIdEnum {
-      KEYSPACE((short)1, "keyspace"),
-      OLD_NAME((short)2, "old_name"),
-      NEW_NAME((short)3, "new_name");
+      OLD_NAME((short)1, "old_name"),
+      NEW_NAME((short)2, "new_name");
 
       private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
       private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
@@ -19946,8 +19761,6 @@ public class Cassandra {
     // isset id assignments
 
     public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-      put(_Fields.KEYSPACE, new FieldMetaData("keyspace", TFieldRequirementType.REQUIRED, 
-          new FieldValueMetaData(TType.STRING)));
       put(_Fields.OLD_NAME, new FieldMetaData("old_name", TFieldRequirementType.REQUIRED, 
           new FieldValueMetaData(TType.STRING)));
       put(_Fields.NEW_NAME, new FieldMetaData("new_name", TFieldRequirementType.REQUIRED, 
@@ -19962,12 +19775,10 @@ public class Cassandra {
     }
 
     public system_rename_column_family_args(
-      String keyspace,
       String old_name,
       String new_name)
     {
       this();
-      this.keyspace = keyspace;
       this.old_name = old_name;
       this.new_name = new_name;
     }
@@ -19976,9 +19787,6 @@ public class Cassandra {
      * Performs a deep copy on <i>other</i>.
      */
     public system_rename_column_family_args(system_rename_column_family_args other) {
-      if (other.isSetKeyspace()) {
-        this.keyspace = other.keyspace;
-      }
       if (other.isSetOld_name()) {
         this.old_name = other.old_name;
       }
@@ -19994,30 +19802,6 @@ public class Cassandra {
     @Deprecated
     public system_rename_column_family_args clone() {
       return new system_rename_column_family_args(this);
-    }
-
-    public String getKeyspace() {
-      return this.keyspace;
-    }
-
-    public system_rename_column_family_args setKeyspace(String keyspace) {
-      this.keyspace = keyspace;
-      return this;
-    }
-
-    public void unsetKeyspace() {
-      this.keyspace = null;
-    }
-
-    /** Returns true if field keyspace is set (has been asigned a value) and false otherwise */
-    public boolean isSetKeyspace() {
-      return this.keyspace != null;
-    }
-
-    public void setKeyspaceIsSet(boolean value) {
-      if (!value) {
-        this.keyspace = null;
-      }
     }
 
     public String getOld_name() {
@@ -20070,14 +19854,6 @@ public class Cassandra {
 
     public void setFieldValue(_Fields field, Object value) {
       switch (field) {
-      case KEYSPACE:
-        if (value == null) {
-          unsetKeyspace();
-        } else {
-          setKeyspace((String)value);
-        }
-        break;
-
       case OLD_NAME:
         if (value == null) {
           unsetOld_name();
@@ -20103,9 +19879,6 @@ public class Cassandra {
 
     public Object getFieldValue(_Fields field) {
       switch (field) {
-      case KEYSPACE:
-        return getKeyspace();
-
       case OLD_NAME:
         return getOld_name();
 
@@ -20123,8 +19896,6 @@ public class Cassandra {
     /** Returns true if field corresponding to fieldID is set (has been asigned a value) and false otherwise */
     public boolean isSet(_Fields field) {
       switch (field) {
-      case KEYSPACE:
-        return isSetKeyspace();
       case OLD_NAME:
         return isSetOld_name();
       case NEW_NAME:
@@ -20149,15 +19920,6 @@ public class Cassandra {
     public boolean equals(system_rename_column_family_args that) {
       if (that == null)
         return false;
-
-      boolean this_present_keyspace = true && this.isSetKeyspace();
-      boolean that_present_keyspace = true && that.isSetKeyspace();
-      if (this_present_keyspace || that_present_keyspace) {
-        if (!(this_present_keyspace && that_present_keyspace))
-          return false;
-        if (!this.keyspace.equals(that.keyspace))
-          return false;
-      }
 
       boolean this_present_old_name = true && this.isSetOld_name();
       boolean that_present_old_name = true && that.isSetOld_name();
@@ -20193,15 +19955,6 @@ public class Cassandra {
       int lastComparison = 0;
       system_rename_column_family_args typedOther = (system_rename_column_family_args)other;
 
-      lastComparison = Boolean.valueOf(isSetKeyspace()).compareTo(typedOther.isSetKeyspace());
-      if (lastComparison != 0) {
-        return lastComparison;
-      }
-      if (isSetKeyspace()) {        lastComparison = TBaseHelper.compareTo(keyspace, typedOther.keyspace);
-        if (lastComparison != 0) {
-          return lastComparison;
-        }
-      }
       lastComparison = Boolean.valueOf(isSetOld_name()).compareTo(typedOther.isSetOld_name());
       if (lastComparison != 0) {
         return lastComparison;
@@ -20233,21 +19986,14 @@ public class Cassandra {
           break;
         }
         switch (field.id) {
-          case 1: // KEYSPACE
-            if (field.type == TType.STRING) {
-              this.keyspace = iprot.readString();
-            } else { 
-              TProtocolUtil.skip(iprot, field.type);
-            }
-            break;
-          case 2: // OLD_NAME
+          case 1: // OLD_NAME
             if (field.type == TType.STRING) {
               this.old_name = iprot.readString();
             } else { 
               TProtocolUtil.skip(iprot, field.type);
             }
             break;
-          case 3: // NEW_NAME
+          case 2: // NEW_NAME
             if (field.type == TType.STRING) {
               this.new_name = iprot.readString();
             } else { 
@@ -20269,11 +20015,6 @@ public class Cassandra {
       validate();
 
       oprot.writeStructBegin(STRUCT_DESC);
-      if (this.keyspace != null) {
-        oprot.writeFieldBegin(KEYSPACE_FIELD_DESC);
-        oprot.writeString(this.keyspace);
-        oprot.writeFieldEnd();
-      }
       if (this.old_name != null) {
         oprot.writeFieldBegin(OLD_NAME_FIELD_DESC);
         oprot.writeString(this.old_name);
@@ -20293,14 +20034,6 @@ public class Cassandra {
       StringBuilder sb = new StringBuilder("system_rename_column_family_args(");
       boolean first = true;
 
-      sb.append("keyspace:");
-      if (this.keyspace == null) {
-        sb.append("null");
-      } else {
-        sb.append(this.keyspace);
-      }
-      first = false;
-      if (!first) sb.append(", ");
       sb.append("old_name:");
       if (this.old_name == null) {
         sb.append("null");
@@ -20322,9 +20055,6 @@ public class Cassandra {
 
     public void validate() throws TException {
       // check for required fields
-      if (keyspace == null) {
-        throw new TProtocolException("Required field 'keyspace' was not present! Struct: " + toString());
-      }
       if (old_name == null) {
         throw new TProtocolException("Required field 'old_name' was not present! Struct: " + toString());
       }
