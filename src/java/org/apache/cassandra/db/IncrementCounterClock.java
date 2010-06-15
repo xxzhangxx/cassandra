@@ -148,6 +148,11 @@ public class IncrementCounterClock implements IClock
     {
         for (IColumn column : cc.getSortedColumns())
         {
+            if (column instanceof SuperColumn)
+            {
+                cleanContext((IColumnContainer)column, node);
+                continue;
+            }
             IncrementCounterClock clock = (IncrementCounterClock)column.clock();
             clock.cleanNodeCounts(node);
             if (0 == clock.context().length)
