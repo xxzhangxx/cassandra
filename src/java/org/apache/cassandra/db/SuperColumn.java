@@ -303,12 +303,6 @@ public class SuperColumn implements IColumn, IColumnContainer
         this.localDeletionTime.set(localDeleteTime);
         this.markedForDeleteAt.set(clock);
     }
-
-    @Override
-    public ColumnFamilyType getColumnFamilyType()
-    {
-        return ColumnFamilyType.Super;
-    }
 }
 
 class SuperColumnSerializer implements ICompactSerializer2<IColumn>
