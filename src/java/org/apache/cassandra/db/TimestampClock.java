@@ -108,7 +108,6 @@ public class TimestampClock implements IClock
         return Long.toString(timestamp);
     }
 
-    @Override
     public IColumn diff(IColumn left, IColumn right)
     {
         if (ClockRelationship.GREATER_THAN == left.clock().compare(right.clock()))
@@ -118,12 +117,10 @@ public class TimestampClock implements IClock
         return null;
     }
 
-    @Override
     public void cleanContext(IColumnContainer cc, InetAddress node)
     {
     }
 
-    @Override
     public void update(ColumnFamily cf, InetAddress node)
     {
     }

@@ -29,6 +29,7 @@ import org.apache.commons.lang.ArrayUtils;
 import org.junit.Test;
 
 import org.apache.cassandra.Util;
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.db.clock.IContext;
 import org.apache.cassandra.db.clock.IncrementCounterContext;
 import org.apache.cassandra.utils.FBUtilities;
@@ -311,7 +312,7 @@ public class IncrementCounterContextTest
         left  = Util.concatByteArrays(FBUtilities.toByteArray(1L), FBUtilities.toByteArray(0L));
         right = Util.concatByteArrays(FBUtilities.toByteArray(1L), FBUtilities.toByteArray(0L));
 
-        assert IContext.ContextRelationship.EQUAL ==
+        assert ClockRelationship.EQUAL ==
             icc.compare(left, right);
 
         // equality:
@@ -331,7 +332,7 @@ public class IncrementCounterContextTest
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
 
-        assert IContext.ContextRelationship.EQUAL ==
+        assert ClockRelationship.EQUAL ==
             icc.compare(left, right);
 
         // greater than:
@@ -351,7 +352,7 @@ public class IncrementCounterContextTest
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
 
-        assert IContext.ContextRelationship.GREATER_THAN ==
+        assert ClockRelationship.GREATER_THAN ==
             icc.compare(left, right);
 
         // greater than:
@@ -371,7 +372,7 @@ public class IncrementCounterContextTest
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
 
-        assert IContext.ContextRelationship.GREATER_THAN ==
+        assert ClockRelationship.GREATER_THAN ==
             icc.compare(left, right);
 
         // less than:
@@ -391,7 +392,7 @@ public class IncrementCounterContextTest
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
 
-        assert IContext.ContextRelationship.LESS_THAN ==
+        assert ClockRelationship.LESS_THAN ==
             icc.compare(left, right);
 
         // less than:
@@ -411,7 +412,7 @@ public class IncrementCounterContextTest
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
 
-        assert IContext.ContextRelationship.LESS_THAN ==
+        assert ClockRelationship.LESS_THAN ==
             icc.compare(left, right);
     }
 
@@ -427,7 +428,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(left, 2, FBUtilities.toByteArray(9), 1L);
         right = ArrayUtils.clone(left);
 
-        assert IContext.ContextRelationship.EQUAL ==
+        assert ClockRelationship.EQUAL ==
             icc.diff(left, right);
 
         // greater than: left has superset of nodes (counts equal)
@@ -442,7 +443,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L);
 
-        assert IContext.ContextRelationship.GREATER_THAN ==
+        assert ClockRelationship.GREATER_THAN ==
             icc.diff(left, right);
         
         // less than: left has subset of nodes (counts equal)
@@ -457,7 +458,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9),  1L);
         icc.writeElementAtStepOffset(right, 3, FBUtilities.toByteArray(12), 0L);
 
-        assert IContext.ContextRelationship.LESS_THAN ==
+        assert ClockRelationship.LESS_THAN ==
             icc.diff(left, right);
 
         // greater than: equal nodes, but left has higher counts
@@ -471,7 +472,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 2L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L);
 
-        assert IContext.ContextRelationship.GREATER_THAN ==
+        assert ClockRelationship.GREATER_THAN ==
             icc.diff(left, right);
 
         // less than: equal nodes, but right has higher counts
@@ -485,7 +486,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 9L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 3L);
 
-        assert IContext.ContextRelationship.LESS_THAN ==
+        assert ClockRelationship.LESS_THAN ==
             icc.diff(left, right);
 
         // disjoint: right and left have disjoint node sets
@@ -499,7 +500,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 1L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 1L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
 
         left = new byte[HEADER_LENGTH + (3 * stepLength)];
@@ -512,7 +513,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6),  1L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(12), 1L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
 
         // disjoint: equal nodes, but right and left have higher counts in differing nodes
@@ -526,7 +527,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 1L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
 
         left = new byte[HEADER_LENGTH + (3 * stepLength)];
@@ -539,7 +540,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 9L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
 
         // disjoint: left has more nodes, but lower counts
@@ -554,7 +555,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 9L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 5L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
         
         // disjoint: left has less nodes, but higher counts
@@ -569,7 +570,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9),  2L);
         icc.writeElementAtStepOffset(right, 3, FBUtilities.toByteArray(12), 1L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
 
         // disjoint: mixed nodes and counts
@@ -584,7 +585,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9),  2L);
         icc.writeElementAtStepOffset(right, 3, FBUtilities.toByteArray(12), 1L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
 
         left = new byte[HEADER_LENGTH + (4 * stepLength)];
@@ -598,7 +599,7 @@ public class IncrementCounterContextTest
         icc.writeElementAtStepOffset(right, 1, FBUtilities.toByteArray(6), 3L);
         icc.writeElementAtStepOffset(right, 2, FBUtilities.toByteArray(9), 2L);
 
-        assert IContext.ContextRelationship.DISJOINT ==
+        assert ClockRelationship.DISJOINT ==
             icc.diff(left, right);
     }
 

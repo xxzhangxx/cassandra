@@ -26,17 +26,16 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.cassandra.db.clock.IncrementCounterContext;
-import org.apache.cassandra.db.clock.IContext.ContextRelationship;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.utils.FBUtilities;
 
 public class IncrementCounterClock implements IClock
 {
-    public static ICompactSerializer2<IClock> SERIALIZER = new IncrementCounterClockSerializer();
+    public static final ICompactSerializer2<IClock> SERIALIZER = new IncrementCounterClockSerializer();
 
     private static IncrementCounterContext contextManager = IncrementCounterContext.instance();
     
-    public static IncrementCounterClock MIN_VALUE = new IncrementCounterClock(contextManager.createMin());
+    public static final IncrementCounterClock MIN_VALUE = new IncrementCounterClock(contextManager.createMin());
 
     public byte[] context;
 
@@ -64,34 +63,16 @@ public class IncrementCounterClock implements IClock
     {
         assert other instanceof IncrementCounterClock : "Wrong class type.";
 
-        ContextRelationship rel = contextManager.compare(context, ((IncrementCounterClock)other).context());
-        return convertClockRelationship(rel);
+        return contextManager.compare(context, ((IncrementCounterClock)other).context());
     }
 
     public ClockRelationship diff(IClock other)
     {
         assert other instanceof IncrementCounterClock : "Wrong class type.";
 
-        ContextRelationship rel = contextManager.diff(context, ((IncrementCounterClock)other).context());
-        return convertClockRelationship(rel);
+        return contextManager.diff(context, ((IncrementCounterClock)other).context());
     }
-    
-    private ClockRelationship convertClockRelationship(ContextRelationship rel)
-    {
-        switch (rel)
-        {
-            case EQUAL:
-                return ClockRelationship.EQUAL;
-            case GREATER_THAN:
-                return ClockRelationship.GREATER_THAN;
-            case LESS_THAN:
-                return ClockRelationship.LESS_THAN;
-            default: // DISJOINT
-                return ClockRelationship.DISJOINT;
-        }
-    }
-    
-    @Override
+       
     public IColumn diff(IColumn left, IColumn right)
     {
         // data encapsulated in clock
@@ -131,18 +112,16 @@ public class IncrementCounterClock implements IClock
         return contextManager.toString(context);
     }
 
-    public void cleanNodeCounts(InetAddress node)
+    protected void cleanNodeCounts(InetAddress node)
     {
         context = contextManager.cleanNodeCounts(context, node);
     }
 
-    @Override
     public ClockType type()
     {
         return ClockType.IncrementCounter;
     }
 
-    @Override
     public void cleanContext(IColumnContainer cc, InetAddress node)
     {
         for (IColumn column : cc.getSortedColumns())
@@ -161,7 +140,6 @@ public class IncrementCounterClock implements IClock
         }
     }
 
-    @Override
     public void update(ColumnFamily cf, InetAddress node)
     {
         // standard column family

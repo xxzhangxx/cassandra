@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.cassandra.db.DBConstants;
+import org.apache.cassandra.db.IClock.ClockRelationship;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -246,9 +247,9 @@ public class IncrementCounterContext implements IContext
      *            counter context.
      * @param right
      *            counter context.
-     * @return the ContextRelationship between the contexts.
+     * @return the ClockRelationship between the contexts.
      */
-    public ContextRelationship compare(byte[] left, byte[] right)
+    public ClockRelationship compare(byte[] left, byte[] right)
     {
         long maxDeleteTimestamp  = Math.max(
                 FBUtilities.byteArrayToLong(left,  TIMESTAMP_LENGTH), 
@@ -260,22 +261,22 @@ public class IncrementCounterContext implements IContext
         // obsolete context due to being older then the last known delete
         if (leftTimestamp < maxDeleteTimestamp)
         {
-            return ContextRelationship.LESS_THAN;
+            return ClockRelationship.LESS_THAN;
         } 
         else if (rightTimestamp < maxDeleteTimestamp)
         {
-            return ContextRelationship.GREATER_THAN;
+            return ClockRelationship.GREATER_THAN;
         }
         
         if (leftTimestamp < rightTimestamp)
         {
-            return ContextRelationship.LESS_THAN;
+            return ClockRelationship.LESS_THAN;
         }
         else if (leftTimestamp == rightTimestamp)
         {
-            return ContextRelationship.EQUAL;
+            return ClockRelationship.EQUAL;
         }
-        return ContextRelationship.GREATER_THAN;
+        return ClockRelationship.GREATER_THAN;
     }
 
     /**
@@ -288,14 +289,14 @@ public class IncrementCounterContext implements IContext
      *            counter context.
      * @param right
      *            counter context.
-     * @return the ContextRelationship between the contexts.
+     * @return the ClockRelationship between the contexts.
      */
-    public ContextRelationship diff(byte[] left, byte[] right)
+    public ClockRelationship diff(byte[] left, byte[] right)
     {
         left  = sortElementsById(left);
         right = sortElementsById(right);
 
-        ContextRelationship relationship = ContextRelationship.EQUAL;
+        ClockRelationship relationship = ClockRelationship.EQUAL;
 
         int leftIndex  = HEADER_LENGTH;
         int rightIndex = HEADER_LENGTH;
@@ -321,28 +322,28 @@ public class IncrementCounterContext implements IContext
                 }
                 else if (leftCount > rightCount)
                 {
-                    if (relationship == ContextRelationship.EQUAL) {
-                        relationship = ContextRelationship.GREATER_THAN;
+                    if (relationship == ClockRelationship.EQUAL) {
+                        relationship = ClockRelationship.GREATER_THAN;
                     }
-                    else if (relationship == ContextRelationship.GREATER_THAN)
+                    else if (relationship == ClockRelationship.GREATER_THAN)
                     {
                         continue;
                     }
-                    else // relationship == ContextRelationship.LESS_THAN
+                    else // relationship == ClockRelationship.LESS_THAN
                     {
-                        return ContextRelationship.DISJOINT;
+                        return ClockRelationship.DISJOINT;
                     }
                 }
                 else // leftCount < rightCount
                 {
-                    if (relationship == ContextRelationship.EQUAL) {
-                        relationship = ContextRelationship.LESS_THAN;
+                    if (relationship == ClockRelationship.EQUAL) {
+                        relationship = ClockRelationship.LESS_THAN;
                     }
-                    else if (relationship == ContextRelationship.GREATER_THAN)
+                    else if (relationship == ClockRelationship.GREATER_THAN)
                     {
-                        return ContextRelationship.DISJOINT;
+                        return ClockRelationship.DISJOINT;
                     }
-                    else // relationship == ContextRelationship.LESS_THAN
+                    else // relationship == ClockRelationship.LESS_THAN
                     {
                         continue;
                     }
@@ -353,14 +354,14 @@ public class IncrementCounterContext implements IContext
                 // only advance the right context
                 rightIndex += stepLength;
 
-                if (relationship == ContextRelationship.EQUAL) {
-                    relationship = ContextRelationship.LESS_THAN;
+                if (relationship == ClockRelationship.EQUAL) {
+                    relationship = ClockRelationship.LESS_THAN;
                 }
-                else if (relationship == ContextRelationship.GREATER_THAN)
+                else if (relationship == ClockRelationship.GREATER_THAN)
                 {
-                    return ContextRelationship.DISJOINT;
+                    return ClockRelationship.DISJOINT;
                 }
-                else // relationship == ContextRelationship.LESS_THAN
+                else // relationship == ClockRelationship.LESS_THAN
                 {
                     continue;
                 }
@@ -370,16 +371,16 @@ public class IncrementCounterContext implements IContext
                 // only advance the left context
                 leftIndex += stepLength;
 
-                if (relationship == ContextRelationship.EQUAL) {
-                    relationship = ContextRelationship.GREATER_THAN;
+                if (relationship == ClockRelationship.EQUAL) {
+                    relationship = ClockRelationship.GREATER_THAN;
                 }
-                else if (relationship == ContextRelationship.GREATER_THAN)
+                else if (relationship == ClockRelationship.GREATER_THAN)
                 {
                     continue;
                 }
-                else // relationship == ContextRelationship.LESS_THAN
+                else // relationship == ClockRelationship.LESS_THAN
                 {
-                    return ContextRelationship.DISJOINT;
+                    return ClockRelationship.DISJOINT;
                 }
             }
         }
@@ -387,22 +388,22 @@ public class IncrementCounterContext implements IContext
         // check final lengths
         if (leftIndex < left.length)
         {
-            if (relationship == ContextRelationship.EQUAL) {
-                return ContextRelationship.GREATER_THAN;
+            if (relationship == ClockRelationship.EQUAL) {
+                return ClockRelationship.GREATER_THAN;
             }
-            else if (relationship == ContextRelationship.LESS_THAN)
+            else if (relationship == ClockRelationship.LESS_THAN)
             {
-                return ContextRelationship.DISJOINT;
+                return ClockRelationship.DISJOINT;
             }
         }
         else if (rightIndex < right.length)
         {
-            if (relationship == ContextRelationship.EQUAL) {
-                return ContextRelationship.LESS_THAN;
+            if (relationship == ClockRelationship.EQUAL) {
+                return ClockRelationship.LESS_THAN;
             }
-            else if (relationship == ContextRelationship.GREATER_THAN)
+            else if (relationship == ClockRelationship.GREATER_THAN)
             {
-                return ContextRelationship.DISJOINT;
+                return ClockRelationship.DISJOINT;
             }
         }
 

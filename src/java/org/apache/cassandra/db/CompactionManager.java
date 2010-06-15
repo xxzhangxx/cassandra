@@ -660,7 +660,6 @@ public class CompactionManager implements CompactionManagerMBean
             this.remoteAddress = remoteAddress;
         }
         
-        @Override
         protected ColumnFamily calculatePurgedColumnFamily(ColumnFamily cf)
         {
             cf = super.calculatePurgedColumnFamily(cf);

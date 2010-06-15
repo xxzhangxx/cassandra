@@ -20,6 +20,8 @@ package org.apache.cassandra.db.clock;
 import java.net.InetAddress;
 import java.util.List;
 
+import org.apache.cassandra.db.IClock.ClockRelationship;
+
 /**
  * An opaque version context.
  *
@@ -48,7 +50,7 @@ public interface IContext
     public byte[] update(byte[] context, InetAddress node);
 
     /**
-     * Version relationships between contexts.
+     * Determine the version relationship between two contexts.
      *
      * EQUAL:        Equal set of nodes and every count is equal.
      * GREATER_THAN: Superset of nodes and every count is equal or greater than its corollary.
@@ -56,17 +58,6 @@ public interface IContext
      * DISJOINT:     Node sets are not equal and/or counts are not all greater or less than.
      *
      * Note: Superset/subset requirements are not strict (because vector length is fixed).
-     */
-    public static enum ContextRelationship
-    {
-        EQUAL,
-        GREATER_THAN,
-        LESS_THAN,
-        DISJOINT
-    };
-
-    /**
-     * Determine the version relationship between two contexts.
      *
      * @param left
      *            version context.
@@ -74,7 +65,7 @@ public interface IContext
      *            version context.
      * @return the ContextRelationship between the contexts.
      */
-    public ContextRelationship compare(byte[] left, byte[] right);
+    public ClockRelationship compare(byte[] left, byte[] right);
 
     /**
      * Return a context that pairwise dominates all of the contexts.

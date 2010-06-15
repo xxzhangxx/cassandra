@@ -677,7 +677,6 @@ public class FBUtilities
             this.data = data;
         }
 
-        @Override
         public boolean equals(Object other)
         {
             if ( !( other instanceof ByteArrayWrapper ) )
@@ -687,13 +686,11 @@ public class FBUtilities
             return Arrays.equals(data, ((ByteArrayWrapper)other).data);
         }
 
-        @Override
         public int hashCode()
         {
             return Arrays.hashCode(data);
         }
 
-        @Override
         public String toString()
         {
             return ArrayUtils.toString(data);

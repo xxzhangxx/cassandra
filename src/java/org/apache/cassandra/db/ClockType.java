@@ -66,15 +66,4 @@ public enum ClockType
             return null;
         }
     }
-    
-    /**
-     * @return if the clock type uses the context part of the clock.
-     */
-    public boolean isContext()
-    {
-        if (this == IncrementCounter)
-            return true;
-        else
-            return false;
-    }
 }
