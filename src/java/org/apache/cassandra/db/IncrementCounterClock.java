@@ -76,7 +76,6 @@ public class IncrementCounterClock implements IClock
         return convertClockRelationship(rel);
     }
     
-    //TODO can't we reduce the clock relationships into one?
     private ClockRelationship convertClockRelationship(ContextRelationship rel)
     {
         switch (rel)

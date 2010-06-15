@@ -19,10 +19,7 @@
 package org.apache.cassandra.db;
 
 import java.net.InetAddress;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
+import java.util.*;
 
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.security.MessageDigest;

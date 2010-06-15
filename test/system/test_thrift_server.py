@@ -1324,4 +1324,3 @@ class TestTruncate(ThriftTester):
         client.truncate('Super1')
         assert _big_slice('key1', ColumnParent('Super1')) == []
         assert _big_slice('key1', ColumnParent('Super1', 'sc1')) == []
-
