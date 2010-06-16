@@ -53,8 +53,6 @@ import org.apache.cassandra.service.StorageProxy;
 import static org.apache.cassandra.utils.FBUtilities.UTF8;
 
 import org.apache.cassandra.service.StorageService;
-import org.apache.cassandra.thrift.*;
-import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.apache.cassandra.avro.AvroRecordFactory.*;
@@ -284,6 +282,26 @@ public class CassandraServer implements Cassandra {
 
         return null;
     }
+    
+    @Override
+    public Void remove(ByteBuffer key, ColumnPath columnPath, Clock clock, ConsistencyLevel consistencyLevel)
+    throws AvroRemoteException, InvalidRequestException, UnavailableException, TimedOutException
+    {
+        if (logger.isDebugEnabled())
+            logger.debug("remove");
+        
+        AvroValidation.validateKey(key.array());
+        AvroValidation.validateColumnPath(curKeyspace.get(), columnPath);
+        IClock dbClock = AvroValidation.validateClock(clock);
+        
+        RowMutation rm = new RowMutation(curKeyspace.get(), key.array());
+        byte[] superName = columnPath.super_column == null ? null : columnPath.super_column.array();
+        rm.delete(new QueryPath(columnPath.column_family.toString(), superName), dbClock);
+        
+        doInsert(consistencyLevel, rm);
+        
+        return null;
+    }
 
     private void doInsert(ConsistencyLevel consistency, RowMutation rm) throws UnavailableException, TimedOutException
     {
@@ -306,56 +324,6 @@ public class CassandraServer implements Cassandra {
         {
             StorageProxy.mutate(Arrays.asList(rm));
         }
-    }
-
-    public Void batch_insert(Utf8 keyspace, Utf8 key, Map<Utf8, GenericArray<ColumnOrSuperColumn>> cfmap, ConsistencyLevel consistency)
-    throws AvroRemoteException, InvalidRequestException, UnavailableException, TimedOutException
-    {
-        if (logger.isDebugEnabled())
-            logger.debug("batch_insert");
-
-        byte[] keyBytes = key.getBytes();
-        String keyspaceString = keyspace.toString();
-
-        AvroValidation.validateKey(key.toString());
-
-        for (Utf8 cfName : cfmap.keySet())
-        {
-            for (ColumnOrSuperColumn cosc : cfmap.get(cfName))
-                AvroValidation.validateColumnOrSuperColumn(keyspaceString, cfName.toString(), cosc);
-        }
-
-        doInsert(consistency, getRowMutation(keyspaceString, keyBytes, cfmap));
-        return null;
-    }
-
-    // FIXME: This is copypasta from o.a.c.db.RowMutation, (RowMutation.getRowMutation uses Thrift types directly).
-    private static RowMutation getRowMutation(String keyspace, byte[] key, Map<Utf8, GenericArray<ColumnOrSuperColumn>> cfmap)
-    {
-        RowMutation rm = new RowMutation(keyspace, key);
-        for (Map.Entry<Utf8, GenericArray<ColumnOrSuperColumn>> entry : cfmap.entrySet())
-        {
-            String cfName = entry.getKey().toString();
-            for (ColumnOrSuperColumn cosc : entry.getValue())
-            {
-                if (cosc.column == null)
-                {
-                    assert cosc.super_column != null;
-                    for (Column column : cosc.super_column.columns)
-                    {
-                        QueryPath path = new QueryPath(cfName, cosc.super_column.name.array(), column.name.array());
-                        rm.add(path, column.value.array(), unavronateClock(column.clock), column.ttl == null ? 0 : column.ttl);
-                    }
-                }
-                else
-                {
-                    assert cosc.super_column == null;
-                    QueryPath path = new QueryPath(cfName, null, cosc.column.name.array());
-                    rm.add(path, cosc.column.value.array(), unavronateClock(cosc.column.clock), cosc.column.ttl == null ? 0 : cosc.column.ttl);
-                }
-            }
-        }
-        return rm;
     }
 
     public Void batch_mutate(Utf8 keyspace, Map<Utf8, Map<Utf8, GenericArray<Mutation>>> mutationMap, ConsistencyLevel consistencyLevel)
@@ -511,12 +479,14 @@ public class CassandraServer implements Cassandra {
             Collection<CFMetaData> cfDefs = new ArrayList<CFMetaData>((int)ksDef.cf_defs.size());
             for (CfDef cfDef : ksDef.cf_defs)
             {
-                String cfType, compare, subCompare;
+                String cfType, compare, subCompare, reconcilerName;
                 cfType = cfDef.column_type == null ? D_CF_CFTYPE : cfDef.column_type.toString();
                 ClockType clockType = ClockType.create(cfDef.clock_type == null ? D_CF_CFCLOCKTYPE : cfDef.clock_type.toString());
                 compare = cfDef.comparator_type == null ? D_CF_COMPTYPE : cfDef.comparator_type.toString();
                 subCompare = cfDef.subcomparator_type == null ? D_CF_SUBCOMPTYPE : cfDef.subcomparator_type.toString();
-                AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(cfDef.reconciler.toString());
+                reconcilerName = cfDef.reconciler == null  ? null : cfDef.reconciler.toString();
+                
+                AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(reconcilerName);
                 if (reconciler == null)
                 {
                     if (clockType == ClockType.Timestamp)    

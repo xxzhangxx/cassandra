@@ -115,11 +115,11 @@ protocol Cassandra {
                 Column column,
                 ConsistencyLevel consistency_level)
     throws InvalidRequestException, UnavailableException, TimedOutException;
-
-    void batch_insert(string keyspace,
-                      string key,
-                      map<array<ColumnOrSuperColumn>> cfmap,
-                      ConsistencyLevel consistency_level)
+    
+    void remove(bytes key,
+                ColumnPath column_path,
+                Clock clock,
+                ConsistencyLevel consistency_level)
     throws InvalidRequestException, UnavailableException, TimedOutException;
 
     void batch_mutate(string keyspace,
