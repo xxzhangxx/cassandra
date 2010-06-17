@@ -35,9 +35,10 @@ import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.io.util.IIterableColumns;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class ColumnFamily implements IColumnContainer
+public class ColumnFamily implements IColumnContainer, IIterableColumns
 {
     /* The column serializer for this Column Family. Create based on config. */
     private static ColumnFamilySerializer serializer = new ColumnFamilySerializer();
@@ -156,13 +157,7 @@ public class ColumnFamily implements IColumnContainer
 
     int getColumnCount()
     {
-        if (!isSuper())
-            return columns.size();
-
-        int count = 0;
-        for (IColumn column: columns.values())
-            count += column.getObjectCount();
-        return count;
+        return columns.size();
     }
 
     public boolean isSuper()
@@ -460,5 +455,15 @@ public class ColumnFamily implements IColumnContainer
         if (cf == null)
             return;
         addAll(cf);
+    }
+
+    public int getEstimatedColumnCount()
+    {
+        return getColumnCount();
+    }
+
+    public Iterator<IColumn> iterator()
+    {
+        return columns.values().iterator();
     }
 }

@@ -336,7 +336,7 @@ public class CompactionManager implements CompactionManagerMBean
 
         SSTableWriter writer;
         CompactionIterator ci = new CompactionIterator(sstables, gcBefore, major); // retain a handle so we can call close()
-        Iterator<CompactionIterator.CompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
+        Iterator<AbstractCompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
         executor.beginCompaction(cfs, ci);
 
         try
@@ -358,16 +358,14 @@ public class CompactionManager implements CompactionManagerMBean
             validator.prepare();
             while (nni.hasNext())
             {
-                CompactionIterator.CompactedRow row = nni.next();
+                AbstractCompactedRow row = nni.next();
                 long prevpos = writer.getFilePointer();
 
-                writer.append(row.key, row.buffer);
+                writer.append(row);
                 validator.add(row);
                 totalkeysWritten++;
 
                 long rowsize = writer.getFilePointer() - prevpos;
-                if (rowsize > DatabaseDescriptor.getRowWarningThreshold())
-                    logger.warn("Large row " + row.key.key + " in " + cfs.getColumnFamilyName() + " " + rowsize + " bytes");
                 cfs.addToCompactedRowStats(rowsize);
             }
             validator.complete();
@@ -426,7 +424,7 @@ public class CompactionManager implements CompactionManagerMBean
           logger.debug("Expected bloom filter size : " + expectedBloomFilterSize);
 
         SSTableWriter writer = null;
-        Iterator<CompactionIterator.CompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
+        Iterator<AbstractCompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
         executor.beginCompaction(cfs, ci);
 
         try
@@ -438,14 +436,14 @@ public class CompactionManager implements CompactionManagerMBean
 
             while (nni.hasNext())
             {
-                CompactionIterator.CompactedRow row = nni.next();
+                AbstractCompactedRow row = nni.next();
                 if (writer == null)
                 {
                     FileUtils.createDirectory(compactionFileLocation);
                     String newFilename = new File(cfs.getTempSSTablePath(compactionFileLocation)).getAbsolutePath();
                     writer = new SSTableWriter(newFilename, expectedBloomFilterSize, StorageService.getPartitioner());
                 }
-                writer.append(row.key, row.buffer);
+                writer.append(row);
                 totalkeysWritten++;
             }
         }
@@ -539,14 +537,14 @@ public class CompactionManager implements CompactionManagerMBean
         executor.beginCompaction(cfs, ci);
         try
         {
-            Iterator<CompactionIterator.CompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
+            Iterator<AbstractCompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
 
             // validate the CF as we iterate over it
             AntiEntropyService.IValidator validator = AntiEntropyService.instance.getValidator(cfs.getTable().name, cfs.getColumnFamilyName(), initiator, true);
             validator.prepare();
             while (nni.hasNext())
             {
-                CompactionIterator.CompactedRow row = nni.next();
+                AbstractCompactedRow row = nni.next();
                 validator.add(row);
             }
             validator.complete();

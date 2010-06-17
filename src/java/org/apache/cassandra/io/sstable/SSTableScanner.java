@@ -169,13 +169,14 @@ public class SSTableScanner implements Iterator<IColumnIterator>, Closeable
                 assert !file.isEOF();
 
                 DecoratedKey key = StorageService.getPartitioner().convertFromDiskFormat(FBUtilities.readShortByteArray(file));
-                int dataSize = file.readInt();
+                long dataSize = SSTableReader.readRowSize(file, sstable.getDescriptor());
                 dataStart = file.getFilePointer();
                 finishedAt = dataStart + dataSize;
 
                 if (filter == null)
                 {
-                    return row = new SSTableIdentityIterator(sstable, file, key, dataStart, finishedAt);
+                    row = new SSTableIdentityIterator(sstable, file, key, dataStart, dataSize);
+                    return row;
                 }
                 else
                 {

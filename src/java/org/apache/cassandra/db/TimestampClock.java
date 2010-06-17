@@ -124,6 +124,18 @@ public class TimestampClock implements IClock
     public void update(ColumnFamily cf, InetAddress node)
     {
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof TimestampClock && compare((TimestampClock)o) == ClockRelationship.EQUAL;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return (int)(timestamp ^ (timestamp >>> 32));
+    }
 }
 
 class TimestampClockSerializer implements ICompactSerializer2<IClock>

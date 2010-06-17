@@ -28,7 +28,8 @@ import org.apache.cassandra.db.*;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
-import org.apache.cassandra.io.CompactionIterator.CompactedRow;
+import org.apache.cassandra.io.CompactionIterator;
+import org.apache.cassandra.io.PrecompactedRow;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.locator.TokenMetadata;
 import static org.apache.cassandra.service.AntiEntropyService.*;
@@ -152,13 +153,15 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         Token mid = part.midpoint(min, min);
         validator.prepare();
 
+        CompactionIterator ci = new CompactionIterator(Collections.EMPTY_LIST, 0, false);
+        
         // add a row with the minimum token
-        validator.add(new CompactedRow(new DecoratedKey(min, "nonsense!".getBytes(FBUtilities.UTF8)),
-                                       new DataOutputBuffer()));
+        validator.add(new PrecompactedRow(new DecoratedKey(min, "nonsense!".getBytes(FBUtilities.UTF8)),
+                                       new DataOutputBuffer(), ci));
 
         // and a row after it
-        validator.add(new CompactedRow(new DecoratedKey(mid, "inconceivable!".getBytes(FBUtilities.UTF8)),
-                                       new DataOutputBuffer()));
+        validator.add(new PrecompactedRow(new DecoratedKey(mid, "inconceivable!".getBytes(FBUtilities.UTF8)),
+                                       new DataOutputBuffer(), ci));
         validator.complete();
 
         // confirm that the tree was validated

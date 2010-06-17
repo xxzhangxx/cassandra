@@ -70,7 +70,6 @@ public class SuperColumnTest
 
     	assertNotNull(sc.getSubColumn(getBytes(1)));
     	assertNull(sc.getSubColumn(getBytes(3)));
-        assert 3 == sc.getObjectCount();
 
         // column: 1
         assert 0 == FBUtilities.compareByteArrays(
