@@ -433,14 +433,15 @@ public class CliClient
             {
             case IncrementCounter:
                 return new Clock();
+            default:
             case Timestamp:
                 return new Clock().setTimestamp(timestampMicros());             
             }
         } catch (NotFoundException e)
         {
+            // returning default if column family is not found
+            return new Clock().setTimestamp(timestampMicros()); // default
         }
-        // returning default if column family is not found
-        return new Clock().setTimestamp(timestampMicros()); // default
     }
     
     private void executeShowClusterName() throws TException
