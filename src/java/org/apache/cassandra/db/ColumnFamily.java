@@ -20,7 +20,6 @@ package org.apache.cassandra.db;
 
 import java.net.InetAddress;
 import java.util.*;
-
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
