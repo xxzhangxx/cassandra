@@ -19,7 +19,6 @@
 
 package org.apache.cassandra.streaming;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 
@@ -27,6 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.db.Table;
+import org.apache.cassandra.io.sstable.Descriptor;
+import org.apache.cassandra.io.sstable.SSTable;
 import org.apache.cassandra.io.sstable.SSTableReader;
 import org.apache.cassandra.io.sstable.SSTableWriter;
 import org.apache.cassandra.net.MessagingService;
@@ -52,26 +53,18 @@ class FileStatusHandler
         assert FileStatus.Action.DELETE == streamStatus.getAction() :
             "Unknown stream action: " + streamStatus.getAction();
 
-        // file was successfully streamed: if it was the last component of an sstable, assume that the rest
-        // have already arrived
-        if (pendingFile.getFilename().endsWith("-Data.db"))
+        // file was successfully streamed
+        Descriptor desc = pendingFile.desc;
+        try
         {
-            // last component triggers add: see TODO in SSTable.getAllComponents()
-            String tableName = pendingFile.getDescriptor().ksname;
-            File file = new File(pendingFile.getFilename());
-            String fileName = file.getName();
-            String [] temp = fileName.split("-");
-
-            try
-            {
-                SSTableReader sstable = SSTableWriter.renameAndOpen(pendingFile.getDescriptor());
-                Table.open(tableName).getColumnFamilyStore(temp[0]).addSSTable(sstable);
-                logger.info("Streaming added " + sstable.getFilename());
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException("Not able to add streamed file " + pendingFile.getFilename(), e);
-            }
+            SSTableReader sstable = SSTableWriter.recoverAndOpen(pendingFile.desc);
+            Table.open(desc.ksname).getColumnFamilyStore(desc.cfname).addSSTable(sstable);
+            logger.info("Streaming added " + sstable);
+        }
+        catch (IOException e)
+        {
+            logger.error("Failed adding " + pendingFile, e);
+            throw new RuntimeException("Not able to add streamed file " + pendingFile.getFilename(), e);
         }
 
         // send a StreamStatus message telling the source node it can delete this file
@@ -82,7 +75,7 @@ class FileStatusHandler
         // if all files have been received from this host, remove from bootstrap sources
         if (StreamInManager.isDone(host) && StorageService.instance.isBootstrapMode())
         {
-            StorageService.instance.removeBootstrapSource(host, pendingFile.getDescriptor().ksname);
+            StorageService.instance.removeBootstrapSource(host, pendingFile.desc.ksname);
         }
     }
 }

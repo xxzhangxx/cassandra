@@ -64,7 +64,7 @@ protocol Cassandra {
         bytes finish;
         boolean reversed;
         int count;
-        array<bytes> bitmasks;
+        union { array<bytes>, null } bitmasks;
     }
 
     record SlicePredicate {
@@ -95,6 +95,7 @@ protocol Cassandra {
         union { double, null } row_cache_size;
         union { boolean, null } preload_row_cache;
         union { double, null } key_cache_size;
+        union { double, null } read_repair_chance;
     }
 
     record KsDef {
@@ -107,6 +108,11 @@ protocol Cassandra {
     record MutationsMapEntry {
         bytes key;
         map<array<Mutation>> mutations;
+    }
+
+    record CoscsMapEntry {
+         bytes key;
+         array<ColumnOrSuperColumn> columns;
     }
 
     enum ConsistencyLevel {
@@ -134,6 +140,38 @@ protocol Cassandra {
                             ConsistencyLevel consistency_level)
     throws InvalidRequestException, NotFoundException, UnavailableException,
            TimedOutException;
+    
+    /**
+     * Get the group of columns contained by a column_parent (either a
+     * ColumnFamily name or a ColumnFamily/SuperColumn name pair) specified
+     * by the given SlicePredicate. If no matching values are found, an empty
+     * list is returned.
+     */
+    array<ColumnOrSuperColumn> get_slice(bytes key,
+                                         ColumnParent column_parent,
+                                         SlicePredicate predicate,
+                                         ConsistencyLevel consistency_level)
+    throws InvalidRequestException, UnavailableException, TimedOutException;
+
+    /**
+     * Performs a get_slice for column_parent and predicate against the given
+     * set of keys in parallel.
+     */
+    array<CoscsMapEntry> multiget_slice(array<bytes> keys,
+                                        ColumnParent column_parent,
+                                        SlicePredicate predicate,
+                                        ConsistencyLevel consistency_level)
+    throws InvalidRequestException, UnavailableException, TimedOutException;
+
+    /**
+     * Returns the number of columns matching a predicate for a particular
+     * key, ColumnFamily, and optionally SuperColumn.
+     */
+    int get_count(bytes key,
+                  ColumnParent column_parent,
+                  SlicePredicate predicate,
+                  ConsistencyLevel consistency_level)
+    throws InvalidRequestException, UnavailableException, TimedOutException;
 
     void insert(bytes key,
                 ColumnParent column_parent,

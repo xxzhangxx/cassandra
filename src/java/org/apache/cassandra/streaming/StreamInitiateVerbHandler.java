@@ -26,15 +26,12 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Table;
-import org.apache.cassandra.io.sstable.SSTable;
+import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
-import org.apache.cassandra.streaming.StreamInitiateMessage;
-import org.apache.cassandra.streaming.StreamInManager;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -79,7 +76,7 @@ public class StreamInitiateVerbHandler implements IVerbHandler
                 PendingFile remoteFile = pendingFile.getKey();
                 PendingFile localFile = pendingFile.getValue();
 
-                FileStatus streamStatus = new FileStatus(remoteFile.getFilename(), remoteFile.getExpectedBytes());
+                FileStatus streamStatus = new FileStatus(remoteFile.getFilename());
 
                 if (logger.isDebugEnabled())
                   logger.debug("Preparing to receive stream from " + message.getFrom() + ": " + remoteFile + " -> " + localFile);
@@ -106,23 +103,18 @@ public class StreamInitiateVerbHandler implements IVerbHandler
     {
         /* Create a local sstable for each remote sstable */
         LinkedHashMap<PendingFile, PendingFile> mapping = new LinkedHashMap<PendingFile, PendingFile>();
-        Map<SSTable.Descriptor, SSTable.Descriptor> sstables = new HashMap<SSTable.Descriptor, SSTable.Descriptor>();
         for (PendingFile remote : remoteFiles)
         {
-            SSTable.Descriptor remotedesc = remote.getDescriptor();
-            SSTable.Descriptor localdesc = sstables.get(remotedesc);
-            if (localdesc == null)
-            {
-                // new local sstable
-                Table table = Table.open(remotedesc.ksname);
-                ColumnFamilyStore cfStore = table.getColumnFamilyStore(remotedesc.cfname);
+            Descriptor remotedesc = remote.desc;
 
-                localdesc = SSTable.Descriptor.fromFilename(cfStore.getFlushPath());
-                sstables.put(remotedesc, localdesc);
-            }
+            // new local sstable
+            Table table = Table.open(remotedesc.ksname);
+            ColumnFamilyStore cfStore = table.getColumnFamilyStore(remotedesc.cfname);
+
+            Descriptor localdesc = Descriptor.fromFilename(cfStore.getFlushPath());
 
             // add a local file for this component
-            mapping.put(remote, new PendingFile(localdesc, remote.getComponent(), remote.getExpectedBytes()));
+            mapping.put(remote, new PendingFile(localdesc, remote));
         }
 
         return mapping;
