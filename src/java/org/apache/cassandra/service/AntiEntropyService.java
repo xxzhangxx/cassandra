@@ -664,7 +664,7 @@ public class AntiEntropyService
                 final List<Range> ranges = new ArrayList<Range>(differences);
 
                 final Collection<SSTableReader> sstables;
-                ClockType clockType = DatabaseDescriptor.getClockType(cfs.getTable().name, cfs.getColumnFamilyName());
+                ClockType clockType = DatabaseDescriptor.getClockType(cfstore.getTable().name, cfstore.getColumnFamilyName());
                 if (clockType == ClockType.Timestamp) {
                     sstables = cfstore.getSSTables();
                 } else {
