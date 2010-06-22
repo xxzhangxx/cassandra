@@ -112,6 +112,9 @@ public class StorageProxy implements StorageProxyMBean
                     // 1. local, unhinted write: run directly on write stage
                     // 2. non-local, unhinted write: send row mutation message
                     // 3. hinted write: add hint header, and send message
+                    
+                    updateDestinationByClock(ConsistencyLevel.ZERO, rm, hintedEndpoints);
+                    
                     for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
                     {
                         InetAddress destination = entry.getKey();
@@ -119,6 +122,8 @@ public class StorageProxy implements StorageProxyMBean
                         if (targets.size() == 1 && targets.iterator().next().equals(destination))
                         {
                             // unhinted writes
+                            rm.updateClocks(destination);
+                            
                             if (destination.equals(FBUtilities.getLocalAddress()))
                             {
                                 if (logger.isDebugEnabled())
@@ -204,13 +209,7 @@ public class StorageProxy implements StorageProxyMBean
                 responseHandlers.add(responseHandler);
                 Message unhintedMessage = null;
 
-                ClockType clockType = rm.getColumnFamilies().iterator().next().getClockType();
-                if (clockType == ClockType.IncrementCounter)
-                {
-                    InetAddress randomDestination = pickRandomDestination(consistency_level, hintedEndpoints);
-                    hintedEndpoints.clear();
-                    hintedEndpoints.put(randomDestination, randomDestination);
-                }
+                updateDestinationByClock(consistency_level, rm, hintedEndpoints);
                 
                 for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
                 {
@@ -279,11 +278,29 @@ public class StorageProxy implements StorageProxyMBean
 
     }
 
-    private static InetAddress pickRandomDestination(ConsistencyLevel consistency_level,
-            Multimap<InetAddress, InetAddress> hintedEndpoints)
+    /**
+     * Update destination endpoints depending on the clock type.
+     */
+    private static void updateDestinationByClock(ConsistencyLevel consistency_level, RowMutation rm,
+            Multimap<InetAddress, InetAddress> destinationEndpoints)
     {
-        assert ConsistencyLevel.ONE == consistency_level : "Context-based CFs only support ConsistencyLevel.ONE!!!";
-        Set<InetAddress> destinationSet = hintedEndpoints.keySet();
+        ClockType clockType = rm.getColumnFamilies().iterator().next().getClockType();
+        if (clockType == ClockType.IncrementCounter)
+        {
+            assert ConsistencyLevel.ONE == consistency_level || ConsistencyLevel.ZERO == consistency_level: "Context-based CFs only support ConsistencyLevel.ONE or ZERO";
+            InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
+            destinationEndpoints.clear();
+            destinationEndpoints.put(randomDestination, randomDestination);
+        }
+    }
+
+    /**
+     * @param endpoints potential destinations.
+     * @return one destination randomly chosen from the endpoints unless localhost is in the map, then that is returned.
+     */
+    private static InetAddress pickRandomDestination(Multimap<InetAddress, InetAddress> endpoints)
+    {
+        Set<InetAddress> destinationSet = endpoints.keySet();
         
         if (destinationSet.contains(FBUtilities.getLocalAddress()))
         {
@@ -293,7 +310,7 @@ public class StorageProxy implements StorageProxyMBean
         {
             InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
             InetAddress randomDestination = destinations[random.nextInt(destinations.length)];
-            Collection<InetAddress> targets = hintedEndpoints.asMap().get(randomDestination);
+            Collection<InetAddress> targets = endpoints.asMap().get(randomDestination);
             assert (targets.size() != 1 || !targets.iterator().next().equals(randomDestination)) : "Context-based CFs do not support Hinted Hand-off.";
             return randomDestination;
         }
