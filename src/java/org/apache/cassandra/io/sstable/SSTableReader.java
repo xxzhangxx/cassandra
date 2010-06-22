@@ -46,8 +46,6 @@ import org.apache.cassandra.dht.AbstractBounds;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.io.ICompactSerializer2;
 import org.apache.cassandra.io.util.FileDataInput;
-import org.apache.cassandra.utils.BloomFilter;
-import org.apache.cassandra.utils.Pair;
 
 /**
  * SSTableReaders are open()ed by Table.onStart; after that they are created by SSTableWriter.renameAndOpen.
@@ -117,6 +115,8 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
     private BloomFilter bf;
 
     private InstrumentedCache<Pair<Descriptor,DecoratedKey>, Long> keyCache;
+
+    private BloomFilterTracker bloomFilterTracker = new BloomFilterTracker();
 
     private volatile SSTableDeletingReference phantomReference;
 
@@ -397,8 +397,12 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
         // next, see if the sampled index says it's impossible for the key to be present
         IndexSummary.KeyPosition sampledPosition = getIndexScanPosition(decoratedKey);
         if (sampledPosition == null)
+        {
+            if (op == Operator.EQ)
+                bloomFilterTracker.addFalsePositive();
             // we matched the -1th position: if the operator might match forward, return the 0th position
             return op.apply(1) >= 0 ? 0 : -1;
+        }
 
         // scan the on-disk index, starting at the nearest sampled position
         Iterator<FileDataInput> segments = ifile.iterator(sampledPosition.indexPosition, INDEX_FILE_BUFFER_BYTES);
@@ -418,12 +422,20 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
                     if (v == 0)
                     {
                         if (comparison == 0 && keyCache != null && keyCache.getCapacity() > 0)
+                        {
+                            if (op == Operator.EQ)
+                                bloomFilterTracker.addTruePositive();
                             // store exact match for the key
                             keyCache.put(unifiedKey, Long.valueOf(dataPosition));
+                        }
                         return dataPosition;
                     }
                     if (v < 0)
+                    {
+                        if (op == Operator.EQ)
+                            bloomFilterTracker.addFalsePositive();
                         return -1;
+                    }
                 }
             }
             catch (IOException e)
@@ -442,6 +454,9 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
                 }
             }
         }
+
+        if (op == Operator.EQ)
+            bloomFilterTracker.addFalsePositive();
         return -1;
     }
 
@@ -570,5 +585,25 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
         {
             public int apply(int comparison) { return comparison > 0 ? 0 : 1; }
         }
+    }
+
+    public long getBloomFilterFalsePositiveCount()
+    {
+        return bloomFilterTracker.getFalsePositiveCount();
+    }
+
+    public long getRecentBloomFilterFalsePositiveCount()
+    {
+        return bloomFilterTracker.getRecentFalsePositiveCount();
+    }
+
+    public long getBloomFilterTruePositiveCount()
+    {
+        return bloomFilterTracker.getTruePositiveCount();
+    }
+
+    public long getRecentBloomFilterTruePositiveCount()
+    {
+        return bloomFilterTracker.getRecentTruePositiveCount();
     }
 }
