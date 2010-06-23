@@ -442,24 +442,18 @@ public class IncrementCounterContext implements IContext
                         ArrayUtils.subarray(context, offset, offset + idLength));
                 long count = FBUtilities.byteArrayToLong(context, offset + idLength);
 
-                if (!contextsMap.containsKey(id))
-                {
-                    contextsMap.put(id, count);
+                Long previousCount = contextsMap.put(id, count);
+                if (previousCount == null)
                     continue;
-                }
 
                 // local id: sum counts
-                if (this.idWrapper.equals(id))
-                {
-                    contextsMap.put(id, count + (Long)contextsMap.get(id));
+                if (this.idWrapper.equals(id)) {
+                    contextsMap.put(id, count + previousCount);
                     continue;
                 }
 
                 // remote id: keep highest count
-                if ((Long)contextsMap.get(id) < count)
-                {
-                    contextsMap.put(id, count);
-                }
+                contextsMap.put(id, Math.max(count, previousCount));
             }
         }
 
