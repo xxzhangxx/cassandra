@@ -293,26 +293,24 @@ public class IncrementCounterContext implements IContext
      */
     public ClockRelationship diff(byte[] left, byte[] right)
     {
-        left  = sortElementsById(left);
+        left = sortElementsById(left);
         right = sortElementsById(right);
 
         ClockRelationship relationship = ClockRelationship.EQUAL;
 
-        int leftIndex  = HEADER_LENGTH;
+        int leftIndex = HEADER_LENGTH;
         int rightIndex = HEADER_LENGTH;
         while (leftIndex < left.length && rightIndex < right.length)
         {
             // compare id bytes
-            int compareId = FBUtilities.compareByteSubArrays(left,  leftIndex,
-                                                             right, rightIndex,
-                                                             idLength);
+            int compareId = FBUtilities.compareByteSubArrays(left, leftIndex, right, rightIndex, idLength);
             if (compareId == 0)
             {
-                long leftCount  = FBUtilities.byteArrayToLong(left,  leftIndex  + idLength);
+                long leftCount = FBUtilities.byteArrayToLong(left, leftIndex + idLength);
                 long rightCount = FBUtilities.byteArrayToLong(right, rightIndex + idLength);
 
                 // advance indexes
-                leftIndex  += stepLength;
+                leftIndex += stepLength;
                 rightIndex += stepLength;
 
                 // process count comparisons
@@ -322,29 +320,34 @@ public class IncrementCounterContext implements IContext
                 }
                 else if (leftCount > rightCount)
                 {
-                    if (relationship == ClockRelationship.EQUAL) {
+                    if (relationship == ClockRelationship.EQUAL)
+                    {
                         relationship = ClockRelationship.GREATER_THAN;
                     }
                     else if (relationship == ClockRelationship.GREATER_THAN)
                     {
                         continue;
                     }
-                    else // relationship == ClockRelationship.LESS_THAN
+                    else
                     {
+                        // relationship == ClockRelationship.LESS_THAN
                         return ClockRelationship.DISJOINT;
                     }
                 }
-                else // leftCount < rightCount
+                else
+                // leftCount < rightCount
                 {
-                    if (relationship == ClockRelationship.EQUAL) {
+                    if (relationship == ClockRelationship.EQUAL)
+                    {
                         relationship = ClockRelationship.LESS_THAN;
                     }
                     else if (relationship == ClockRelationship.GREATER_THAN)
                     {
                         return ClockRelationship.DISJOINT;
                     }
-                    else // relationship == ClockRelationship.LESS_THAN
+                    else
                     {
+                        // relationship == ClockRelationship.LESS_THAN
                         continue;
                     }
                 }
@@ -354,31 +357,36 @@ public class IncrementCounterContext implements IContext
                 // only advance the right context
                 rightIndex += stepLength;
 
-                if (relationship == ClockRelationship.EQUAL) {
+                if (relationship == ClockRelationship.EQUAL)
+                {
                     relationship = ClockRelationship.LESS_THAN;
                 }
                 else if (relationship == ClockRelationship.GREATER_THAN)
                 {
                     return ClockRelationship.DISJOINT;
                 }
-                else // relationship == ClockRelationship.LESS_THAN
+                else
                 {
+                    // relationship == ClockRelationship.LESS_THAN
                     continue;
                 }
             }
-            else // compareId < 0
+            else
             {
+                // compareId < 0
                 // only advance the left context
                 leftIndex += stepLength;
 
-                if (relationship == ClockRelationship.EQUAL) {
+                if (relationship == ClockRelationship.EQUAL)
+                {
                     relationship = ClockRelationship.GREATER_THAN;
                 }
                 else if (relationship == ClockRelationship.GREATER_THAN)
                 {
                     continue;
                 }
-                else // relationship == ClockRelationship.LESS_THAN
+                else
+                // relationship == ClockRelationship.LESS_THAN
                 {
                     return ClockRelationship.DISJOINT;
                 }
@@ -388,7 +396,8 @@ public class IncrementCounterContext implements IContext
         // check final lengths
         if (leftIndex < left.length)
         {
-            if (relationship == ClockRelationship.EQUAL) {
+            if (relationship == ClockRelationship.EQUAL)
+            {
                 return ClockRelationship.GREATER_THAN;
             }
             else if (relationship == ClockRelationship.LESS_THAN)
@@ -398,7 +407,8 @@ public class IncrementCounterContext implements IContext
         }
         else if (rightIndex < right.length)
         {
-            if (relationship == ClockRelationship.EQUAL) {
+            if (relationship == ClockRelationship.EQUAL)
+            {
                 return ClockRelationship.LESS_THAN;
             }
             else if (relationship == ClockRelationship.GREATER_THAN)

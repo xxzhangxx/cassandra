@@ -106,9 +106,10 @@ public class IncrementCounterReconciler extends AbstractReconciler
         {            
             // live + live: merge clocks; update value
             IClock clock = mergeClocks(left, right);
+            IncrementCounterClock counterClock = (IncrementCounterClock) clock;
             // only timestamp and delete timestamp in the clock, has not yet had update called on it.
             // for example multiple mutates on one column in a batch
-            if (clock.size() == DBConstants.intSize_ + IncrementCounterContext.HEADER_LENGTH) 
+            if (counterClock.context.length == IncrementCounterContext.HEADER_LENGTH) 
             {
                 long total = 0;
                 if (left.value().length == DBConstants.longSize_ && right.value().length == DBConstants.longSize_)

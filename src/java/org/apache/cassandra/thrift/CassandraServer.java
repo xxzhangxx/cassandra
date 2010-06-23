@@ -353,6 +353,7 @@ public class CassandraServer implements Cassandra.Iface
         ThriftValidation.validateColumnParent(keySpace.get(), column_parent);
         ThriftValidation.validateColumn(keySpace.get(), column_parent, column);
         IClock cassandra_clock = ThriftValidation.validateClock(column.clock);
+        ThriftValidation.validateValueByClock(column.value, cassandra_clock);
 
         RowMutation rm = new RowMutation(keySpace.get(), key);
         try

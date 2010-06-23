@@ -41,11 +41,6 @@ public class TimestampClock implements IClock
 
     private final long timestamp;
 
-    public TimestampClock()
-    {
-        this.timestamp = 0L;
-    }
-
     public TimestampClock(long timestamp)
     {
         this.timestamp = timestamp;
