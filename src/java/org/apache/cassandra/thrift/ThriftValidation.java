@@ -214,7 +214,8 @@ public class ThriftValidation
         if (cosc.column != null)
         {
             validateTtl(cosc.column);
-            validateClock(cosc.column.clock);
+            IClock clock = validateClock(cosc.column.clock);
+            validateValueByClock(cosc.column.value, clock);
             ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(null).setColumn(cosc.column.name));
         }
 
@@ -255,6 +256,31 @@ public class ThriftValidation
         return new IncrementCounterClock();
     }
 
+    public static void validateValueByClock(byte[] value, IClock cassandraClock) throws InvalidRequestException
+    {
+        switch (cassandraClock.type())
+        {
+            case IncrementCounter:
+                try
+                {
+                    long delta = FBUtilities.byteArrayToLong(value);
+                    if (delta < 0)
+                    {
+                        throw new InvalidRequestException("Value must be positive when using an increment counter");
+                    }
+                }
+                catch (IllegalArgumentException e)
+                {
+                    throw new InvalidRequestException("Value is not a valid long delta: " + e.getMessage());
+                }
+                break;
+            case Timestamp:
+            default:
+                return; //nothing to check
+        }
+        
+    }
+    
     public static void validateMutation(String keyspace, String cfName, Mutation mut)
             throws InvalidRequestException
     {
@@ -361,4 +387,5 @@ public class ThriftValidation
             throw new InvalidRequestException("maxRows must be positive");
         }
     }
+
 }
