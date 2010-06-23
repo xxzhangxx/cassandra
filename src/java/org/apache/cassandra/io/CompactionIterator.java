@@ -24,6 +24,8 @@ package org.apache.cassandra.io;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.IOError;
+import java.net.InetAddress;
+import java.util.Collection;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -52,6 +54,7 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
     protected final List<SSTableIdentityIterator> rows = new ArrayList<SSTableIdentityIterator>();
     protected final int gcBefore;
     private final boolean major;
+    private InetAddress remoteAddress;
 
     private long totalBytes;
     private long bytesRead;
@@ -59,11 +62,16 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
 
     public CompactionIterator(Iterable<SSTableReader> sstables, int gcBefore, boolean major) throws IOException
     {
-        this(getCollatingIterator(sstables), gcBefore, major);
+        this(sstables, gcBefore, major, null);
     }
 
+    public CompactionIterator(Iterable<SSTableReader> sstables, int gcBefore, boolean major, InetAddress remoteAddress) throws IOException
+    {
+        this(getCollatingIterator(sstables), gcBefore, major, remoteAddress);
+    }
+   
     @SuppressWarnings("unchecked")
-    protected CompactionIterator(Iterator iter, int gcBefore, boolean major)
+    protected CompactionIterator(Iterator iter, int gcBefore, boolean major, InetAddress remoteAddress)
     {
         super(iter);
         row = 0;
@@ -74,6 +82,7 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
         }
         this.gcBefore = gcBefore;
         this.major = major;
+        this.remoteAddress = remoteAddress;
     }
 
     @SuppressWarnings("unchecked")
@@ -100,6 +109,10 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
 
     protected ColumnFamily calculatePurgedColumnFamily(ColumnFamily cf)
     {
+        if (remoteAddress != null) 
+        {
+            cf.cleanContext(remoteAddress);
+        }
         return major ? ColumnFamilyStore.removeDeleted(cf, gcBefore) : cf;
     }
 

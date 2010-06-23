@@ -178,7 +178,7 @@ public class LazilyCompactedRow extends AbstractCompactedRow implements IIterabl
             assert container != null;
             IColumn reduced = container.iterator().next();
             ColumnFamily purged = compactionIterator.calculatePurgedColumnFamily(container);
-             if (purged == null || !purged.iterator().hasNext())
+            if (purged == null || !purged.iterator().hasNext())
             {
                 container.clear();
                 return null;

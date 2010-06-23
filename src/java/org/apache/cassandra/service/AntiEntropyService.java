@@ -668,7 +668,7 @@ public class AntiEntropyService
                 if (clockType == ClockType.Timestamp) {
                     sstables = cfstore.getSSTables();
                 } else {
-                    sstables = CompactionManager.instance.submitAESCompaction(cfstore, ranges, remote).get();
+                    sstables = CompactionManager.instance.submitAnticompaction(cfstore, ranges, remote).get();
                 }
 
                 Future f = StageManager.getStage(StageManager.STREAM_STAGE).submit(new WrappedRunnable() 

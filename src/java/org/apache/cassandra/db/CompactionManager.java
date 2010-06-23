@@ -195,18 +195,6 @@ public class CompactionManager implements CompactionManagerMBean
         return executor.submit(callable);
     }
 
-    public Future<List<SSTableReader>> submitAESCompaction(final ColumnFamilyStore cfStore, final Collection<Range> ranges, final InetAddress target)
-    {
-        Callable<List<SSTableReader>> callable = new Callable<List<SSTableReader>>()
-        {
-            public List<SSTableReader> call() throws IOException
-            {
-                return doAESCompaction(cfStore, cfStore.getSSTables(), ranges, target);
-            }
-        };
-        return executor.submit(callable);
-    }
-
     public Future submitMajor(final ColumnFamilyStore cfStore)
     {
         return submitMajor(cfStore, 0, getDefaultGCBefore());
@@ -397,7 +385,18 @@ public class CompactionManager implements CompactionManagerMBean
         return max;
     }
 
-    private String getCompactionFileLocation(ColumnFamilyStore cfs, Collection<SSTableReader> sstables, InetAddress target)
+    /**
+     * This function is used to do the anti compaction process , it spits out the file which has keys that belong to a given range
+     * If the target is not specified it spits out the file as a compacted file with the unecessary ranges wiped out.
+     *
+     * @param cfs
+     * @param sstables
+     * @param ranges
+     * @param target
+     * @return
+     * @throws java.io.IOException
+     */
+    private List<SSTableReader> doAntiCompaction(ColumnFamilyStore cfs, Collection<SSTableReader> sstables, Collection<Range> ranges, InetAddress target)
             throws IOException
     {
         Table table = cfs.getTable();
@@ -410,12 +409,6 @@ public class CompactionManager implements CompactionManagerMBean
             throw new UnsupportedOperationException("disk full");
         }
 
-        return compactionFileLocation;
-    }
-
-    private List<SSTableReader> performCompaction(ColumnFamilyStore cfs, Collection<SSTableReader> sstables, String compactionFileLocation, CompactionIterator ci)
-        throws IOException
-    {
         List<SSTableReader> results = new ArrayList<SSTableReader>();
         long startTime = System.currentTimeMillis();
         long totalkeysWritten = 0;
@@ -425,6 +418,7 @@ public class CompactionManager implements CompactionManagerMBean
           logger.debug("Expected bloom filter size : " + expectedBloomFilterSize);
 
         SSTableWriter writer = null;
+        CompactionIterator ci = new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables), target);
         Iterator<AbstractCompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
         executor.beginCompaction(cfs, ci);
 
@@ -462,53 +456,6 @@ public class CompactionManager implements CompactionManagerMBean
         }
 
         return results;
-    }
-
-    /**
-     * This function is used to do the anti compaction process , it spits out the file which has keys that belong to a given range
-     * If the target is not specified it spits out the file as a compacted file with the unecessary ranges wiped out.
-     *
-     * @param cfs
-     * @param sstables
-     * @param ranges
-     * @param target
-     * @return
-     * @throws java.io.IOException
-     */
-    private List<SSTableReader> doAntiCompaction(ColumnFamilyStore cfs, Collection<SSTableReader> sstables, Collection<Range> ranges, InetAddress target)
-            throws IOException
-    {
-        String compactionFileLocation = getCompactionFileLocation(cfs, sstables, target);
-        return performCompaction(
-            cfs,
-            sstables,
-            compactionFileLocation,
-            new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables)));
-    }
-
-    private List<SSTableReader> doAESCompaction(ColumnFamilyStore cfs, Collection<SSTableReader> sstables, Collection<Range> ranges, InetAddress target)
-            throws IOException
-    {
-        String compactionFileLocation = getCompactionFileLocation(cfs, sstables, target);
-
-        ClockType clockType = DatabaseDescriptor.getClockType(cfs.getTable().name, cfs.getColumnFamilyName());
-        switch (clockType)
-        {
-            case Timestamp:
-                return performCompaction(
-                    cfs,
-                    sstables,
-                    compactionFileLocation,
-                    new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables)));
-            case IncrementCounter:
-                return performCompaction(
-                    cfs,
-                    sstables,
-                    compactionFileLocation,
-                    new CounterAESCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables), target));
-            default:
-                throw new IOException("Unexpected clock type: " + clockType + ", cannot perform AES compaction");
-        }
     }
 
     /**
@@ -608,10 +555,10 @@ public class CompactionManager implements CompactionManagerMBean
     {
         private Set<SSTableScanner> scanners;
 
-        public AntiCompactionIterator(Collection<SSTableReader> sstables, Collection<Range> ranges, int gcBefore, boolean isMajor)
+        public AntiCompactionIterator(Collection<SSTableReader> sstables, Collection<Range> ranges, int gcBefore, boolean isMajor, InetAddress remoteAddress)
                 throws IOException
         {
-            super(getCollatedRangeIterator(sstables, ranges), gcBefore, isMajor);
+            super(getCollatedRangeIterator(sstables, ranges), gcBefore, isMajor, remoteAddress);
         }
 
         private static Iterator getCollatedRangeIterator(Collection<SSTableReader> sstables, final Collection<Range> ranges)
@@ -644,30 +591,6 @@ public class CompactionManager implements CompactionManagerMBean
                 }
             }
             return scanners;
-        }
-    }
-
-    private static class CounterAESCompactionIterator extends AntiCompactionIterator
-    {
-        private InetAddress remoteAddress;
-
-        public CounterAESCompactionIterator(Collection<SSTableReader> sstables, Collection<Range> ranges, int gcBefore, boolean isMajor, InetAddress remoteAddress)
-                throws IOException
-        {
-            super(sstables, ranges, gcBefore, isMajor);
-
-            this.remoteAddress = remoteAddress;
-        }
-        
-        protected ColumnFamily calculatePurgedColumnFamily(ColumnFamily cf)
-        {
-            cf = super.calculatePurgedColumnFamily(cf);
-            cf.cleanContext(remoteAddress);
-            // same check as ColumnFamilyStore.removeDeleted()
-            if (cf.getColumnCount() == 0 && cf.getLocalDeletionTime() <= gcBefore)
-                return null;
-
-            return cf;
         }
     }
 
