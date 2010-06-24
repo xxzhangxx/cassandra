@@ -2,7 +2,7 @@ package org.apache.cassandra.avro;
 
 @SuppressWarnings("all")
 public class Clock extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"Clock\",\"namespace\":\"org.apache.cassandra.avro\",\"fields\":[{\"name\":\"timestamp\",\"type\":\"long\"},{\"name\":\"context\",\"type\":[\"bytes\",\"null\"]}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"Clock\",\"namespace\":\"org.apache.cassandra.avro\",\"fields\":[{\"name\":\"timestamp\",\"type\":\"long\"},{\"name\":\"context\",\"type\":\"bytes\"}]}");
   public long timestamp;
   public java.nio.ByteBuffer context;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }

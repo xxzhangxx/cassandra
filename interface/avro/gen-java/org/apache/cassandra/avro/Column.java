@@ -2,7 +2,7 @@ package org.apache.cassandra.avro;
 
 @SuppressWarnings("all")
 public class Column extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"Column\",\"namespace\":\"org.apache.cassandra.avro\",\"fields\":[{\"name\":\"name\",\"type\":\"bytes\"},{\"name\":\"value\",\"type\":\"bytes\"},{\"name\":\"clock\",\"type\":{\"type\":\"record\",\"name\":\"Clock\",\"fields\":[{\"name\":\"timestamp\",\"type\":\"long\"},{\"name\":\"context\",\"type\":[\"bytes\",\"null\"]}]}},{\"name\":\"ttl\",\"type\":[\"int\",\"null\"]}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"Column\",\"namespace\":\"org.apache.cassandra.avro\",\"fields\":[{\"name\":\"name\",\"type\":\"bytes\"},{\"name\":\"value\",\"type\":\"bytes\"},{\"name\":\"clock\",\"type\":{\"type\":\"record\",\"name\":\"Clock\",\"fields\":[{\"name\":\"timestamp\",\"type\":\"long\"},{\"name\":\"context\",\"type\":\"bytes\"}]}},{\"name\":\"ttl\",\"type\":[\"int\",\"null\"]}]}");
   public java.nio.ByteBuffer name;
   public java.nio.ByteBuffer value;
   public org.apache.cassandra.avro.Clock clock;
