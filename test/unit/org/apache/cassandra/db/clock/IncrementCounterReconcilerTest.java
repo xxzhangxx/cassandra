@@ -312,8 +312,11 @@ public class IncrementCounterReconcilerTest
     public void testReconcileDeletedOrder()
     {
         byte[] columnName = "col".getBytes();
+        // value: 1. timestamp 10. delete timestamp 0
         Column c1 = new Column(columnName, FBUtilities.toByteArray(1L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(10L), FBUtilities.toByteArray(0L))));
+        // value: 0. timestamp 7. delete timestamp 0
         Column c2 = new DeletedColumn(columnName, FBUtilities.toByteArray(0L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(7L), FBUtilities.toByteArray(0L))));
+        // value: 2. timestamp 3. delete timestamp 0
         Column c3 = new Column(columnName, FBUtilities.toByteArray(2L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(3L), FBUtilities.toByteArray(0L))));
 
         // should return same value no matter the order of reconciliation
@@ -322,12 +325,25 @@ public class IncrementCounterReconcilerTest
         assertEquals(1, FBUtilities.byteArrayToLong(r2.value()));        
 
         // a previous version of the code reconciled away the delete information in this test and the result were 3 instead of 1
+        // value: 1. timestamp 10. delete timestamp 0
         c1 = new Column(columnName, FBUtilities.toByteArray(1L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(10L), FBUtilities.toByteArray(0L))));
+        // value: 0. timestamp 7. delete timestamp 0
         c2 = new DeletedColumn(columnName, FBUtilities.toByteArray(0L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(7L), FBUtilities.toByteArray(0L))));
+        // value: 2. timestamp 3. delete timestamp 0
         c3 = new Column(columnName, FBUtilities.toByteArray(2L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(3L), FBUtilities.toByteArray(0L))));
         
         r1 = reconciler.reconcile(c1, c2);
         r2 = reconciler.reconcile(r1, c3);
         assertEquals(1, FBUtilities.byteArrayToLong(r2.value()));
+        
+        // check that the correct delete timestamp is pulled into the reconciled column
+        // value: 1. timestamp 10. delete timestamp 8
+        c1 = new Column(columnName, FBUtilities.toByteArray(1L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(10L), FBUtilities.toByteArray(8L))));
+        // value: 0. timestamp 7. delete timestamp 0
+        c2 = new DeletedColumn(columnName, FBUtilities.toByteArray(0L), new IncrementCounterClock(Util.concatByteArrays(FBUtilities.toByteArray(7L), FBUtilities.toByteArray(0L))));
+        
+        r1 = reconciler.reconcile(c1, c2);
+        IncrementCounterClock clock = (IncrementCounterClock) r1.clock();
+        assertEquals(8, FBUtilities.byteArrayToLong(clock.context, IncrementCounterContext.TIMESTAMP_LENGTH));
     }
 }

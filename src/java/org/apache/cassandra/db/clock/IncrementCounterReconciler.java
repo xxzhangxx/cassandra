@@ -134,7 +134,8 @@ public class IncrementCounterReconciler extends AbstractReconciler
     {
         IncrementCounterClock dc = (IncrementCounterClock) deletedClock;
         IncrementCounterClock lc = (IncrementCounterClock) liveClock;
-        long deleteTime = Math.max(FBUtilities.byteArrayToLong(dc.context, 0), FBUtilities.byteArrayToLong(lc.context, 0));
+        long deleteTime = Math.max(FBUtilities.byteArrayToLong(dc.context, 0), 
+                FBUtilities.byteArrayToLong(lc.context, IncrementCounterContext.TIMESTAMP_LENGTH));
         FBUtilities.copyIntoBytes(lc.context, IncrementCounterContext.TIMESTAMP_LENGTH, deleteTime);
     }
 }
