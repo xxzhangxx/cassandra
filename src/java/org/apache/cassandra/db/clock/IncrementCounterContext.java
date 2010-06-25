@@ -456,10 +456,14 @@ public class IncrementCounterContext implements IContext
         //   4) create a context from sorted array
         long highestTimestamp = Long.MIN_VALUE;
         long highestDeleteTimestamp = Long.MIN_VALUE;
-        Map<FBUtilities.ByteArrayWrapper, Long> contextsMap =
+        Map<FBUtilities.ByteArrayWrapper, Long> reconcileMap =
+            new HashMap<FBUtilities.ByteArrayWrapper, Long>();
+        Map<FBUtilities.ByteArrayWrapper, Long> mergeMap =
             new HashMap<FBUtilities.ByteArrayWrapper, Long>();
         for (byte[] context : contexts)
         {
+            boolean flagWrite = (getFlags(context) & FLAG_WRITE) == FLAG_WRITE;
+
             // take highest timestamp
             highestTimestamp = Math.max(FBUtilities.byteArrayToLong(context, 0), highestTimestamp);
             highestDeleteTimestamp = Math.max(FBUtilities.byteArrayToLong(context, TIMESTAMP_LENGTH), highestDeleteTimestamp);
@@ -471,24 +475,51 @@ public class IncrementCounterContext implements IContext
                         ArrayUtils.subarray(context, offset, offset + idLength));
                 long count = FBUtilities.byteArrayToLong(context, offset + idLength);
 
-                Long previousCount = contextsMap.put(id, count);
-                if (previousCount == null)
-                    continue;
+                Long previousCount;
 
-                // local id: sum counts
-                if (this.idWrapper.equals(id)) {
-                    contextsMap.put(id, count + previousCount);
+                // initial write
+                if (flagWrite) {
+                    previousCount = mergeMap.put(id, count);
+                    if (previousCount == null)
+                        continue;
+
+                    mergeMap.put(id, count + previousCount);
                     continue;
                 }
 
-                // remote id: keep highest count
-                contextsMap.put(id, Math.max(count, previousCount));
+                // reconcile
+                previousCount = reconcileMap.put(id, count);
+                if (previousCount == null)
+                    continue;
+
+                // sum counts:
+                //   local id, or
+                if (this.idWrapper.equals(id)) {
+                    reconcileMap.put(id, count + previousCount);
+                    continue;
+                }
+
+                // keep highest count:
+                //   remote id
+                reconcileMap.put(id, Math.max(count, previousCount));
             }
+        }
+
+        // add initial write context counts to reconciled context counts
+        for (Map.Entry<FBUtilities.ByteArrayWrapper, Long> contextEntry : mergeMap.entrySet())
+        {
+            FBUtilities.ByteArrayWrapper id = contextEntry.getKey();
+            Long count = contextEntry.getValue();
+
+            Long previousCount = reconcileMap.put(id, count);
+            if (previousCount == null)
+                continue;
+            reconcileMap.put(id, count + previousCount);
         }
 
         List<Map.Entry<FBUtilities.ByteArrayWrapper, Long>> contextsList =
             new ArrayList<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>(
-                    contextsMap.entrySet());
+                    reconcileMap.entrySet());
         Collections.sort(
             contextsList,
             new Comparator<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>()
