@@ -46,6 +46,7 @@ public class SuperColumnTest
     	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new IncrementCounterClock(concatByteArrays(
             FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(5L),
@@ -54,6 +55,7 @@ public class SuperColumnTest
     	sc.addColumn(new Column(getBytes(1), "value".getBytes(), new IncrementCounterClock(concatByteArrays(
             FBUtilities.toByteArray(10L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(4), FBUtilities.toByteArray(4L),
@@ -63,6 +65,7 @@ public class SuperColumnTest
     	sc.addColumn(new Column(getBytes(2), "value".getBytes(), new IncrementCounterClock(concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(6L),
             FBUtilities.toByteArray(7), FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -77,6 +80,7 @@ public class SuperColumnTest
             concatByteArrays(
                 FBUtilities.toByteArray(10L),
                 FBUtilities.toByteArray(0L),
+                FBUtilities.toByteArray(0),
                 FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(12L),
                 FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
                 FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
@@ -90,6 +94,7 @@ public class SuperColumnTest
             concatByteArrays(
                 FBUtilities.toByteArray(9L),
                 FBUtilities.toByteArray(0L),
+                FBUtilities.toByteArray(0),
                 FBUtilities.toByteArray(3), FBUtilities.toByteArray(6L),
                 FBUtilities.toByteArray(7), FBUtilities.toByteArray(3L),
                 FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)

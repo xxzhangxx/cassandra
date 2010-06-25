@@ -35,9 +35,10 @@ import org.apache.commons.lang.ArrayUtils;
  * An implementation of a distributed increment-only counter context.
  *
  * The data structure is:
- *   1) timestamp, and
- *   2) timestamp of the latest known delete
- *   3) a list of (node id, count) pairs.
+ *   1) timestamp (last modified),
+ *   2) timestamp (last known delete),
+ *   3) flags, and
+ *   4) a list of (node id, count) pairs.
  *
  * On update:
  *   1) update timestamp to max(timestamp, local time), and
@@ -51,7 +52,13 @@ import org.apache.commons.lang.ArrayUtils;
 public class IncrementCounterContext implements IContext
 {
     public static final int TIMESTAMP_LENGTH = DBConstants.longSize_;
-    public static final int HEADER_LENGTH = TIMESTAMP_LENGTH * 2; //2xlong
+
+    public static final int FLAGS_LENGTH = DBConstants.intSize_;
+    public static final int FLAG_WRITE   = 1; // write vs. repair  
+
+    public static final int HEADER_LENGTH = TIMESTAMP_LENGTH + // last modified
+                                            TIMESTAMP_LENGTH + // last delete
+                                            FLAGS_LENGTH;
    
     private static final byte[] id;
     private static final int idLength;
@@ -95,7 +102,8 @@ public class IncrementCounterContext implements IContext
     {
         byte[] context = new byte[HEADER_LENGTH];
         FBUtilities.copyIntoBytes(context, 0, System.currentTimeMillis());
-        FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH, 0);
+        FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH, 0L);
+        FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH * 2, 0);
         return context;
     }
     
@@ -103,8 +111,19 @@ public class IncrementCounterContext implements IContext
     {
         byte[] rv = new byte[HEADER_LENGTH];
         FBUtilities.copyIntoBytes(rv, 0, Long.MIN_VALUE);
-        FBUtilities.copyIntoBytes(rv, TIMESTAMP_LENGTH, 0);
+        FBUtilities.copyIntoBytes(rv, TIMESTAMP_LENGTH, 0L);
+        FBUtilities.copyIntoBytes(rv, TIMESTAMP_LENGTH * 2, 0);
         return rv;
+    }
+
+    public int getFlags(byte[] context)
+    {
+        return FBUtilities.byteArrayToInt(context, TIMESTAMP_LENGTH * 2);
+    }
+
+    public void setFlags(byte[] context, int flags)
+    {
+        FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH * 2, flags);
     }
 
     // write a tuple (node id, count) at the front
@@ -487,6 +506,7 @@ public class IncrementCounterContext implements IContext
         byte[] merged = new byte[HEADER_LENGTH + (length * stepLength)];
         FBUtilities.copyIntoBytes(merged, 0, highestTimestamp);
         FBUtilities.copyIntoBytes(merged, TIMESTAMP_LENGTH, highestDeleteTimestamp);
+        FBUtilities.copyIntoBytes(merged, TIMESTAMP_LENGTH * 2, 0); // flags reset
         for (int i = 0; i < length; i++)
         {
             Map.Entry<FBUtilities.ByteArrayWrapper, Long> entry = contextsList.get(i);
@@ -515,6 +535,8 @@ public class IncrementCounterContext implements IContext
         sb.append(FBUtilities.byteArrayToLong(context, 0));
         sb.append(", ");
         sb.append(FBUtilities.byteArrayToLong(context, TIMESTAMP_LENGTH));
+        sb.append(", ");
+        sb.append(FBUtilities.byteArrayToInt(context, TIMESTAMP_LENGTH * 2));
         sb.append(" + [");
         for (int offset = HEADER_LENGTH; offset < context.length; offset += stepLength)
         {

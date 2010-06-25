@@ -46,12 +46,12 @@ public class IncrementCounterClockTest
 
     static
     {
-        HEADER_LENGTH = DBConstants.longSize_ * 2; // 2xsize of long
+        HEADER_LENGTH = icc.HEADER_LENGTH;
 
-        idLength        = 4; // size of int
-        countLength     = 8; // size of long
+        idLength      = 4; // size of int
+        countLength   = 8; // size of long
 
-        stepLength      = idLength + countLength;
+        stepLength    = idLength + countLength;
     }
 
     @Test
@@ -91,11 +91,13 @@ public class IncrementCounterClockTest
         clock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(10L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1L)
             ));
         other = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1L)
             ));
 
@@ -105,11 +107,13 @@ public class IncrementCounterClockTest
         clock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(5L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1L)
             ));
         other = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(5L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1L)
             ));
 
@@ -120,6 +124,7 @@ public class IncrementCounterClockTest
         other = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(5L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1L)
             ));
 
@@ -189,6 +194,7 @@ public class IncrementCounterClockTest
         clocks.add(new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
             FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L)
@@ -196,6 +202,7 @@ public class IncrementCounterClockTest
         clocks.add(new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(6L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(6), FBUtilities.toByteArray(2L)
@@ -203,6 +210,7 @@ public class IncrementCounterClockTest
         clocks.add(new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(15L),
             FBUtilities.toByteArray(8), FBUtilities.toByteArray(14L),
             FBUtilities.toByteArray(4), FBUtilities.toByteArray(13L)
@@ -210,6 +218,7 @@ public class IncrementCounterClockTest
         clocks.add(new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(12L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(999L),
             FBUtilities.toByteArray(4), FBUtilities.toByteArray(632L),
             FBUtilities.toByteArray(8), FBUtilities.toByteArray(45L)
@@ -217,6 +226,7 @@ public class IncrementCounterClockTest
         clocks.add(new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(15L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(1234L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(655L),
             FBUtilities.toByteArray(7), FBUtilities.toByteArray(1L)
@@ -273,6 +283,7 @@ public class IncrementCounterClockTest
         IncrementCounterClock clock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(5L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(5), FBUtilities.toByteArray(912L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(35L),
             FBUtilities.toByteArray(6), FBUtilities.toByteArray(15L),
@@ -310,6 +321,7 @@ public class IncrementCounterClockTest
         IncrementCounterClock clock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(5L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(5), FBUtilities.toByteArray(912L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(35L),
             FBUtilities.toByteArray(6), FBUtilities.toByteArray(15L),

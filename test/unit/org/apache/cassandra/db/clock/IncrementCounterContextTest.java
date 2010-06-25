@@ -56,15 +56,15 @@ public class IncrementCounterContextTest
 
     static
     {
-        HEADER_LENGTH = IncrementCounterContext.HEADER_LENGTH; // 2x size of long
+        HEADER_LENGTH  = IncrementCounterContext.HEADER_LENGTH; // 2x size of long + size of int
 
-        idAddress       = FBUtilities.getLocalAddress();
-        id              = idAddress.getAddress();
-        idLength        = 4; // size of int
-        countLength     = 8; // size of long
-        stepLength      = idLength + countLength;
+        idAddress      = FBUtilities.getLocalAddress();
+        id             = idAddress.getAddress();
+        idLength       = 4; // size of int
+        countLength    = 8; // size of long
+        stepLength     = idLength + countLength;
 
-        defaultEntries  = 10;
+        defaultEntries = 10;
     }
 
     @Test
@@ -320,6 +320,7 @@ public class IncrementCounterContextTest
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
@@ -327,6 +328,7 @@ public class IncrementCounterContextTest
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -341,6 +343,7 @@ public class IncrementCounterContextTest
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
@@ -348,6 +351,7 @@ public class IncrementCounterContextTest
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
             );
@@ -360,6 +364,7 @@ public class IncrementCounterContextTest
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(11L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
@@ -367,6 +372,7 @@ public class IncrementCounterContextTest
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -381,12 +387,14 @@ public class IncrementCounterContextTest
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(7L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
             );
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -400,6 +408,7 @@ public class IncrementCounterContextTest
         left = Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(2L)
@@ -407,6 +416,7 @@ public class IncrementCounterContextTest
         right = Util.concatByteArrays(
             FBUtilities.toByteArray(122L),
             FBUtilities.toByteArray(0L),
+            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(2L),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(1L)
@@ -718,5 +728,19 @@ public class IncrementCounterContextTest
 
         assert 8  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 2*stepLength);
         assert 4L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 2*stepLength + idLength);
+    }
+
+    @Test
+    public void testFlags()
+    {
+        byte[] bytes = new byte[HEADER_LENGTH];
+
+        icc.setFlags(bytes, 0);
+        int flags = icc.getFlags(bytes);
+        assert (icc.FLAG_WRITE & flags) == 0;
+
+        icc.setFlags(bytes, flags | icc.FLAG_WRITE);
+        flags = icc.getFlags(bytes);
+        assert (icc.FLAG_WRITE & flags) == 1;
     }
 }
