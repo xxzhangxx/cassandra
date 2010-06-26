@@ -150,10 +150,10 @@ public class IncrementCounterClock implements IClock
                 if (col.isMarkedForDelete())
                     continue;
 
-                // TODO: MODIFY: prob need to create new Column()
                 // update in-place, although Column is (abstractly) immutable
-                ((IncrementCounterClock) col.clock()).update(node, FBUtilities.byteArrayToLong(col.value()));
-
+                IncrementCounterClock clock = (IncrementCounterClock)col.clock();
+                clock.update(node, FBUtilities.byteArrayToLong(col.value()));
+                contextManager.setFlags(clock.context, IncrementCounterContext.FLAG_WRITE);
             }
             return;
         }
@@ -166,10 +166,53 @@ public class IncrementCounterClock implements IClock
                 if (subCol.isMarkedForDelete())
                     continue;
 
-                // TODO: MODIFY: prob need to create new Column()
-                ((IncrementCounterClock) subCol.clock()).update(node, FBUtilities.byteArrayToLong(subCol.value()));
+                // update in-place, although Column is (abstractly) immutable
+                IncrementCounterClock clock = (IncrementCounterClock)subCol.clock();
+                clock.update(node, FBUtilities.byteArrayToLong(subCol.value()));
+                contextManager.setFlags(clock.context, IncrementCounterContext.FLAG_WRITE);
             }
         }
+    }
+
+    private Column removeFlagWriteForColumn(Column column)
+    {
+        IncrementCounterClock clock = (IncrementCounterClock)column.clock();
+        if ((contextManager.getFlags(clock.context()) & contextManager.FLAG_WRITE) == contextManager.FLAG_WRITE)
+            return column;
+
+        byte[] originalContext = clock.context();
+        byte[] modifiedContext = new byte[originalContext.length];
+        System.arraycopy(originalContext, 0, modifiedContext, 0, originalContext.length);
+        contextManager.setFlags(modifiedContext, 0);
+        IncrementCounterClock modifiedClock = new IncrementCounterClock(modifiedContext);
+
+        if (column instanceof DeletedColumn)
+            return new DeletedColumn(
+                column.name(),
+                column.value(),
+                modifiedClock);
+        else // Column
+            return new Column(
+                column.name(),
+                column.value(),
+                modifiedClock);
+    }
+
+    public IColumn removeFlagWrite(IColumn column)
+    {
+        if (column instanceof SuperColumn)
+        {
+            SuperColumn originalSuperCol = (SuperColumn)column;
+            SuperColumn modifiedSuperCol = originalSuperCol.cloneMeShallow();
+            for (Column subCol : originalSuperCol.getSubColumns())
+            {
+                modifiedSuperCol.addColumn(removeFlagWriteForColumn(subCol));
+            }
+
+            return modifiedSuperCol;
+        }
+
+        return removeFlagWriteForColumn((Column)column);
     }
 }
 

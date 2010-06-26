@@ -220,7 +220,11 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
     public void addColumn(IColumn column)
     {
         byte[] name = column.name();
-        IColumn oldColumn = columns.putIfAbsent(name, column);
+        IColumn oldColumn = columns.putIfAbsent(
+            name,
+            clockType != ClockType.IncrementCounter
+                ? column
+                : ((IncrementCounterClock)clockType.minClock()).removeFlagWrite(column));
         if (oldColumn != null)
         {
             if (oldColumn instanceof SuperColumn)
