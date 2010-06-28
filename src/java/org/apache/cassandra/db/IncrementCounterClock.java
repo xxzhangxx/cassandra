@@ -204,9 +204,9 @@ public class IncrementCounterClock implements IClock
         {
             SuperColumn originalSuperCol = (SuperColumn)column;
             SuperColumn modifiedSuperCol = originalSuperCol.cloneMeShallow();
-            for (Column subCol : originalSuperCol.getSubColumns())
+            for (IColumn subCol : originalSuperCol.getSubColumns())
             {
-                modifiedSuperCol.addColumn(removeFlagWriteForColumn(subCol));
+                modifiedSuperCol.addColumn(removeFlagWriteForColumn((Column)subCol));
             }
 
             return modifiedSuperCol;
