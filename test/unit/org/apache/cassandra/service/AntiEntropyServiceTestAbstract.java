@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import org.apache.cassandra.concurrent.StageManager;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.dht.IPartitioner;
@@ -31,6 +32,7 @@ import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.io.CompactionIterator;
 import org.apache.cassandra.io.PrecompactedRow;
 import org.apache.cassandra.io.util.DataOutputBuffer;
+import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.TokenMetadata;
 import static org.apache.cassandra.service.AntiEntropyService.*;
 import org.apache.cassandra.utils.FBUtilities;
@@ -51,6 +53,8 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
 
     public String tablename;
     public String cfname;
+    public TreeRequest request;
+    public ColumnFamilyStore store;
     public IClock clock;
     public InetAddress LOCAL, REMOTE;
 
@@ -62,18 +66,22 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         if (!initialized)
         {
             LOCAL = FBUtilities.getLocalAddress();
-            
+            tablename = "Keyspace4";          
             StorageService.instance.initServer();
             // generate a fake endpoint for which we can spoof receiving/sending trees
-            TokenMetadata tmd = StorageService.instance.getTokenMetadata();
-            IPartitioner part = StorageService.getPartitioner();
             REMOTE = InetAddress.getByName("127.0.0.2");
-            tmd.updateNormalToken(part.getMinimumToken(), REMOTE);
-            assert tmd.isMember(REMOTE);
-            tablename = "Keyspace4";
+            store = Table.open(tablename).getColumnFamilyStores().iterator().next();
             initialized = true;
         }
         aes = AntiEntropyService.instance;
+        TokenMetadata tmd = StorageService.instance.getTokenMetadata();
+        tmd.clearUnsafe();
+        tmd.updateNormalToken(StorageService.getPartitioner().getRandomToken(), LOCAL);
+        tmd.updateNormalToken(StorageService.getPartitioner().getMinimumToken(), REMOTE);
+        assert tmd.isMember(REMOTE);
+        
+        // random session id for each test
+        request = new TreeRequest(UUID.randomUUID().toString(), LOCAL, new CFPair(tablename, cfname));
     }
 
     @After
@@ -84,28 +92,6 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         {
             public void run() { /* no-op */ }
         }).get();
-    }
-
-    @Test
-    public void testInstance() throws Throwable
-    {
-        assert null != aes;
-        assert aes == AntiEntropyService.instance;
-    }
-
-    @Test
-    public void testGetValidator() throws Throwable
-    {
-        aes.clearNaturalRepairs_TestsOnly();
-
-        // not major
-        assert aes.getValidator(tablename, cfname, null, false) instanceof NoopValidator;
-        // adds entry to naturalRepairs
-        assert aes.getValidator(tablename, cfname, null, true) instanceof Validator;
-        // blocked by entry in naturalRepairs
-        assert aes.getValidator(tablename, cfname, null, true) instanceof NoopValidator;
-        // triggered manually
-        assert aes.getValidator(tablename, cfname, REMOTE, true) instanceof Validator;
     }
 
     @Test
@@ -122,8 +108,8 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         Util.writeColumnFamily(rms);
 
         // sample
-        validator = new Validator(new CFPair(tablename, cfname));
-        validator.prepare();
+        validator = new Validator(request);
+        validator.prepare(store);
 
         // and confirm that the tree was split
         assertTrue(validator.tree.size() > 1);
@@ -132,8 +118,8 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
     @Test
     public void testValidatorComplete() throws Throwable
     {
-        Validator validator = new Validator(new CFPair(tablename, cfname));
-        validator.prepare();
+        Validator validator = new Validator(request);
+        validator.prepare(store);
         validator.complete();
 
         // confirm that the tree was validated
@@ -147,11 +133,11 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
     @Test
     public void testValidatorAdd() throws Throwable
     {
-        Validator validator = new Validator(new CFPair(tablename, cfname));
+        Validator validator = new Validator(request);
         IPartitioner part = validator.tree.partitioner();
         Token min = part.getMinimumToken();
         Token mid = part.midpoint(min, min);
-        validator.prepare();
+        validator.prepare(store);
 
         CompactionIterator ci = new CompactionIterator(Collections.EMPTY_LIST, 0, false);
         
@@ -168,30 +154,6 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         assert null != validator.tree.hash(new Range(min, min));
     }
 
-    /**
-     * Build a column family with 2 or more SSTables, and then force a major compaction
-     */
-    @Test
-    public void testTreeStore() throws Throwable
-    {
-        // populate column family
-        List<RowMutation> rms = new LinkedList<RowMutation>();
-        RowMutation rm = new RowMutation(tablename, "key".getBytes());
-        rm.add(new QueryPath(cfname, null, "Column1".getBytes()), "asdf".getBytes(), clock);
-        rms.add(rm);
-        // with two SSTables
-        Util.writeColumnFamily(rms);
-        ColumnFamilyStore store = Util.writeColumnFamily(rms);
-        
-        TreePair old = aes.getRendezvousPair_TestsOnly(tablename, cfname, REMOTE);
-        // force a readonly compaction, and wait for it to finish
-        CompactionManager.instance.submitReadonly(store, REMOTE).get(5000, TimeUnit.MILLISECONDS);
-
-        // check that a tree was created and stored
-        flushAES().get(5000, TimeUnit.MILLISECONDS);
-        assert old != aes.getRendezvousPair_TestsOnly(tablename, cfname, REMOTE);
-    }
-
     @Test
     public void testManualRepair() throws Throwable
     {
@@ -203,46 +165,51 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         sess.join(100);
         assert sess.isAlive();
 
-        // deliver fake responses from LOCAL and REMOTE
-        AntiEntropyService.instance.completedRequest(new CFPair(tablename, cfname), LOCAL);
-        AntiEntropyService.instance.completedRequest(new CFPair(tablename, cfname), REMOTE);
+        // deliver a fake response from REMOTE
+        AntiEntropyService.instance.completedRequest(new TreeRequest(sess.getName(), REMOTE, request.cf));
 
         // block until the repair has completed
         sess.join();
     }
 
     @Test
-    public void testNotifyNeighbors() throws Throwable
+    public void testGetNeighborsPlusOne() throws Throwable
     {
-        // generate empty tree
-        Validator validator = new Validator(new CFPair(tablename, cfname));
-        validator.prepare();
-        validator.complete();
+        // generate rf+1 nodes, and ensure that all nodes are returned
+        Set<InetAddress> expected = addTokens(1 + 1 + DatabaseDescriptor.getReplicationFactor(tablename));
+        expected.remove(FBUtilities.getLocalAddress());
+        assertEquals(expected, AntiEntropyService.getNeighbors(tablename));
+    }
 
-        // grab reference to the tree
-        MerkleTree tree = validator.tree;
+    @Test
+    public void testGetNeighborsTimesTwo() throws Throwable
+    {
+        TokenMetadata tmd = StorageService.instance.getTokenMetadata();
 
-        // notify ourself (should immediately be delivered into AE_STAGE)
-        aes.notifyNeighbors(validator, LOCAL, Arrays.asList(LOCAL));
-        flushAES().get(5, TimeUnit.SECONDS);
-        
-        // confirm that our reference is not equal to the original due
-        // to (de)serialization
-        assert tree != aes.getRendezvousPair_TestsOnly(tablename, cfname, REMOTE).left;
+        // generate rf*2 nodes, and ensure that only neighbors specified by the ARS are returned
+        addTokens(1 + (2 * DatabaseDescriptor.getReplicationFactor(tablename)));
+        AbstractReplicationStrategy ars = StorageService.instance.getReplicationStrategy(tablename);
+        Set<InetAddress> expected = new HashSet<InetAddress>();
+        for (Range replicaRange : ars.getAddressRanges(tablename).get(FBUtilities.getLocalAddress()))
+        {
+            expected.addAll(ars.getRangeAddresses(tmd, tablename).get(replicaRange));
+        }
+        expected.remove(FBUtilities.getLocalAddress());
+        assertEquals(expected, AntiEntropyService.getNeighbors(tablename));
     }
 
     @Test
     public void testDifferencer() throws Throwable
     {
         // generate a tree
-        Validator validator = new Validator(new CFPair(tablename, cfname));
-        validator.prepare();
+        Validator validator = new Validator(request);
+        validator.prepare(store);
         validator.complete();
         MerkleTree ltree = validator.tree;
 
         // and a clone
-        validator = new Validator(new CFPair(tablename, cfname));
-        validator.prepare();
+        validator = new Validator(request);
+        validator.prepare(store);
         validator.complete();
         MerkleTree rtree = validator.tree;
 
@@ -253,13 +220,25 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         changed.hash("non-empty hash!".getBytes());
 
         // difference the trees
-        Differencer diff = new Differencer(new CFPair(tablename, cfname),
-                                           LOCAL, LOCAL, ltree, rtree);
+        Differencer diff = new Differencer(request, ltree, rtree);
         diff.run();
         
         // ensure that the changed range was recorded
         assertEquals("Wrong number of differing ranges", 1, diff.differences.size());
         assertEquals("Wrong differing range", changed, diff.differences.get(0));
+    }
+    
+    Set<InetAddress> addTokens(int max) throws Throwable
+    {
+        TokenMetadata tmd = StorageService.instance.getTokenMetadata();
+        Set<InetAddress> endpoints = new HashSet<InetAddress>();
+        for (int i = 1; i < max; i++)
+        {
+            InetAddress endpoint = InetAddress.getByName("127.0.0." + i);
+            tmd.updateNormalToken(StorageService.getPartitioner().getRandomToken(), endpoint);
+            endpoints.add(endpoint);
+        }
+        return endpoints;
     }
 
     Future<Object> flushAES()

@@ -35,6 +35,8 @@ dev
  * avoid allocating a new byte[] for each mutation on replay (CASSANDRA-1219)
  * revise HH schema to be per-endpoint (CASSANDRA-1142)
  * remove gossip message size limit (CASSANDRA-1138)
+ * add joining/leaving status to nodetool ring (CASSANDRA-1115)
+ * allow multiple repair sessions per node (CASSANDRA-1190)
 
 
 0.6.3
@@ -57,6 +59,12 @@ dev
  * remove inactive stream managers after AES streams files (CASSANDRA-1169)
  * add JMX metrics for row-level bloom filter false positives (CASSANDRA-1212)
  * added a redhat init script to contrib (CASSANDRA-1201)
+ * use midpoint when bootstrapping a new machine into range with not
+   much data yet instead of random token (CASSANDRA-1112)
+ * kill server on OOM in executor stage as well as Thrift (CASSANDRA-1226)
+ * remove opportunistic repairs, when two machines with overlapping replica
+   responsibilities happen to finish major compactions of the same CF near
+   the same time.  repairs are now fully manual (CASSANDRA-1190)
 
 
 0.6.2
