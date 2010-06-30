@@ -174,7 +174,7 @@ public class IncrementCounterClock implements IClock
         }
     }
 
-    private Column removeFlagWriteForColumn(Column column)
+    private Column prepareWriteForColumn(Column column)
     {
         IncrementCounterClock clock = (IncrementCounterClock)column.clock();
         if ((contextManager.getFlags(clock.context()) & contextManager.FLAG_WRITE) == contextManager.FLAG_WRITE)
@@ -198,21 +198,21 @@ public class IncrementCounterClock implements IClock
                 modifiedClock);
     }
 
-    public IColumn removeFlagWrite(IColumn column)
+    public IColumn prepareWrite(IColumn column)
     {
         if (column instanceof SuperColumn)
         {
             SuperColumn originalSuperCol = (SuperColumn)column;
             SuperColumn modifiedSuperCol = originalSuperCol.cloneMeShallow();
-            for (Column subCol : originalSuperCol.getSubColumns())
+            for (IColumn subCol : originalSuperCol.getSubColumns())
             {
-                modifiedSuperCol.addColumn(removeFlagWriteForColumn(subCol));
+                modifiedSuperCol.addColumn(prepareWriteForColumn((Column)subCol));
             }
 
             return modifiedSuperCol;
         }
 
-        return removeFlagWriteForColumn((Column)column);
+        return prepareWriteForColumn((Column)column);
     }
 }
 

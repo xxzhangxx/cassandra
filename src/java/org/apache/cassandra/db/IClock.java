@@ -68,6 +68,13 @@ public interface IClock
      * @param node Update for this node.
      */
     public void update(ColumnFamily cf, InetAddress node);
+
+    /**
+     * Prepare column for initial write.
+     * @param column IColumn to prepare.
+     * @return IColumn modified for initial write.
+     */
+    public IColumn prepareWrite(IColumn column);
     
     /**
      * @return number of bytes this type of clock
