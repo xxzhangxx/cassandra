@@ -111,13 +111,13 @@ keyspaces:
           column_type: Super
           compare_subcolumns_with: TimeUUIDType
 
-        - name: IncrementCounter1
-          column_type: Standard
-          clock_type: IncrementCounter
-          reconciler: IncrementCounterReconciler
-
     - name: Keyspace5
       replica_placement_strategy: org.apache.cassandra.locator.RackUnawareStrategy
       replication_factor: 2
       column_families:
         - name: Standard1
+
+        - name: IncrementCounter1
+          column_type: Standard
+          clock_type: IncrementCounter
+          reconciler: IncrementCounterReconciler
