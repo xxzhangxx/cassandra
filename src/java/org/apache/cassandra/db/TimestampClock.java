@@ -120,6 +120,11 @@ public class TimestampClock implements IClock
     {
     }
 
+    public IColumn prepareWrite(IColumn column)
+    {
+        return column;
+    }
+
     @Override
     public boolean equals(Object o)
     {
