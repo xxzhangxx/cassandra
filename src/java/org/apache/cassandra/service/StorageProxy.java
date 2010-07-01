@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
@@ -192,6 +193,8 @@ public class StorageProxy implements StorageProxyMBean
         
         try
         {
+            Collection<Pair<RowMutation, Collection<InetAddress>>> secondaryWrites = new LinkedList<Pair<RowMutation, Collection<InetAddress>>>();
+
             for (RowMutation rm : mutations)
             {
                 mostRecentRowMutation = rm;
@@ -209,7 +212,10 @@ public class StorageProxy implements StorageProxyMBean
                 responseHandlers.add(responseHandler);
                 Message unhintedMessage = null;
 
-                updateDestinationByClock(consistency_level, rm, hintedEndpoints);
+                Collection<InetAddress> secondaryEndpoints = updateDestinationByClock(consistency_level, rm, hintedEndpoints);
+                if (secondaryEndpoints != null) {
+                    secondaryWrites.add(new Pair<RowMutation, Collection<InetAddress>>(rm, secondaryEndpoints));
+                }
                 
                 for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
                 {
@@ -263,6 +269,73 @@ public class StorageProxy implements StorageProxyMBean
             {
                 responseHandler.get();
             }
+
+            // perform secondary writes, if necessary
+            responseHandlers.clear();
+            for (Pair<RowMutation, Collection<InetAddress>> pair : secondaryWrites)
+            {
+                RowMutation rm = pair.left;
+                Collection<InetAddress> secondaryEndpoints = pair.right;
+
+                mostRecentRowMutation = rm;
+                String table = rm.getTable();
+                AbstractReplicationStrategy rs = ss.getReplicationStrategy(table);
+
+                Multimap<InetAddress, InetAddress> hintedEndpoints = rs.getHintedEndpoints(secondaryEndpoints);
+
+                final AbstractWriteResponseHandler responseHandler = rs.getSecondaryWriteResponseHandler(
+                        secondaryEndpoints,
+                        hintedEndpoints,
+                        consistency_level,
+                        table);
+                responseHandler.assureSufficientLiveNodes();
+
+                responseHandlers.add(responseHandler);
+                Message unhintedMessage = null;
+
+                for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
+                {
+                    InetAddress destination = entry.getKey();
+                    Collection<InetAddress> targets = entry.getValue();
+
+                    if (targets.size() == 1 && targets.iterator().next().equals(destination)) {
+                        //XXX: clocks already updated
+                        
+                        if (destination.equals(FBUtilities.getLocalAddress())) {
+                            insertLocalMessage(rm, responseHandler);
+                        } else {
+                            // remote write
+                            if (unhintedMessage == null) {
+                                unhintedMessage = rm.makeRowMutationMessage();
+                                MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
+                            }
+                            if (logger.isDebugEnabled())
+                                logger.debug("secondary insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + unhintedMessage.getMessageId() + "@" + destination);
+                            MessagingService.instance.sendOneWay(unhintedMessage, destination);
+                        }
+                    } else {
+                        // hinted
+                        Message hintedMessage = rm.makeRowMutationMessage();
+                        for (InetAddress target : targets)
+                        {
+                            if (!target.equals(destination)) {
+                                addHintHeader(hintedMessage, target);
+                                if (logger.isDebugEnabled())
+                                    logger.debug("secondary insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + hintedMessage.getMessageId() + "@" + destination + " for " + target);
+                            }
+                        }
+                        // (non-destination hints are part of the callback and count towards consistency only under CL.ANY)
+                        if (secondaryEndpoints.contains(destination) || consistency_level == ConsistencyLevel.ANY)
+                            MessagingService.instance.addCallback(responseHandler, hintedMessage.getMessageId());
+                        MessagingService.instance.sendOneWay(hintedMessage, destination);
+                    }
+                }
+            }
+            // wait for writes; throws TimeoutException (if necessary)
+            for (AbstractWriteResponseHandler responseHandler : responseHandlers)
+            {
+                responseHandler.get();
+            }
         }
         catch (IOException e)
         {
@@ -281,17 +354,24 @@ public class StorageProxy implements StorageProxyMBean
     /**
      * Update destination endpoints depending on the clock type.
      */
-    private static void updateDestinationByClock(ConsistencyLevel consistency_level, RowMutation rm,
+    private static Collection<InetAddress> updateDestinationByClock(ConsistencyLevel consistency_level, RowMutation rm,
             Multimap<InetAddress, InetAddress> destinationEndpoints)
     {
         ClockType clockType = rm.getColumnFamilies().iterator().next().getClockType();
-        if (clockType == ClockType.IncrementCounter)
-        {
-            assert ConsistencyLevel.ONE == consistency_level || ConsistencyLevel.ZERO == consistency_level: "Context-based CFs only support ConsistencyLevel.ONE or ZERO";
-            InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
-            destinationEndpoints.clear();
-            destinationEndpoints.put(randomDestination, randomDestination);
-        }
+        if (clockType != ClockType.IncrementCounter)
+            return null;
+
+        Set<InetAddress> secondaryEndpoints = destinationEndpoints.keySet();
+
+        InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
+        destinationEndpoints.clear();
+        destinationEndpoints.put(randomDestination, randomDestination);
+
+        secondaryEndpoints.remove(randomDestination);
+
+        if (ConsistencyLevel.ONE == consistency_level || ConsistencyLevel.ZERO == consistency_level)
+            return null;
+        return secondaryEndpoints;
     }
 
     /**
