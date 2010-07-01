@@ -177,7 +177,7 @@ public class IncrementCounterClock implements IClock
     private Column removeFlagWriteForColumn(Column column)
     {
         IncrementCounterClock clock = (IncrementCounterClock)column.clock();
-        if ((contextManager.getFlags(clock.context()) & contextManager.FLAG_WRITE) == contextManager.FLAG_WRITE)
+        if ((contextManager.getFlags(clock.context()) & IncrementCounterContext.FLAG_WRITE) == IncrementCounterContext.FLAG_WRITE)
             return column;
 
         byte[] originalContext = clock.context();

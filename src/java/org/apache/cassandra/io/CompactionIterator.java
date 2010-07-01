@@ -52,7 +52,7 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
     protected static final int FILE_BUFFER_SIZE = 1024 * 1024;
 
     protected final List<SSTableIdentityIterator> rows = new ArrayList<SSTableIdentityIterator>();
-    protected final int gcBefore;
+    private final int gcBefore;
     private final boolean major;
     private InetAddress remoteAddress;
 
