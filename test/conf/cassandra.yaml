@@ -115,3 +115,9 @@ keyspaces:
           column_type: Standard
           clock_type: IncrementCounter
           reconciler: IncrementCounterReconciler
+
+    - name: Keyspace5
+      replica_placement_strategy: org.apache.cassandra.locator.RackUnawareStrategy
+      replication_factor: 2
+      column_families:
+        - name: Standard1

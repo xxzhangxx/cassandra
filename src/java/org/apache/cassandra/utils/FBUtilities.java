@@ -27,7 +27,8 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.base.Charsets;
 import org.apache.commons.collections.iterators.CollatingIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,19 +66,6 @@ public class FBUtilities
     private static volatile InetAddress localInetAddress_;
 
     public static final int MAX_UNSIGNED_SHORT = 0xFFFF;
-
-    public static Charset UTF8;
-    static
-    {
-        try
-        {
-            UTF8 = Charset.forName("UTF-8");
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * Parses a string representing either a fraction, absolute value or percentage.
@@ -593,6 +582,11 @@ public class FBUtilities
                 utflen += 2;
         }
         return utflen;
+    }
+
+    public static String decodeToUTF8(byte[] bytes) throws CharacterCodingException
+    {
+        return Charsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     /**

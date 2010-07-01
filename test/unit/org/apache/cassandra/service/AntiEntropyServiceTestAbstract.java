@@ -20,12 +20,21 @@ package org.apache.cassandra.service;
 
 import java.net.InetAddress;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import org.apache.cassandra.CleanupHelper;
+import org.apache.cassandra.Util;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.DatabaseDescriptor;
-import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
@@ -34,17 +43,13 @@ import org.apache.cassandra.io.PrecompactedRow;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.TokenMetadata;
-import static org.apache.cassandra.service.AntiEntropyService.*;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.MerkleTree;
 
-import org.apache.cassandra.CleanupHelper;
-import org.apache.cassandra.Util;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import static com.google.common.base.Charsets.UTF_8;
+import static org.apache.cassandra.service.AntiEntropyService.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
 {
@@ -60,13 +65,15 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
 
     private boolean initialized;
 
+    public abstract void init();
+
     @Before
     public void prepare() throws Exception
     {
         if (!initialized)
         {
             LOCAL = FBUtilities.getLocalAddress();
-            tablename = "Keyspace4";          
+            init();      
             StorageService.instance.initServer();
             // generate a fake endpoint for which we can spoof receiving/sending trees
             REMOTE = InetAddress.getByName("127.0.0.2");
@@ -142,11 +149,11 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         CompactionIterator ci = new CompactionIterator(Collections.EMPTY_LIST, 0, false);
         
         // add a row with the minimum token
-        validator.add(new PrecompactedRow(new DecoratedKey(min, "nonsense!".getBytes(FBUtilities.UTF8)),
+        validator.add(new PrecompactedRow(new DecoratedKey(min, "nonsense!".getBytes(UTF_8)),
                                        new DataOutputBuffer(), ci));
 
         // and a row after it
-        validator.add(new PrecompactedRow(new DecoratedKey(mid, "inconceivable!".getBytes(FBUtilities.UTF8)),
+        validator.add(new PrecompactedRow(new DecoratedKey(mid, "inconceivable!".getBytes(UTF_8)),
                                        new DataOutputBuffer(), ci));
         validator.complete();
 
