@@ -339,11 +339,10 @@ public class RowMutation
         {
             return new TimestampClock(clock.getTimestamp());
         }
-        else if(!clock.isSetContext())
+        else
         {
             return new IncrementCounterClock();
         }
-        return null;
     }
 
     /**

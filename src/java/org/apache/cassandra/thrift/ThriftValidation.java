@@ -224,7 +224,8 @@ public class ThriftValidation
             for (Column c : cosc.super_column.columns)
             {
                 validateTtl(c);
-                validateClock(c.clock);
+                IClock clock = validateClock(c.clock);
+                validateValueByClock(cosc.column.value, clock);
                 ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(cosc.super_column.name).setColumn(c.name));
             }
         }
@@ -245,10 +246,6 @@ public class ThriftValidation
 
     public static IClock validateClock(Clock clock) throws InvalidRequestException
     {
-        if (clock.isSetTimestamp() && clock.isSetContext())
-        {
-            throw new InvalidRequestException("Clock must have one of timestamp or context, but not both");
-        }
         if (clock.isSetTimestamp())
         {
             return new TimestampClock(clock.getTimestamp());

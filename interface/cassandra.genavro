@@ -39,7 +39,6 @@ protocol Cassandra {
 
     record Clock {
         long timestamp;
-        bytes context;
     }
 
     record Column {

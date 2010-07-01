@@ -34,15 +34,12 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
   private static final TStruct STRUCT_DESC = new TStruct("Clock");
 
   private static final TField TIMESTAMP_FIELD_DESC = new TField("timestamp", TType.I64, (short)1);
-  private static final TField CONTEXT_FIELD_DESC = new TField("context", TType.STRING, (short)2);
 
   public long timestamp;
-  public byte[] context;
 
   /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
   public enum _Fields implements TFieldIdEnum {
-    TIMESTAMP((short)1, "timestamp"),
-    CONTEXT((short)2, "context");
+    TIMESTAMP((short)1, "timestamp");
 
     private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
@@ -100,10 +97,8 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
   private BitSet __isset_bit_vector = new BitSet(1);
 
   public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.TIMESTAMP, new FieldMetaData("timestamp", TFieldRequirementType.OPTIONAL, 
+    put(_Fields.TIMESTAMP, new FieldMetaData("timestamp", TFieldRequirementType.REQUIRED, 
         new FieldValueMetaData(TType.I64)));
-    put(_Fields.CONTEXT, new FieldMetaData("context", TFieldRequirementType.OPTIONAL, 
-        new FieldValueMetaData(TType.STRING)));
   }});
 
   static {
@@ -113,6 +108,14 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
   public Clock() {
   }
 
+  public Clock(
+    long timestamp)
+  {
+    this();
+    this.timestamp = timestamp;
+    setTimestampIsSet(true);
+  }
+
   /**
    * Performs a deep copy on <i>other</i>.
    */
@@ -120,10 +123,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     __isset_bit_vector.clear();
     __isset_bit_vector.or(other.__isset_bit_vector);
     this.timestamp = other.timestamp;
-    if (other.isSetContext()) {
-      this.context = new byte[other.context.length];
-      System.arraycopy(other.context, 0, context, 0, other.context.length);
-    }
   }
 
   public Clock deepCopy() {
@@ -158,30 +157,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     __isset_bit_vector.set(__TIMESTAMP_ISSET_ID, value);
   }
 
-  public byte[] getContext() {
-    return this.context;
-  }
-
-  public Clock setContext(byte[] context) {
-    this.context = context;
-    return this;
-  }
-
-  public void unsetContext() {
-    this.context = null;
-  }
-
-  /** Returns true if field context is set (has been asigned a value) and false otherwise */
-  public boolean isSetContext() {
-    return this.context != null;
-  }
-
-  public void setContextIsSet(boolean value) {
-    if (!value) {
-      this.context = null;
-    }
-  }
-
   public void setFieldValue(_Fields field, Object value) {
     switch (field) {
     case TIMESTAMP:
@@ -189,14 +164,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
         unsetTimestamp();
       } else {
         setTimestamp((Long)value);
-      }
-      break;
-
-    case CONTEXT:
-      if (value == null) {
-        unsetContext();
-      } else {
-        setContext((byte[])value);
       }
       break;
 
@@ -212,9 +179,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     case TIMESTAMP:
       return new Long(getTimestamp());
 
-    case CONTEXT:
-      return getContext();
-
     }
     throw new IllegalStateException();
   }
@@ -228,8 +192,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     switch (field) {
     case TIMESTAMP:
       return isSetTimestamp();
-    case CONTEXT:
-      return isSetContext();
     }
     throw new IllegalStateException();
   }
@@ -251,21 +213,12 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     if (that == null)
       return false;
 
-    boolean this_present_timestamp = true && this.isSetTimestamp();
-    boolean that_present_timestamp = true && that.isSetTimestamp();
+    boolean this_present_timestamp = true;
+    boolean that_present_timestamp = true;
     if (this_present_timestamp || that_present_timestamp) {
       if (!(this_present_timestamp && that_present_timestamp))
         return false;
       if (this.timestamp != that.timestamp)
-        return false;
-    }
-
-    boolean this_present_context = true && this.isSetContext();
-    boolean that_present_context = true && that.isSetContext();
-    if (this_present_context || that_present_context) {
-      if (!(this_present_context && that_present_context))
-        return false;
-      if (!java.util.Arrays.equals(this.context, that.context))
         return false;
     }
 
@@ -294,15 +247,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
         return lastComparison;
       }
     }
-    lastComparison = Boolean.valueOf(isSetContext()).compareTo(typedOther.isSetContext());
-    if (lastComparison != 0) {
-      return lastComparison;
-    }
-    if (isSetContext()) {      lastComparison = TBaseHelper.compareTo(context, typedOther.context);
-      if (lastComparison != 0) {
-        return lastComparison;
-      }
-    }
     return 0;
   }
 
@@ -324,13 +268,6 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
             TProtocolUtil.skip(iprot, field.type);
           }
           break;
-        case 2: // CONTEXT
-          if (field.type == TType.STRING) {
-            this.context = iprot.readBinary();
-          } else { 
-            TProtocolUtil.skip(iprot, field.type);
-          }
-          break;
         default:
           TProtocolUtil.skip(iprot, field.type);
       }
@@ -339,6 +276,9 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     iprot.readStructEnd();
 
     // check for required fields of primitive type, which can't be checked in the validate method
+    if (!isSetTimestamp()) {
+      throw new TProtocolException("Required field 'timestamp' was not found in serialized data! Struct: " + toString());
+    }
     validate();
   }
 
@@ -346,18 +286,9 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     validate();
 
     oprot.writeStructBegin(STRUCT_DESC);
-    if (isSetTimestamp()) {
-      oprot.writeFieldBegin(TIMESTAMP_FIELD_DESC);
-      oprot.writeI64(this.timestamp);
-      oprot.writeFieldEnd();
-    }
-    if (this.context != null) {
-      if (isSetContext()) {
-        oprot.writeFieldBegin(CONTEXT_FIELD_DESC);
-        oprot.writeBinary(this.context);
-        oprot.writeFieldEnd();
-      }
-    }
+    oprot.writeFieldBegin(TIMESTAMP_FIELD_DESC);
+    oprot.writeI64(this.timestamp);
+    oprot.writeFieldEnd();
     oprot.writeFieldStop();
     oprot.writeStructEnd();
   }
@@ -367,32 +298,16 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     StringBuilder sb = new StringBuilder("Clock(");
     boolean first = true;
 
-    if (isSetTimestamp()) {
-      sb.append("timestamp:");
-      sb.append(this.timestamp);
-      first = false;
-    }
-    if (isSetContext()) {
-      if (!first) sb.append(", ");
-      sb.append("context:");
-      if (this.context == null) {
-        sb.append("null");
-      } else {
-          int __context_size = Math.min(this.context.length, 128);
-          for (int i = 0; i < __context_size; i++) {
-            if (i != 0) sb.append(" ");
-            sb.append(Integer.toHexString(this.context[i]).length() > 1 ? Integer.toHexString(this.context[i]).substring(Integer.toHexString(this.context[i]).length() - 2).toUpperCase() : "0" + Integer.toHexString(this.context[i]).toUpperCase());
-          }
-          if (this.context.length > 128) sb.append(" ...");
-      }
-      first = false;
-    }
+    sb.append("timestamp:");
+    sb.append(this.timestamp);
+    first = false;
     sb.append(")");
     return sb.toString();
   }
 
   public void validate() throws TException {
     // check for required fields
+    // alas, we cannot check 'timestamp' because it's a primitive and you chose the non-beans generator.
   }
 
 }
