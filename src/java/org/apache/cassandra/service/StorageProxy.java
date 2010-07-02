@@ -391,7 +391,11 @@ public class StorageProxy implements StorageProxyMBean
             InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
             InetAddress randomDestination = destinations[random.nextInt(destinations.length)];
             Collection<InetAddress> targets = endpoints.asMap().get(randomDestination);
-            assert (targets.size() != 1 || !targets.iterator().next().equals(randomDestination)) : "Context-based CFs do not support Hinted Hand-off.";
+            assert targets.size() == 1  : "Too many targets: " + targets.toString() + 
+                ", context-based CFs do not support Hinted Hand-off. HH enabled? " + DatabaseDescriptor.hintedHandoffEnabled();
+            assert targets.iterator().next().equals(randomDestination) : "Unexpected destination: " + randomDestination + 
+                " should have been " + targets.toString() + ", context-based CFs do not support Hinted Hand-off. HH enabled? "
+                + DatabaseDescriptor.hintedHandoffEnabled();
             return randomDestination;
         }
     }
