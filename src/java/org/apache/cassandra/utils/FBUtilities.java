@@ -67,6 +67,14 @@ public class FBUtilities
 
     public static final int MAX_UNSIGNED_SHORT = 0xFFFF;
 
+    public static final Comparator<byte[]> byteArrayComparator = new Comparator<byte[]>()
+    {
+        public int compare(byte[] o1, byte[] o2)
+        {
+            return compareByteArrays(o1, o2);
+        }
+    };
+
     /**
      * Parses a string representing either a fraction, absolute value or percentage.
      */
@@ -342,6 +350,11 @@ public class FBUtilities
         byte[] result = hash("MD5", data);
         BigInteger hash = new BigInteger(result);
         return hash.abs();        
+    }
+
+    public static String hexHash(String type, byte[]... data)
+    {
+        return bytesToHex(hash(type, data));
     }
 
     public static byte[] hash(String type, byte[]... data)

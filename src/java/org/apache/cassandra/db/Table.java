@@ -58,7 +58,6 @@ public class Table
     static final ReentrantReadWriteLock flusherLock = new ReentrantReadWriteLock(true);
 
     private static Timer flushTimer = new Timer("FLUSH-TIMER");
-    private final boolean waitForCommitLog;
 
     // This is a result of pushing down the point in time when storage directories get created.  It used to happen in
     // CassandraDaemon, but it is possible to call Table.open without a running daemon, so it made sense to ensure
@@ -216,7 +215,6 @@ public class Table
     private Table(String table)
     {
         name = table;
-        waitForCommitLog = DatabaseDescriptor.getCommitLogSync() == Config.CommitLogSync.batch;
         // create data directories.
         for (String dataDir : DatabaseDescriptor.getAllDataFileLocations())
         {
@@ -257,7 +255,7 @@ public class Table
     }
     
     /** removes a cf from internal structures (doesn't change disk files). */
-    public void dropCf(int cfId) throws IOException
+    public void dropCf(Integer cfId) throws IOException
     {
         assert columnFamilyStores.containsKey(cfId);
         ColumnFamilyStore cfs = columnFamilyStores.remove(cfId);
@@ -279,14 +277,14 @@ public class Table
     }
     
     /** adds a cf to internal structures, ends up creating disk files). */
-    public void initCf(int cfId, String cfName)
+    public void initCf(Integer cfId, String cfName)
     {
         assert !columnFamilyStores.containsKey(cfId) : cfId;
         columnFamilyStores.put(cfId, ColumnFamilyStore.createColumnFamilyStore(name, cfName));
     }
     
     /** basically a combined drop and add */
-    public void renameCf(int cfId, String newName) throws IOException
+    public void renameCf(Integer cfId, String newName) throws IOException
     {
         dropCf(cfId);
         initCf(cfId, newName);

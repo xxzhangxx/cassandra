@@ -1,5 +1,8 @@
 package org.apache.cassandra.config;
 
+import java.util.Collections;
+import java.util.Map;
+
 import org.apache.cassandra.db.ClockType;
 import org.apache.cassandra.db.ColumnFamilyType;
 
@@ -15,4 +18,5 @@ public class ColumnFamily {
     public double keys_cached = CFMetaData.DEFAULT_KEY_CACHE_SIZE; 
     public double read_repair_chance = CFMetaData.DEFAULT_READ_REPAIR_CHANCE;
     public boolean preload_row_cache = CFMetaData.DEFAULT_PRELOAD_ROW_CACHE;
+    public Map<byte[], ColumnDefinition> column_metata = Collections.emptyMap();
 }
