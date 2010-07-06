@@ -361,7 +361,8 @@ public class StorageProxy implements StorageProxyMBean
         if (clockType != ClockType.IncrementCounter)
             return null;
 
-        Set<InetAddress> secondaryEndpoints = destinationEndpoints.keySet();
+        Set<InetAddress> secondaryEndpoints = new HashSet<InetAddress>();
+        secondaryEndpoints.addAll(destinationEndpoints.keySet());
 
         InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
         destinationEndpoints.clear();
