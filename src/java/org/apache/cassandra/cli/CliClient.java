@@ -23,6 +23,7 @@ import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.thrift.*;
 
+import org.apache.cassandra.utils.FBUtilities;
 import org.apache.thrift.*;
 
 import org.antlr.runtime.tree.*;
@@ -236,13 +237,6 @@ public class CliClient
         css_.out.println(String.format("%s removed.", (columnSpecCnt == 0) ? "row" : "column"));
     }
 
-    private static long timestampMicros()
-    {
-        // we use microsecond resolution for compatibility with other client libraries, even though
-        // we can't actually get microsecond precision.
-        return System.currentTimeMillis() * 1000;
-    }
-
     private void doSlice(String keyspace, String key, String columnFamily, byte[] superColumnName)
             throws InvalidRequestException, UnavailableException, TimedOutException, TException, UnsupportedEncodingException, IllegalAccessException, NotFoundException, InstantiationException, NoSuchFieldException
     {
@@ -435,12 +429,12 @@ public class CliClient
                 return new Clock();
             default:
             case Timestamp:
-                return new Clock().setTimestamp(timestampMicros());             
+                return new Clock().setTimestamp(FBUtilities.timestampMicros());             
             }
         } catch (NotFoundException e)
         {
             // returning default if column family is not found
-            return new Clock().setTimestamp(timestampMicros()); // default
+            return new Clock().setTimestamp(FBUtilities.timestampMicros()); // default
         }
     }
     

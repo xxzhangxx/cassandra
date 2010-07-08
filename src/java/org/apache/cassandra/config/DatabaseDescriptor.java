@@ -46,7 +46,6 @@ import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.IEndpointSnitch;
-import org.apache.cassandra.service.ColumnValidator;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
@@ -111,16 +110,19 @@ public class DatabaseDescriptor
             configFileName = getStorageConfigPath();
             
             if (logger.isDebugEnabled())
-                logger.debug("Loading settings from " + configFileName);
+                logger.info("Loading settings from " + configFileName);
             
             InputStream input = new FileInputStream(new File(configFileName));
             org.yaml.snakeyaml.constructor.Constructor constructor = new org.yaml.snakeyaml.constructor.Constructor(Config.class);
             TypeDescription desc = new TypeDescription(Config.class);
+            desc.putListPropertyType("keyspaces", Keyspace.class);
             TypeDescription ksDesc = new TypeDescription(Keyspace.class);
             ksDesc.putListPropertyType("column_families", ColumnFamily.class);
-            desc.putListPropertyType("keyspaces", Keyspace.class);
+            TypeDescription cfDesc = new TypeDescription(ColumnFamily.class);
+            cfDesc.putListPropertyType("column_metadata", RawColumnDefinition.class);
             constructor.addTypeDescription(desc);
             constructor.addTypeDescription(ksDesc);
+            constructor.addTypeDescription(cfDesc);
             Yaml yaml = new Yaml(new Loader(constructor));
             conf = (Config)yaml.load(input);
             
@@ -537,7 +539,34 @@ public class DatabaseDescriptor
                 {                        
                     throw new ConfigurationException("read_repair_chance must be between 0.0 and 1.0");
                 }
-                cfDefs[j++] = new CFMetaData(keyspace.name, cf.name, cfType, cf.clock_type, comparator, subcolumnComparator, reconciler, cf.comment, cf.rows_cached, cf.preload_row_cache, cf.keys_cached, cf.read_repair_chance, cf.column_metata);
+                
+                Map<byte[], ColumnDefinition> metadata = new TreeMap<byte[], ColumnDefinition>(FBUtilities.byteArrayComparator);
+                for (RawColumnDefinition rcd : cf.column_metadata)
+                {
+                    try
+                    {
+                        byte[] columnName = rcd.name.getBytes("UTF-8");
+                        metadata.put(columnName, new ColumnDefinition(columnName, rcd.validator_class, rcd.index_type, rcd.index_name));
+                    }
+                    catch (UnsupportedEncodingException e)
+                    {
+                        throw new AssertionError(e);
+                    }
+                }
+
+                cfDefs[j++] = new CFMetaData(keyspace.name, 
+                                             cf.name, 
+                                             cfType, 
+                                             cf.clock_type, 
+                                             comparator, 
+                                             subcolumnComparator, 
+                                             reconciler, 
+                                             cf.comment, 
+                                             cf.rows_cached,
+                                             cf.preload_row_cache, 
+                                             cf.keys_cached, 
+                                             cf.read_repair_chance, 
+                                             metadata);
             }
             defs.add(new KSMetaData(keyspace.name, strategyClass, keyspace.replication_factor, cfDefs));
             
@@ -1081,8 +1110,8 @@ public class DatabaseDescriptor
         return conf.hinted_handoff_enabled;
     }
 
-    public static ColumnValidator getColumnValidator(String keyspace, String cf, byte[] column)
+    public static AbstractType getValueValidator(String keyspace, String cf, byte[] column)
     {
-        return getCFMetaData(keyspace, cf).getColumnValidator(column);
+        return getCFMetaData(keyspace, cf).getValueValidator(column);
     }
 }

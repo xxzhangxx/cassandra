@@ -352,11 +352,6 @@ public class FBUtilities
         return hash.abs();        
     }
 
-    public static String hexHash(String type, byte[]... data)
-    {
-        return bytesToHex(hash(type, data));
-    }
-
     public static byte[] hash(String type, byte[]... data)
     {
     	byte[] result;
@@ -660,5 +655,12 @@ public class FBUtilities
             throw new ConfigurationException("unable to locate " + filename);
 
         return scpurl.getFile();
+    }
+
+    public static long timestampMicros()
+    {
+        // we use microsecond resolution for compatibility with other client libraries, even though
+        // we can't actually get microsecond precision.
+        return System.currentTimeMillis() * 1000;
     }
 }

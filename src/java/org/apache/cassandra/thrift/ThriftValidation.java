@@ -33,6 +33,7 @@ import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.MarshalException;
 import java.util.Comparator;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,6 @@ import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.RandomPartitioner;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.DatacenterShardStrategy;
-import org.apache.cassandra.service.ColumnValidator;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -63,7 +63,7 @@ public class ThriftValidation
         if (key.length > FBUtilities.MAX_UNSIGNED_SHORT)
         {
             throw new InvalidRequestException("Key length of " + key.length +
-                    " is longer than maximum of " + FBUtilities.MAX_UNSIGNED_SHORT);
+                                              " is longer than maximum of " + FBUtilities.MAX_UNSIGNED_SHORT);
         }
     }
 
@@ -159,7 +159,7 @@ public class ThriftValidation
     }
 
     private static void validateColumns(String keyspace, String columnFamilyName, byte[] superColumnName, Iterable<byte[]> column_names)
-    throws InvalidRequestException
+            throws InvalidRequestException
     {
         if (superColumnName != null)
         {
@@ -320,7 +320,7 @@ public class ThriftValidation
             if (del.predicate.slice_range != null)
                 throw new InvalidRequestException("Deletion does not yet support SliceRange predicates.");
         }
-        
+
         if (ColumnFamilyType.Standard == DatabaseDescriptor.getColumnFamilyType(keyspace, cfName) && del.super_column != null)
         {
             String msg = String.format("deletion of super_column is not possible on a standard ColumnFamily (KeySpace=%s ColumnFamily=%s Deletion=%s)", keyspace, cfName, del);
@@ -340,31 +340,25 @@ public class ThriftValidation
             validateColumns(keyspace, cfName, scName, predicate.column_names);
     }
 
-    public static void runExternalColumnVerifier(String keyspace, ColumnParent column_parent, Column column) throws InvalidRequestException
-    {
-        try
-        {
-            ColumnValidator validator = null;
-            validator = DatabaseDescriptor.getColumnValidator(keyspace, column_parent.column_family, column.name);
-            if (validator != null)
-                validator.validate(keyspace, column_parent, column);
-        }
-        catch (MarshalException me)
-        {
-            String msg = String.format("[%s][%s][md5(byte[])=%s] = [md5(byte[])=%s] failed validation (%s)",
-                    keyspace, column_parent.getColumn_family(),
-                    FBUtilities.hexHash("MD5", column.name),
-                    FBUtilities.hexHash("MD5", column.value),
-                    me.getMessage());
-            throw new InvalidRequestException(msg); //why doesn't IRE except a caused_by argument?
-        }
-    }
-
     public static void validateColumn(String keyspace, ColumnParent column_parent, Column column) throws InvalidRequestException
     {
         validateTtl(column);
         validateColumns(keyspace, column_parent, Arrays.asList(column.name));
-        runExternalColumnVerifier(keyspace, column_parent, column);
+        try
+        {
+            AbstractType validator = DatabaseDescriptor.getValueValidator(keyspace, column_parent.column_family, column.name);
+            if (validator != null)
+                validator.validate(column.value);
+        }
+        catch (MarshalException me)
+        {
+            throw new InvalidRequestException(String.format("[%s][%s][%s] = [%s] failed validation (%s)",
+                                                            keyspace,
+                                                            column_parent.getColumn_family(),
+                                                            FBUtilities.bytesToHex(column.name),
+                                                            FBUtilities.bytesToHex(column.value),
+                                                            me.getMessage()));
+        }
     }
 
     public static void validatePredicate(String keyspace, ColumnParent column_parent, SlicePredicate predicate)
@@ -416,4 +410,16 @@ public class ThriftValidation
         }
     }
 
+    public static void validateIndexClauses(String keyspace, String columnFamily, IndexClause index_clause)
+    throws InvalidRequestException
+    {
+        if (index_clause.expressions.isEmpty())
+            throw new InvalidRequestException("index clause list may not be empty");
+        Set<byte[]> indexedColumns = Table.open(keyspace).getColumnFamilyStore(columnFamily).getIndexedColumns();
+        for (IndexExpression expression : index_clause.expressions)
+        {
+            if (!indexedColumns.contains(expression.column_name))
+                throw new InvalidRequestException("Unable to scan unindexed column");
+        }
+    }
 }

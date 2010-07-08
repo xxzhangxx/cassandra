@@ -1054,7 +1054,7 @@ class TestMutations(ThriftTester):
         kspaces = client.describe_keyspaces()
         assert len(kspaces) == 5, kspaces # ['system', 'Keyspace2', 'Keyspace3', 'Keyspace1', 'Keyspace4']
         ks1 = client.describe_keyspace("Keyspace1")
-        assert set(ks1.keys()) == set(['Super1', 'Standard1', 'Standard2', 'StandardLong1', 'StandardLong2', 'Super3', 'Super2', 'Super4', 'IncrementCounter1', 'SuperIncrementCounter1'])
+        assert set(ks1.keys()) == set(['Super1', 'Standard1', 'Standard2', 'StandardLong1', 'StandardLong2', 'Super3', 'Super2', 'Super4', 'IncrementCounter1', 'SuperIncrementCounter1', 'Indexed1'])
         sysks = client.describe_keyspace("system")
 
     def test_describe(self):
@@ -1093,41 +1093,23 @@ class TestMutations(ThriftTester):
     def test_column_validators(self):
         ks = 'Keyspace1'
         _set_keyspace(ks)
-        cd = ColumnDef('col', 'org.apache.cassandra.service.ExampleColumnValidator', None, None)
+        cd = ColumnDef('col', 'LongType', None, None)
         cf = CfDef('Keyspace1', 'ValidatorColumnFamily', column_metadata=[cd])
         client.system_add_column_family(cf)
         dks = client.describe_keyspace(ks)
         assert 'ValidatorColumnFamily' in dks
 
         cp = ColumnParent('ValidatorColumnFamily')
-        col0 = Column('col', 'valuegood', Clock(0))
-        col1 = Column('col', 'valuebad', Clock(0))
+        col0 = Column('col', _i64(42), Clock(0))
+        col1 = Column('col', "ceci n'est pas 64bit", Clock(0))
         client.insert('key0', cp, col0, ConsistencyLevel.ONE)
         e = _expect_exception(lambda: client.insert('key1', cp, col1, ConsistencyLevel.ONE), InvalidRequestException)
         assert e.why.find("failed validation") >= 0
-        assert e.why.find("column.value.length is even") >= 0
-
-    def test_super_column_validators(self):
-        ks = 'Keyspace1'
-        _set_keyspace(ks)
-        cd = ColumnDef('col', 'org.apache.cassandra.service.ExampleColumnValidator', None, None)
-        cf = CfDef('Keyspace1', 'SuperValidatorColumnFamily', 'Super', column_metadata=[cd])
-        client.system_add_column_family(cf)
-        dks = client.describe_keyspace('Keyspace1')
-        assert 'SuperValidatorColumnFamily' in dks
-
-        cp = ColumnParent('SuperValidatorColumnFamily', 'a subcolumn')
-        col0 = Column('col', 'valuegood', Clock(0))
-        col1 = Column('col', 'valuebad', Clock(0))
-        client.insert('key0', cp, col0, ConsistencyLevel.ONE)
-        e = _expect_exception(lambda: client.insert('key1', cp, col1, ConsistencyLevel.ONE), InvalidRequestException)
-        assert e.why.find("failed validation") >= 0
-        assert e.why.find("column.value.length is even") >= 0
 
     def test_system_column_family_operations(self):
         _set_keyspace('Keyspace1')
         # create
-        cd = ColumnDef('ValidationColumn', 'randomclass', None, None)
+        cd = ColumnDef('ValidationColumn', 'BytesType', None, None)
         newcf = CfDef('Keyspace1', 'NewColumnFamily', column_metadata=[cd])
         client.system_add_column_family(newcf)
         ks1 = client.describe_keyspace('Keyspace1')
@@ -1150,7 +1132,7 @@ class TestMutations(ThriftTester):
         _set_keyspace('Keyspace1')
         
         # create
-        cd = ColumnDef('ValidationColumn', 'randomclass', None, None)
+        cd = ColumnDef('ValidationColumn', 'BytesType', None, None)
         newcf = CfDef('Keyspace1', 'NewSuperColumnFamily', 'Super', column_metadata=[cd])
         client.system_add_column_family(newcf)
         ks1 = client.describe_keyspace('Keyspace1')
@@ -1224,6 +1206,7 @@ class TestMutations(ThriftTester):
             client.describe_ring('system')
         _expect_exception(req, InvalidRequestException)
 
+<<<<<<< HEAD
     def test_incr_standard_insert(self):
         d1 = 12
         d2 = 21
@@ -1342,7 +1325,26 @@ class TestMutations(ThriftTester):
         
         rv = client.get(key, ColumnPath(cf, column='c1'), ConsistencyLevel.ONE)
         assert struct.unpack('>q', rv.column.value)[0] == (d1+d1+d2+d2)      
-        
+
+    def test_index_scan(self):
+        _set_keyspace('Keyspace1')
+        client.insert('key1', ColumnParent('Indexed1'), Column('birthdate', _i64(1), Clock(0)), ConsistencyLevel.ONE)
+        client.insert('key2', ColumnParent('Indexed1'), Column('birthdate', _i64(2), Clock(0)), ConsistencyLevel.ONE)
+        client.insert('key3', ColumnParent('Indexed1'), Column('b', _i64(3), Clock(0)), ConsistencyLevel.ONE)
+
+        cp = ColumnParent('Indexed1')
+        expr = IndexExpression('birthdate', IndexOperator.EQ, _i64(1))
+        rp = RowPredicate(index_clause=IndexClause([expr]))
+        sp = SlicePredicate(slice_range=SliceRange('', ''))
+        result = client.scan(cp, rp, sp, ConsistencyLevel.ONE)
+        assert len(result) == 1, result
+        assert result[0].key == 'key1'
+        assert len(result[0].columns) == 1, result[0].columns
+
+        expr.column_name = 'b'
+        _expect_exception(lambda: client.scan(cp, rp, sp, ConsistencyLevel.ONE), InvalidRequestException)
+       
+
 class TestTruncate(ThriftTester):
     def test_truncate(self):
         _set_keyspace('Keyspace1')

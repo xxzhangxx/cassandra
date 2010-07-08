@@ -72,6 +72,12 @@ keyspaces:
           clock_type: IncrementCounter
           reconciler: IncrementCounterReconciler
 
+        - name: Indexed1
+          column_metadata:
+            - name: birthdate
+              validator_class: LongType
+              index_type: KEYS
+
     - name: Keyspace2
       replica_placement_strategy: org.apache.cassandra.locator.RackUnawareStrategy
       replication_factor: 1
