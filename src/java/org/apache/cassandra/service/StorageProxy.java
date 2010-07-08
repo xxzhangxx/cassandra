@@ -361,17 +361,17 @@ public class StorageProxy implements StorageProxyMBean
         if (clockType != ClockType.IncrementCounter)
             return null;
 
-        Set<InetAddress> secondaryEndpoints = new HashSet<InetAddress>();
-        secondaryEndpoints.addAll(destinationEndpoints.keySet());
-
         InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
         destinationEndpoints.clear();
         destinationEndpoints.put(randomDestination, randomDestination);
 
-        secondaryEndpoints.remove(randomDestination);
-
         if (ConsistencyLevel.ONE == consistency_level || ConsistencyLevel.ZERO == consistency_level)
             return null;
+
+        Set<InetAddress> secondaryEndpoints = new HashSet<InetAddress>();
+        secondaryEndpoints.addAll(destinationEndpoints.keySet());
+        secondaryEndpoints.remove(randomDestination);
+        
         return secondaryEndpoints;
     }
 
