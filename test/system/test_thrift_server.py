@@ -1206,7 +1206,6 @@ class TestMutations(ThriftTester):
             client.describe_ring('system')
         _expect_exception(req, InvalidRequestException)
 
-<<<<<<< HEAD
     def test_incr_standard_insert(self):
         d1 = 12
         d2 = 21
