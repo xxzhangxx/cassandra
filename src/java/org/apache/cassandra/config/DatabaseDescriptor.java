@@ -27,11 +27,13 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.*;
 
+import org.apache.cassandra.locator.DynamicEndpointSnitch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.auth.AllowAllAuthenticator;
 import org.apache.cassandra.auth.IAuthenticator;
+import org.apache.cassandra.config.Config.RequestSchedulerId;
 import org.apache.cassandra.db.ClockType;
 import org.apache.cassandra.db.ColumnFamilyType;
 import org.apache.cassandra.db.DefsTable;
@@ -46,6 +48,8 @@ import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.IEndpointSnitch;
+import org.apache.cassandra.scheduler.IRequestScheduler;
+import org.apache.cassandra.scheduler.NoScheduler;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
@@ -84,6 +88,10 @@ public class DatabaseDescriptor
     private static IAuthenticator authenticator = new AllowAllAuthenticator();
 
     private final static String STORAGE_CONF_FILE = "cassandra.yaml";
+
+    private static IRequestScheduler requestScheduler;
+    private static RequestSchedulerId requestSchedulerId;
+    private static RequestSchedulerOptions requestSchedulerOptions;
 
     public static final UUID INITIAL_VERSION = new UUID(4096, 0); // has type nibble set to 1, everything else to zero.
     private static UUID defsVersion = INITIAL_VERSION;
@@ -259,6 +267,39 @@ public class DatabaseDescriptor
             }
             snitch = createEndpointSnitch(conf.endpoint_snitch);
             
+            /* Request Scheduler setup */
+            requestSchedulerOptions = conf.request_scheduler_options;
+            if (conf.request_scheduler != null)
+            {
+                try
+                {
+                    if (requestSchedulerOptions == null)
+                    {
+                        requestSchedulerOptions = new RequestSchedulerOptions();
+                    }
+                    Class cls = Class.forName(conf.request_scheduler);
+                    requestScheduler = (IRequestScheduler) cls.getConstructor(RequestSchedulerOptions.class).newInstance(requestSchedulerOptions);
+                }
+                catch (ClassNotFoundException e)
+                {
+                    throw new ConfigurationException("Invalid Request Scheduler class " + conf.request_scheduler);
+                }
+            }
+            else
+            {
+                requestScheduler = new NoScheduler();
+            }
+
+            if (conf.request_scheduler_id == RequestSchedulerId.keyspace)
+            {
+                requestSchedulerId = conf.request_scheduler_id;
+            }
+            else
+            {
+                // Default to Keyspace
+                requestSchedulerId = RequestSchedulerId.keyspace;
+            }
+
             if (logger.isDebugEnabled() && conf.auto_bootstrap != null)
             {
                 logger.debug("setting auto_bootstrap to " + conf.auto_bootstrap);
@@ -375,10 +416,10 @@ public class DatabaseDescriptor
                 throw (ConfigurationException)e.getCause();
             throw new ConfigurationException("Error instantiating " + endpointSnitchClassName + " " + e.getMessage());
         }
-        return snitch;
+        return conf.dynamic_snitch ? new DynamicEndpointSnitch(snitch) : snitch;
     }
     
-    public static void loadSchemas() throws IOException
+    public static void loadSchemas() throws IOException                         
     {
         // we can load tables from local storage if a version is set in the system table and that acutally maps to
         // real data in the definitions table.  If we do end up loading from xml, store the defintions so that we
@@ -714,6 +755,21 @@ public class DatabaseDescriptor
     public static IEndpointSnitch getEndpointSnitch()
     {
         return snitch;
+    }
+
+    public static IRequestScheduler getRequestScheduler()
+    {
+        return requestScheduler;
+    }
+
+    public static RequestSchedulerOptions getRequestSchedulerOptions()
+    {
+        return requestSchedulerOptions;
+    }
+
+    public static RequestSchedulerId getRequestSchedulerId()
+    {
+        return requestSchedulerId;
     }
 
     public static Class<? extends AbstractReplicationStrategy> getReplicaPlacementStrategyClass(String table)
