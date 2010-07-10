@@ -341,7 +341,7 @@ public class CassandraServer implements Cassandra.Iface
         ThriftValidation.validateKey(key);
         ThriftValidation.validateColumnParent(keySpace.get(), column_parent);
         ThriftValidation.validateColumn(keySpace.get(), column_parent, column);
-        IClock cassandra_clock = ThriftValidation.validateClock(column.clock);
+        IClock cassandra_clock = ThriftValidation.validateClock(keySpace.get(), column_parent.getColumn_family(), column.clock);
         ThriftValidation.validateValueByClock(column.value, cassandra_clock);
 
         RowMutation rm = new RowMutation(keySpace.get(), key);
@@ -415,7 +415,7 @@ public class CassandraServer implements Cassandra.Iface
         ThriftValidation.validateKey(key);
         ThriftValidation.validateColumnPathOrParent(keySpace.get(), column_path);
 
-        IClock cassandra_clock = ThriftValidation.validateClock(clock);
+        IClock cassandra_clock = ThriftValidation.validateClock(keySpace.get(), column_path.getColumn_family(), clock);
 
         RowMutation rm = new RowMutation(keySpace.get(), key);
         rm.delete(new QueryPath(column_path), cassandra_clock);

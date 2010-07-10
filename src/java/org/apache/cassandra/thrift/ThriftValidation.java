@@ -224,7 +224,7 @@ public class ThriftValidation
         if (cosc.column != null)
         {
             validateTtl(cosc.column);
-            IClock clock = validateClock(cosc.column.clock);
+            IClock clock = validateClock(keyspace, cfName, cosc.column.clock);
             validateValueByClock(cosc.column.value, clock);
             ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(null).setColumn(cosc.column.name));
         }
@@ -234,7 +234,7 @@ public class ThriftValidation
             for (Column c : cosc.super_column.columns)
             {
                 validateTtl(c);
-                IClock clock = validateClock(c.clock);
+                IClock clock = validateClock(keyspace, cfName, c.clock);
                 validateValueByClock(cosc.column.value, clock);
                 ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(cosc.super_column.name).setColumn(c.name));
             }
@@ -254,13 +254,22 @@ public class ThriftValidation
         assert column.isSetTtl() || column.ttl == 0;
     }
 
-    public static IClock validateClock(Clock clock) throws InvalidRequestException
+    public static IClock validateClock(String keyspace, String cfName, Clock clock) throws InvalidRequestException
     {
-        if (clock.isSetTimestamp())
+        ClockType clockType = DatabaseDescriptor.getClockType(keyspace, cfName);
+        switch (clockType)
         {
+        case Timestamp:
+            if (!clock.isSetTimestamp())
+            {
+                throw new InvalidRequestException("No timestamp set, despite timestamp clock being used: " + keyspace + " " + cfName);
+            }
             return new TimestampClock(clock.getTimestamp());
+        case IncrementCounter:
+            return new IncrementCounterClock();
+        default:
+            throw new InvalidRequestException("Invalid clock type for " + keyspace + " " + cfName);
         }
-        return new IncrementCounterClock();
     }
 
     public static void validateValueByClock(byte[] value, IClock cassandraClock) throws InvalidRequestException
