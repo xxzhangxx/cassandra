@@ -656,6 +656,10 @@ public class FBUtilities
         try
         {
             InputStream in = ClassLoader.getSystemClassLoader().getResourceAsStream("org/apache/cassandra/config/version.properties");
+            if (in == null)
+            {
+                return "Unknown";
+            }
             Properties props = new Properties();
             props.load(in);
             return props.getProperty("CassandraVersion");
