@@ -56,13 +56,6 @@ public interface IClock
     public IColumn diff(IColumn left, IColumn right);
 
     /**
-     * Clean the context for a specific node.
-     * @param cc Clean the context for the columns in this container.
-     * @param node Node to clean for.
-     */
-    public void cleanContext(IColumnContainer cc, InetAddress node);
-
-    /**
      * Update context of columns in column family.
      * @param cf Column family to update.
      * @param node Update for this node.

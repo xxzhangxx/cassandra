@@ -112,10 +112,6 @@ public class TimestampClock implements IClock
         return null;
     }
 
-    public void cleanContext(IColumnContainer cc, InetAddress node)
-    {
-    }
-
     public void update(ColumnFamily cf, InetAddress node)
     {
     }

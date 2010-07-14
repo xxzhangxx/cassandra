@@ -146,15 +146,13 @@ public abstract class AntiEntropyServiceTestAbstract extends CleanupHelper
         Token mid = part.midpoint(min, min);
         validator.prepare(store);
 
-        CompactionIterator ci = new CompactionIterator(Collections.EMPTY_LIST, 0, false);
-        
         // add a row with the minimum token
         validator.add(new PrecompactedRow(new DecoratedKey(min, "nonsense!".getBytes(UTF_8)),
-                                       new DataOutputBuffer(), ci));
+                                       new DataOutputBuffer()));
 
         // and a row after it
         validator.add(new PrecompactedRow(new DecoratedKey(mid, "inconceivable!".getBytes(UTF_8)),
-                                       new DataOutputBuffer(), ci));
+                                       new DataOutputBuffer()));
         validator.complete();
 
         // confirm that the tree was validated

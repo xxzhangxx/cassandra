@@ -416,7 +416,7 @@ public class CompactionManager implements CompactionManagerMBean
           logger.debug("Expected bloom filter size : " + expectedBloomFilterSize);
 
         SSTableWriter writer = null;
-        CompactionIterator ci = new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables), target);
+        CompactionIterator ci = new AntiCompactionIterator(sstables, ranges, getDefaultGCBefore(), cfs.isCompleteSSTables(sstables));
         Iterator<AbstractCompactedRow> nni = new FilterIterator(ci, PredicateUtils.notNullPredicate());
         executor.beginCompaction(cfs, ci);
 
@@ -577,10 +577,10 @@ public class CompactionManager implements CompactionManagerMBean
     {
         private Set<SSTableScanner> scanners;
 
-        public AntiCompactionIterator(Collection<SSTableReader> sstables, Collection<Range> ranges, int gcBefore, boolean isMajor, InetAddress remoteAddress)
+        public AntiCompactionIterator(Collection<SSTableReader> sstables, Collection<Range> ranges, int gcBefore, boolean isMajor)
                 throws IOException
         {
-            super(getCollatedRangeIterator(sstables, ranges), gcBefore, isMajor, remoteAddress);
+            super(getCollatedRangeIterator(sstables, ranges), gcBefore, isMajor);
         }
 
         private static Iterator getCollatedRangeIterator(Collection<SSTableReader> sstables, final Collection<Range> ranges)

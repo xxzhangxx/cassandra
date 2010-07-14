@@ -278,44 +278,6 @@ public class IncrementCounterClockTest
     }
 
     @Test
-    public void testCleanNodeCounts() throws UnknownHostException
-    {
-        IncrementCounterClock clock = new IncrementCounterClock(Util.concatByteArrays(
-            FBUtilities.toByteArray(5L),
-            FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
-            FBUtilities.toByteArray(5), FBUtilities.toByteArray(912L),
-            FBUtilities.toByteArray(3), FBUtilities.toByteArray(35L),
-            FBUtilities.toByteArray(6), FBUtilities.toByteArray(15L),
-            FBUtilities.toByteArray(9), FBUtilities.toByteArray(6L),
-            FBUtilities.toByteArray(7), FBUtilities.toByteArray(1L)
-            ));
-        byte[] bytes = clock.context();
-
-        assert   9 == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 3*stepLength);
-        assert  6L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 3*stepLength + idLength);
-
-        clock.cleanNodeCounts(InetAddress.getByAddress(FBUtilities.toByteArray(9)));
-        bytes = clock.context();
-
-        // node: 0.0.0.9 should be removed
-        assert HEADER_LENGTH + 4 * stepLength == bytes.length;
-
-        // verify that the other nodes are unmodified
-        assert    5 == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 0*stepLength);
-        assert 912L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 0*stepLength + idLength);
-
-        assert   3 == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 1*stepLength);
-        assert 35L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 1*stepLength + idLength);
-
-        assert   6 == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 2*stepLength);
-        assert 15L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 2*stepLength + idLength);
-
-        assert   7 == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 3*stepLength);
-        assert  1L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 3*stepLength + idLength);
-    }
-
-    @Test
     public void testSerializeDeserialize() throws IOException, UnknownHostException
     {
         IncrementCounterClock clock = new IncrementCounterClock(Util.concatByteArrays(

@@ -23,15 +23,15 @@ public class PrecompactedRow extends AbstractCompactedRow
 
     private final DataOutputBuffer buffer;
 
-    public PrecompactedRow(DecoratedKey key, DataOutputBuffer buffer, CompactionIterator compactionIterator)
+    public PrecompactedRow(DecoratedKey key, DataOutputBuffer buffer)
     {
-        super(key, compactionIterator);
+        super(key);
         this.buffer = buffer;
     }
 
-    public PrecompactedRow(List<SSTableIdentityIterator> rows, boolean major, int gcBefore, CompactionIterator compactionIterator)
+    public PrecompactedRow(List<SSTableIdentityIterator> rows, boolean major, int gcBefore)
     {
-        super(rows.get(0).getKey(), compactionIterator);
+        super(rows.get(0).getKey());
         buffer = new DataOutputBuffer();
 
         if (rows.size() > 1 || major)
@@ -58,7 +58,7 @@ public class PrecompactedRow extends AbstractCompactedRow
                     cf.addAll(thisCF);
                 }
             }
-            ColumnFamily cfPurged = compactionIterator.calculatePurgedColumnFamily(cf);
+            ColumnFamily cfPurged = major ? ColumnFamilyStore.removeDeleted(cf, gcBefore) : cf;
             if (cfPurged == null)
                 return;
             ColumnFamily.serializer().serializeWithIndexes(cfPurged, buffer);

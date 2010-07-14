@@ -40,9 +40,9 @@ public class LazilyCompactedRow extends AbstractCompactedRow implements IIterabl
     private int columnCount;
     private long columnSerializedSize;
 
-    public LazilyCompactedRow(List<SSTableIdentityIterator> rows, boolean major, int gcBefore, CompactionIterator compactionIterator)
+    public LazilyCompactedRow(List<SSTableIdentityIterator> rows, boolean major, int gcBefore)
     {
-        super(rows.get(0).getKey(), compactionIterator);
+        super(rows.get(0).getKey());
         this.major = major;
         this.gcBefore = gcBefore;
         this.rows = new ArrayList<SSTableIdentityIterator>(rows);
@@ -177,7 +177,7 @@ public class LazilyCompactedRow extends AbstractCompactedRow implements IIterabl
         {
             assert container != null;
             IColumn reduced = container.iterator().next();
-            ColumnFamily purged = compactionIterator.calculatePurgedColumnFamily(container);
+            ColumnFamily purged = major ? ColumnFamilyStore.removeDeleted(container, gcBefore) : container;
             if (purged == null || !purged.iterator().hasNext())
             {
                 container.clear();

@@ -24,8 +24,6 @@ package org.apache.cassandra.io;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.IOError;
-import java.net.InetAddress;
-import java.util.Collection;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -54,7 +52,6 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
     protected final List<SSTableIdentityIterator> rows = new ArrayList<SSTableIdentityIterator>();
     private final int gcBefore;
     private final boolean major;
-    private InetAddress remoteAddress;
 
     private long totalBytes;
     private long bytesRead;
@@ -62,16 +59,11 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
 
     public CompactionIterator(Iterable<SSTableReader> sstables, int gcBefore, boolean major) throws IOException
     {
-        this(sstables, gcBefore, major, null);
+        this(getCollatingIterator(sstables), gcBefore, major);
     }
 
-    public CompactionIterator(Iterable<SSTableReader> sstables, int gcBefore, boolean major, InetAddress remoteAddress) throws IOException
-    {
-        this(getCollatingIterator(sstables), gcBefore, major, remoteAddress);
-    }
-   
     @SuppressWarnings("unchecked")
-    protected CompactionIterator(Iterator iter, int gcBefore, boolean major, InetAddress remoteAddress)
+    protected CompactionIterator(Iterator iter, int gcBefore, boolean major)
     {
         super(iter);
         row = 0;
@@ -82,7 +74,6 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
         }
         this.gcBefore = gcBefore;
         this.major = major;
-        this.remoteAddress = remoteAddress;
     }
 
     @SuppressWarnings("unchecked")
@@ -105,15 +96,6 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
     public void reduce(SSTableIdentityIterator current)
     {
         rows.add(current);
-    }
-
-    protected ColumnFamily calculatePurgedColumnFamily(ColumnFamily cf)
-    {
-        if (remoteAddress != null) 
-        {
-            cf.cleanContext(remoteAddress);
-        }
-        return major ? ColumnFamilyStore.removeDeleted(cf, gcBefore) : cf;
     }
 
     protected AbstractCompactedRow getReduced()
@@ -150,9 +132,9 @@ public class CompactionIterator extends ReducingIterator<SSTableIdentityIterator
         if (rowSize > DatabaseDescriptor.getInMemoryCompactionLimit())
         {
             logger.info("Compacting large row (" + rowSize + " bytes) incrementally");
-            return new LazilyCompactedRow(rows, major, gcBefore, this);
+            return new LazilyCompactedRow(rows, major, gcBefore);
         }
-        return new PrecompactedRow(rows, major, gcBefore, this);
+        return new PrecompactedRow(rows, major, gcBefore);
     }
 
     public void close() throws IOException

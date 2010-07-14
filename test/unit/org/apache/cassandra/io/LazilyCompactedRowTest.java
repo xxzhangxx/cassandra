@@ -201,7 +201,7 @@ public class LazilyCompactedRowTest extends CleanupHelper
         @Override
         protected AbstractCompactedRow getCompactedRow()
         {
-            return new LazilyCompactedRow(rows, true, Integer.MAX_VALUE, this);
+            return new LazilyCompactedRow(rows, true, Integer.MAX_VALUE);
         }
     }
 }

@@ -872,34 +872,6 @@ public class IncrementCounterContextTest
     }
 
     @Test
-    public void testCleanNodeCounts() throws UnknownHostException
-    {
-        byte[] bytes = new byte[HEADER_LENGTH + (4 * stepLength)];
-        icc.writeElementAtStepOffset(bytes, 0, FBUtilities.toByteArray(1), 1L);
-        icc.writeElementAtStepOffset(bytes, 1, FBUtilities.toByteArray(2), 2L);
-        icc.writeElementAtStepOffset(bytes, 2, FBUtilities.toByteArray(4), 3L);
-        icc.writeElementAtStepOffset(bytes, 3, FBUtilities.toByteArray(8), 4L);
-
-        assert 4  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 2*stepLength);
-        assert 3L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 2*stepLength + idLength);
-
-        bytes = icc.cleanNodeCounts(bytes, InetAddress.getByAddress(FBUtilities.toByteArray(4)));
-
-        // node: 0.0.0.4 should be removed
-        assert (HEADER_LENGTH + (3 * stepLength)) == bytes.length;
-
-        // other nodes should be unaffected
-        assert 1  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 0*stepLength);
-        assert 1L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 0*stepLength + idLength);
-
-        assert 2  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 1*stepLength);
-        assert 2L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 1*stepLength + idLength);
-
-        assert 8  == FBUtilities.byteArrayToInt(bytes,  HEADER_LENGTH + 2*stepLength);
-        assert 4L == FBUtilities.byteArrayToLong(bytes, HEADER_LENGTH + 2*stepLength + idLength);
-    }
-
-    @Test
     public void testFlags()
     {
         byte[] bytes = new byte[HEADER_LENGTH];

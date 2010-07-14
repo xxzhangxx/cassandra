@@ -14,12 +14,10 @@ import org.apache.cassandra.db.DecoratedKey;
 public abstract class AbstractCompactedRow
 {
     public final DecoratedKey key;
-    protected final CompactionIterator compactionIterator;
 
-    public AbstractCompactedRow(DecoratedKey key, CompactionIterator compactionIterator)
+    public AbstractCompactedRow(DecoratedKey key)
     {
         this.key = key;
-        this.compactionIterator = compactionIterator;
     }
 
     public abstract void write(DataOutput out) throws IOException;

@@ -112,32 +112,9 @@ public class IncrementCounterClock implements IClock
         return contextManager.toString(context);
     }
 
-    protected void cleanNodeCounts(InetAddress node)
-    {
-        context = contextManager.cleanNodeCounts(context, node);
-    }
-
     public ClockType type()
     {
         return ClockType.IncrementCounter;
-    }
-
-    public void cleanContext(IColumnContainer cc, InetAddress node)
-    {
-        for (IColumn column : cc.getSortedColumns())
-        {
-            if (column instanceof SuperColumn)
-            {
-                cleanContext((IColumnContainer)column, node);
-                continue;
-            }
-            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
-            clock.cleanNodeCounts(node);
-            if (0 == clock.context().length)
-            {
-                cc.remove(column.name());
-            }
-        }
     }
 
     public void update(ColumnFamily cf, InetAddress node)

@@ -31,7 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.DatabaseDescriptor;
-import org.apache.cassandra.db.ClockType;
 import org.apache.cassandra.db.CompactionManager;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DecoratedKey;
@@ -531,15 +530,7 @@ public class AntiEntropyService
             try
             {
                 final List<Range> ranges = new ArrayList<Range>(differences);
-
-                final Collection<SSTableReader> sstables;
-                ClockType clockType = DatabaseDescriptor.getClockType(cfstore.getTable().name, cfstore.getColumnFamilyName());
-                if (clockType == ClockType.Timestamp) {
-                    sstables = cfstore.getSSTables();
-                } else {
-                    sstables = CompactionManager.instance.submitAnticompaction(cfstore, ranges, request.endpoint).get();
-                }
-
+                final Collection<SSTableReader> sstables = cfstore.getSSTables();
                 // send ranges to the remote node
                 Future f = StageManager.getStage(StageManager.STREAM_STAGE).submit(new WrappedRunnable() 
                 {
