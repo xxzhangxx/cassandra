@@ -21,7 +21,6 @@ package org.apache.cassandra.db;
  */
 
 
-import java.util.Collection;
 import org.apache.cassandra.db.marshal.AbstractType;
 
 public interface IColumnContainer
@@ -32,14 +31,4 @@ public interface IColumnContainer
     public IClock getMarkedForDeleteAt();
 
     public AbstractType getComparator();
-
-    /**
-     * @param name remove column with this name.
-     */
-    public void remove(byte[] name);
-
-    /**
-     * @return the columns in this container sorted by the the specified comparator.
-     */
-    public Collection<IColumn> getSortedColumns();
 }
