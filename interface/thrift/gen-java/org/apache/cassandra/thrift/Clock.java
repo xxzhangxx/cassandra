@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -30,7 +51,7 @@ import org.apache.thrift.protocol.*;
  *                   highest timestamp is the one whose value the system will converge to. No other assumptions
  *                   are made about what the timestamp represents, but using microseconds-since-epoch is customary.
  */
-public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Cloneable, Comparable<Clock> {
+public class Clock implements TBase<Clock, Clock._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("Clock");
 
   private static final TField TIMESTAMP_FIELD_DESC = new TField("timestamp", TType.I64, (short)1);
@@ -41,12 +62,10 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
   public enum _Fields implements TFieldIdEnum {
     TIMESTAMP((short)1, "timestamp");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -55,7 +74,12 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 1: // TIMESTAMP
+          return TIMESTAMP;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -96,12 +120,12 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
   private static final int __TIMESTAMP_ISSET_ID = 0;
   private BitSet __isset_bit_vector = new BitSet(1);
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.TIMESTAMP, new FieldMetaData("timestamp", TFieldRequirementType.OPTIONAL, 
-        new FieldValueMetaData(TType.I64)));
-  }});
-
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
   static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.TIMESTAMP, new FieldMetaData("timestamp", TFieldRequirementType.OPTIONAL, 
+        new FieldValueMetaData(TType.I64)));
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(Clock.class, metaDataMap);
   }
 
@@ -234,7 +258,7 @@ public class Clock implements TBase<Clock._Fields>, java.io.Serializable, Clonea
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetTimestamp()) {      lastComparison = TBaseHelper.compareTo(timestamp, typedOther.timestamp);
+    if (isSetTimestamp()) {      lastComparison = TBaseHelper.compareTo(this.timestamp, typedOther.timestamp);
       if (lastComparison != 0) {
         return lastComparison;
       }

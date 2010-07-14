@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -29,7 +50,7 @@ import org.apache.thrift.protocol.*;
  * 
  * See also <a href="cassandra.html#Struct_ColumnPath">ColumnPath</a>
  */
-public class ColumnParent implements TBase<ColumnParent._Fields>, java.io.Serializable, Cloneable, Comparable<ColumnParent> {
+public class ColumnParent implements TBase<ColumnParent, ColumnParent._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("ColumnParent");
 
   private static final TField COLUMN_FAMILY_FIELD_DESC = new TField("column_family", TType.STRING, (short)3);
@@ -43,12 +64,10 @@ public class ColumnParent implements TBase<ColumnParent._Fields>, java.io.Serial
     COLUMN_FAMILY((short)3, "column_family"),
     SUPER_COLUMN((short)4, "super_column");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -57,7 +76,14 @@ public class ColumnParent implements TBase<ColumnParent._Fields>, java.io.Serial
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 3: // COLUMN_FAMILY
+          return COLUMN_FAMILY;
+        case 4: // SUPER_COLUMN
+          return SUPER_COLUMN;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -96,14 +122,14 @@ public class ColumnParent implements TBase<ColumnParent._Fields>, java.io.Serial
 
   // isset id assignments
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.COLUMN_FAMILY, new FieldMetaData("column_family", TFieldRequirementType.REQUIRED, 
-        new FieldValueMetaData(TType.STRING)));
-    put(_Fields.SUPER_COLUMN, new FieldMetaData("super_column", TFieldRequirementType.OPTIONAL, 
-        new FieldValueMetaData(TType.STRING)));
-  }});
-
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
   static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.COLUMN_FAMILY, new FieldMetaData("column_family", TFieldRequirementType.REQUIRED, 
+        new FieldValueMetaData(TType.STRING)));
+    tmpMap.put(_Fields.SUPER_COLUMN, new FieldMetaData("super_column", TFieldRequirementType.OPTIONAL, 
+        new FieldValueMetaData(TType.STRING)));
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(ColumnParent.class, metaDataMap);
   }
 
@@ -294,7 +320,7 @@ public class ColumnParent implements TBase<ColumnParent._Fields>, java.io.Serial
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetColumn_family()) {      lastComparison = TBaseHelper.compareTo(column_family, typedOther.column_family);
+    if (isSetColumn_family()) {      lastComparison = TBaseHelper.compareTo(this.column_family, typedOther.column_family);
       if (lastComparison != 0) {
         return lastComparison;
       }
@@ -303,7 +329,7 @@ public class ColumnParent implements TBase<ColumnParent._Fields>, java.io.Serial
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetSuper_column()) {      lastComparison = TBaseHelper.compareTo(super_column, typedOther.super_column);
+    if (isSetSuper_column()) {      lastComparison = TBaseHelper.compareTo(this.super_column, typedOther.super_column);
       if (lastComparison != 0) {
         return lastComparison;
       }

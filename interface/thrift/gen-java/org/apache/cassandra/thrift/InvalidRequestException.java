@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -27,7 +48,7 @@ import org.apache.thrift.protocol.*;
  * Invalid request could mean keyspace or column family does not exist, required parameters are missing, or a parameter is malformed.
  * why contains an associated error message.
  */
-public class InvalidRequestException extends Exception implements TBase<InvalidRequestException._Fields>, java.io.Serializable, Cloneable, Comparable<InvalidRequestException> {
+public class InvalidRequestException extends Exception implements TBase<InvalidRequestException, InvalidRequestException._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("InvalidRequestException");
 
   private static final TField WHY_FIELD_DESC = new TField("why", TType.STRING, (short)1);
@@ -38,12 +59,10 @@ public class InvalidRequestException extends Exception implements TBase<InvalidR
   public enum _Fields implements TFieldIdEnum {
     WHY((short)1, "why");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -52,7 +71,12 @@ public class InvalidRequestException extends Exception implements TBase<InvalidR
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 1: // WHY
+          return WHY;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -91,12 +115,12 @@ public class InvalidRequestException extends Exception implements TBase<InvalidR
 
   // isset id assignments
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.WHY, new FieldMetaData("why", TFieldRequirementType.REQUIRED, 
-        new FieldValueMetaData(TType.STRING)));
-  }});
-
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
   static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.WHY, new FieldMetaData("why", TFieldRequirementType.REQUIRED, 
+        new FieldValueMetaData(TType.STRING)));
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(InvalidRequestException.class, metaDataMap);
   }
 
@@ -237,7 +261,7 @@ public class InvalidRequestException extends Exception implements TBase<InvalidR
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetWhy()) {      lastComparison = TBaseHelper.compareTo(why, typedOther.why);
+    if (isSetWhy()) {      lastComparison = TBaseHelper.compareTo(this.why, typedOther.why);
       if (lastComparison != 0) {
         return lastComparison;
       }

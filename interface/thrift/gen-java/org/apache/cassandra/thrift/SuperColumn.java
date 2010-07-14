@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -29,7 +50,7 @@ import org.apache.thrift.protocol.*;
  * @param columns. A collection of standard Columns.  The columns within a super column are defined in an adhoc manner.
  *                 Columns within a super column do not have to have matching structures (similarly named child columns).
  */
-public class SuperColumn implements TBase<SuperColumn._Fields>, java.io.Serializable, Cloneable, Comparable<SuperColumn> {
+public class SuperColumn implements TBase<SuperColumn, SuperColumn._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("SuperColumn");
 
   private static final TField NAME_FIELD_DESC = new TField("name", TType.STRING, (short)1);
@@ -43,12 +64,10 @@ public class SuperColumn implements TBase<SuperColumn._Fields>, java.io.Serializ
     NAME((short)1, "name"),
     COLUMNS((short)2, "columns");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -57,7 +76,14 @@ public class SuperColumn implements TBase<SuperColumn._Fields>, java.io.Serializ
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 1: // NAME
+          return NAME;
+        case 2: // COLUMNS
+          return COLUMNS;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -96,15 +122,15 @@ public class SuperColumn implements TBase<SuperColumn._Fields>, java.io.Serializ
 
   // isset id assignments
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.NAME, new FieldMetaData("name", TFieldRequirementType.REQUIRED, 
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
+  static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.NAME, new FieldMetaData("name", TFieldRequirementType.REQUIRED, 
         new FieldValueMetaData(TType.STRING)));
-    put(_Fields.COLUMNS, new FieldMetaData("columns", TFieldRequirementType.REQUIRED, 
+    tmpMap.put(_Fields.COLUMNS, new FieldMetaData("columns", TFieldRequirementType.REQUIRED, 
         new ListMetaData(TType.LIST, 
             new StructMetaData(TType.STRUCT, Column.class))));
-  }});
-
-  static {
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(SuperColumn.class, metaDataMap);
   }
 
@@ -316,7 +342,7 @@ public class SuperColumn implements TBase<SuperColumn._Fields>, java.io.Serializ
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetName()) {      lastComparison = TBaseHelper.compareTo(name, typedOther.name);
+    if (isSetName()) {      lastComparison = TBaseHelper.compareTo(this.name, typedOther.name);
       if (lastComparison != 0) {
         return lastComparison;
       }
@@ -325,7 +351,7 @@ public class SuperColumn implements TBase<SuperColumn._Fields>, java.io.Serializ
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetColumns()) {      lastComparison = TBaseHelper.compareTo(columns, typedOther.columns);
+    if (isSetColumns()) {      lastComparison = TBaseHelper.compareTo(this.columns, typedOther.columns);
       if (lastComparison != 0) {
         return lastComparison;
       }

@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -30,7 +51,7 @@ import org.apache.thrift.protocol.*;
  * @param columns. List of data represented by the key. Typically, the list is pared down to only the columns specified by
  *                 a SlicePredicate.
  */
-public class KeySlice implements TBase<KeySlice._Fields>, java.io.Serializable, Cloneable, Comparable<KeySlice> {
+public class KeySlice implements TBase<KeySlice, KeySlice._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("KeySlice");
 
   private static final TField KEY_FIELD_DESC = new TField("key", TType.STRING, (short)1);
@@ -44,12 +65,10 @@ public class KeySlice implements TBase<KeySlice._Fields>, java.io.Serializable, 
     KEY((short)1, "key"),
     COLUMNS((short)2, "columns");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -58,7 +77,14 @@ public class KeySlice implements TBase<KeySlice._Fields>, java.io.Serializable, 
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 1: // KEY
+          return KEY;
+        case 2: // COLUMNS
+          return COLUMNS;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -97,15 +123,15 @@ public class KeySlice implements TBase<KeySlice._Fields>, java.io.Serializable, 
 
   // isset id assignments
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.KEY, new FieldMetaData("key", TFieldRequirementType.REQUIRED, 
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
+  static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.KEY, new FieldMetaData("key", TFieldRequirementType.REQUIRED, 
         new FieldValueMetaData(TType.STRING)));
-    put(_Fields.COLUMNS, new FieldMetaData("columns", TFieldRequirementType.REQUIRED, 
+    tmpMap.put(_Fields.COLUMNS, new FieldMetaData("columns", TFieldRequirementType.REQUIRED, 
         new ListMetaData(TType.LIST, 
             new StructMetaData(TType.STRUCT, ColumnOrSuperColumn.class))));
-  }});
-
-  static {
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(KeySlice.class, metaDataMap);
   }
 
@@ -317,7 +343,7 @@ public class KeySlice implements TBase<KeySlice._Fields>, java.io.Serializable, 
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetKey()) {      lastComparison = TBaseHelper.compareTo(key, typedOther.key);
+    if (isSetKey()) {      lastComparison = TBaseHelper.compareTo(this.key, typedOther.key);
       if (lastComparison != 0) {
         return lastComparison;
       }
@@ -326,7 +352,7 @@ public class KeySlice implements TBase<KeySlice._Fields>, java.io.Serializable, 
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetColumns()) {      lastComparison = TBaseHelper.compareTo(columns, typedOther.columns);
+    if (isSetColumns()) {      lastComparison = TBaseHelper.compareTo(this.columns, typedOther.columns);
       if (lastComparison != 0) {
         return lastComparison;
       }

@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -28,7 +49,7 @@ import org.apache.thrift.protocol.*;
  * @param column_or_supercolumn. An insert to a column or supercolumn
  * @param deletion. A deletion of a column or supercolumn
  */
-public class Mutation implements TBase<Mutation._Fields>, java.io.Serializable, Cloneable, Comparable<Mutation> {
+public class Mutation implements TBase<Mutation, Mutation._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("Mutation");
 
   private static final TField COLUMN_OR_SUPERCOLUMN_FIELD_DESC = new TField("column_or_supercolumn", TType.STRUCT, (short)1);
@@ -42,12 +63,10 @@ public class Mutation implements TBase<Mutation._Fields>, java.io.Serializable, 
     COLUMN_OR_SUPERCOLUMN((short)1, "column_or_supercolumn"),
     DELETION((short)2, "deletion");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -56,7 +75,14 @@ public class Mutation implements TBase<Mutation._Fields>, java.io.Serializable, 
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 1: // COLUMN_OR_SUPERCOLUMN
+          return COLUMN_OR_SUPERCOLUMN;
+        case 2: // DELETION
+          return DELETION;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -95,14 +121,14 @@ public class Mutation implements TBase<Mutation._Fields>, java.io.Serializable, 
 
   // isset id assignments
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.COLUMN_OR_SUPERCOLUMN, new FieldMetaData("column_or_supercolumn", TFieldRequirementType.OPTIONAL, 
-        new StructMetaData(TType.STRUCT, ColumnOrSuperColumn.class)));
-    put(_Fields.DELETION, new FieldMetaData("deletion", TFieldRequirementType.OPTIONAL, 
-        new StructMetaData(TType.STRUCT, Deletion.class)));
-  }});
-
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
   static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.COLUMN_OR_SUPERCOLUMN, new FieldMetaData("column_or_supercolumn", TFieldRequirementType.OPTIONAL, 
+        new StructMetaData(TType.STRUCT, ColumnOrSuperColumn.class)));
+    tmpMap.put(_Fields.DELETION, new FieldMetaData("deletion", TFieldRequirementType.OPTIONAL, 
+        new StructMetaData(TType.STRUCT, Deletion.class)));
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(Mutation.class, metaDataMap);
   }
 
@@ -285,7 +311,7 @@ public class Mutation implements TBase<Mutation._Fields>, java.io.Serializable, 
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetColumn_or_supercolumn()) {      lastComparison = TBaseHelper.compareTo(column_or_supercolumn, typedOther.column_or_supercolumn);
+    if (isSetColumn_or_supercolumn()) {      lastComparison = TBaseHelper.compareTo(this.column_or_supercolumn, typedOther.column_or_supercolumn);
       if (lastComparison != 0) {
         return lastComparison;
       }
@@ -294,7 +320,7 @@ public class Mutation implements TBase<Mutation._Fields>, java.io.Serializable, 
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetDeletion()) {      lastComparison = TBaseHelper.compareTo(deletion, typedOther.deletion);
+    if (isSetDeletion()) {      lastComparison = TBaseHelper.compareTo(this.deletion, typedOther.deletion);
       if (lastComparison != 0) {
         return lastComparison;
       }

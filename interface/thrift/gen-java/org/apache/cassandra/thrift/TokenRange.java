@@ -4,6 +4,27 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  */
 package org.apache.cassandra.thrift;
+/*
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ * 
+ */
+
 
 import java.util.List;
 import java.util.ArrayList;
@@ -23,7 +44,7 @@ import org.apache.thrift.*;
 import org.apache.thrift.meta_data.*;
 import org.apache.thrift.protocol.*;
 
-public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializable, Cloneable, Comparable<TokenRange> {
+public class TokenRange implements TBase<TokenRange, TokenRange._Fields>, java.io.Serializable, Cloneable {
   private static final TStruct STRUCT_DESC = new TStruct("TokenRange");
 
   private static final TField START_TOKEN_FIELD_DESC = new TField("start_token", TType.STRING, (short)1);
@@ -40,12 +61,10 @@ public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializab
     END_TOKEN((short)2, "end_token"),
     ENDPOINTS((short)3, "endpoints");
 
-    private static final Map<Integer, _Fields> byId = new HashMap<Integer, _Fields>();
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
     static {
       for (_Fields field : EnumSet.allOf(_Fields.class)) {
-        byId.put((int)field._thriftId, field);
         byName.put(field.getFieldName(), field);
       }
     }
@@ -54,7 +73,16 @@ public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializab
      * Find the _Fields constant that matches fieldId, or null if its not found.
      */
     public static _Fields findByThriftId(int fieldId) {
-      return byId.get(fieldId);
+      switch(fieldId) {
+        case 1: // START_TOKEN
+          return START_TOKEN;
+        case 2: // END_TOKEN
+          return END_TOKEN;
+        case 3: // ENDPOINTS
+          return ENDPOINTS;
+        default:
+          return null;
+      }
     }
 
     /**
@@ -93,17 +121,17 @@ public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializab
 
   // isset id assignments
 
-  public static final Map<_Fields, FieldMetaData> metaDataMap = Collections.unmodifiableMap(new EnumMap<_Fields, FieldMetaData>(_Fields.class) {{
-    put(_Fields.START_TOKEN, new FieldMetaData("start_token", TFieldRequirementType.REQUIRED, 
+  public static final Map<_Fields, FieldMetaData> metaDataMap;
+  static {
+    Map<_Fields, FieldMetaData> tmpMap = new EnumMap<_Fields, FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.START_TOKEN, new FieldMetaData("start_token", TFieldRequirementType.REQUIRED, 
         new FieldValueMetaData(TType.STRING)));
-    put(_Fields.END_TOKEN, new FieldMetaData("end_token", TFieldRequirementType.REQUIRED, 
+    tmpMap.put(_Fields.END_TOKEN, new FieldMetaData("end_token", TFieldRequirementType.REQUIRED, 
         new FieldValueMetaData(TType.STRING)));
-    put(_Fields.ENDPOINTS, new FieldMetaData("endpoints", TFieldRequirementType.REQUIRED, 
+    tmpMap.put(_Fields.ENDPOINTS, new FieldMetaData("endpoints", TFieldRequirementType.REQUIRED, 
         new ListMetaData(TType.LIST, 
             new FieldValueMetaData(TType.STRING))));
-  }});
-
-  static {
+    metaDataMap = Collections.unmodifiableMap(tmpMap);
     FieldMetaData.addStructMetaDataMap(TokenRange.class, metaDataMap);
   }
 
@@ -365,7 +393,7 @@ public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializab
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetStart_token()) {      lastComparison = TBaseHelper.compareTo(start_token, typedOther.start_token);
+    if (isSetStart_token()) {      lastComparison = TBaseHelper.compareTo(this.start_token, typedOther.start_token);
       if (lastComparison != 0) {
         return lastComparison;
       }
@@ -374,7 +402,7 @@ public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializab
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetEnd_token()) {      lastComparison = TBaseHelper.compareTo(end_token, typedOther.end_token);
+    if (isSetEnd_token()) {      lastComparison = TBaseHelper.compareTo(this.end_token, typedOther.end_token);
       if (lastComparison != 0) {
         return lastComparison;
       }
@@ -383,7 +411,7 @@ public class TokenRange implements TBase<TokenRange._Fields>, java.io.Serializab
     if (lastComparison != 0) {
       return lastComparison;
     }
-    if (isSetEndpoints()) {      lastComparison = TBaseHelper.compareTo(endpoints, typedOther.endpoints);
+    if (isSetEndpoints()) {      lastComparison = TBaseHelper.compareTo(this.endpoints, typedOther.endpoints);
       if (lastComparison != 0) {
         return lastComparison;
       }
