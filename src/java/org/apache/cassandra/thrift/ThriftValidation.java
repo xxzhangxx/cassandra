@@ -235,7 +235,7 @@ public class ThriftValidation
             {
                 validateTtl(c);
                 IClock clock = validateClock(keyspace, cfName, c.clock);
-                validateValueByClock(cosc.column.value, clock);
+                validateValueByClock(c.value, clock);
                 ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(cosc.super_column.name).setColumn(c.name));
             }
         }
