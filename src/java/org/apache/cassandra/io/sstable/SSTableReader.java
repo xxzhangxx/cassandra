@@ -182,7 +182,7 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
         SSTableReader sstable = new SSTableReader(desc, partitioner, null, null, null, null, System.currentTimeMillis());
 
         // versions before 'c' encoded keys as utf-16 before hashing to the filter
-        if (desc.hasStringsInBloomFilter())
+        if (desc.hasStringsInBloomFilter)
         {
             sstable.load(true);
         }
@@ -266,7 +266,7 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
                 if (indexPosition == indexSize)
                     break;
 
-                DecoratedKey decoratedKey = partitioner.convertFromDiskFormat(FBUtilities.readShortByteArray(input));
+                DecoratedKey decoratedKey = decodeKey(partitioner, desc, FBUtilities.readShortByteArray(input));
                 if (recreatebloom)
                     bf.add(decoratedKey.key);
                 long dataPosition = input.readLong();
@@ -380,7 +380,7 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
     public long getPosition(DecoratedKey decoratedKey, Operator op)
     {
         // first, check bloom filter
-        if (op == Operator.EQ && !bf.isPresent(partitioner.convertToDiskFormat(decoratedKey)))
+        if (op == Operator.EQ && !bf.isPresent(decoratedKey.key))
             return -1;
 
         // next, the key cache
@@ -414,7 +414,7 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
                 while (!input.isEOF())
                 {
                     // read key & data position from index entry
-                    DecoratedKey indexDecoratedKey = partitioner.convertFromDiskFormat(FBUtilities.readShortByteArray(input));
+                    DecoratedKey indexDecoratedKey = decodeKey(partitioner, desc, FBUtilities.readShortByteArray(input));
                     long dataPosition = input.readLong();
 
                     int comparison = indexDecoratedKey.compareTo(decoratedKey);
@@ -551,9 +551,19 @@ public class SSTableReader extends SSTable implements Comparable<SSTableReader>
 
     public static long readRowSize(DataInput in, Descriptor d) throws IOException
     {
-        if (d.hasIntRowSize())
+        if (d.hasIntRowSize)
             return in.readInt();
         return in.readLong();
+    }
+
+    /**
+     * Conditionally use the deprecated 'IPartitioner.convertFromDiskFormat' method.
+     */
+    public static DecoratedKey decodeKey(IPartitioner p, Descriptor d, byte[] bytes)
+    {
+        if (d.hasEncodedKeys)
+            return p.convertFromDiskFormat(bytes);
+        return p.decorateKey(bytes);
     }
 
     /**
