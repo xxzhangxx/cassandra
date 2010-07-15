@@ -257,6 +257,9 @@ public class ThriftValidation
     public static IClock validateClock(String keyspace, String cfName, Clock clock) throws InvalidRequestException
     {
         ClockType clockType = DatabaseDescriptor.getClockType(keyspace, cfName);
+        if (clockType == null)
+            throw new InvalidRequestException("No clock found for " + keyspace + " " + cfName);
+        
         switch (clockType)
         {
         case Timestamp:
