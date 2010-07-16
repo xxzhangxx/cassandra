@@ -451,8 +451,8 @@ public class IncrementCounterContext implements IContext
         //   1) take highest timestamp
         //   2) take highest delete timestamp
         //   3) map id -> count
-        //      a) local id:  sum counts; keep highest timestamp
-        //      b) remote id: keep highest count (reconcile)
+        //      a) write flag:    sum counts
+        //      b) no write flag: keep highest count (reconcile)
         //   4) create a context from sorted array
         long highestTimestamp = Long.MIN_VALUE;
         long highestDeleteTimestamp = Long.MIN_VALUE;
@@ -491,13 +491,6 @@ public class IncrementCounterContext implements IContext
                 previousCount = reconcileMap.put(id, count);
                 if (previousCount == null)
                     continue;
-
-                // sum counts:
-                //   local id, or
-                if (this.idWrapper.equals(id)) {
-                    reconcileMap.put(id, count + previousCount);
-                    continue;
-                }
 
                 // keep highest count:
                 //   remote id
