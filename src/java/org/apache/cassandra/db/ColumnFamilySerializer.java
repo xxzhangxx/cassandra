@@ -119,7 +119,7 @@ public class ColumnFamilySerializer implements ICompactSerializer2<ColumnFamily>
         for (int i = 0; i < size; ++i)
         {
             IColumn column = cf.getColumnSerializer().deserialize(dis);
-            cf.addColumn(column);
+            cf.addColumnForDeserialization(column);
         }
     }
 

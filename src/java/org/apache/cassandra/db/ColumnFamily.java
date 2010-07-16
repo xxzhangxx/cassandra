@@ -222,6 +222,12 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
         columns.clear();
     }
 
+    protected void addColumnForDeserialization(IColumn column) {
+        byte[] name = column.name();
+        IColumn oldColumn = columns.putIfAbsent(name, column);
+        assert oldColumn == null;
+    }
+
     /*
      * If we find an old column that has the same name
      * the ask it to resolve itself else add the new column .
@@ -231,7 +237,7 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
         byte[] name = column.name();
         IColumn oldColumn = columns.putIfAbsent(
             name,
-            clockType.minClock().prepareWrite(column));
+            column.clock().prepareWrite(column));
         if (oldColumn != null)
         {
             if (oldColumn instanceof SuperColumn)

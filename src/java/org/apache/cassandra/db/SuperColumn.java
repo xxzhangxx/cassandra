@@ -167,12 +167,20 @@ public class SuperColumn implements IColumn, IColumnContainer
     	throw new UnsupportedOperationException("This operation is not supported for Super Columns.");
     }
 
+    protected void addColumnForDeserialization(IColumn column) {
+        byte[] name = column.name();
+        IColumn oldColumn = columns_.putIfAbsent(name, column);
+        assert oldColumn == null;
+    }
+
     public void addColumn(IColumn column)
     {
         assert column instanceof Column : "A super column can only contain simple columns";
 
         byte[] name = column.name();
-        IColumn oldColumn = columns_.putIfAbsent(name, column);
+        IColumn oldColumn = columns_.putIfAbsent(
+            name,
+            column.clock().prepareWrite(column));
         if (oldColumn != null)
         {
             IColumn reconciledColumn = reconciler.reconcile((Column)column, (Column)oldColumn);
@@ -352,7 +360,7 @@ class SuperColumnSerializer implements ICompactSerializer2<IColumn>
         for ( int i = 0; i < size; ++i )
         {
             IColumn subColumn = Column.serializer(clockType).deserialize(dis);
-            superColumn.addColumn(subColumn);
+            superColumn.addColumnForDeserialization(subColumn);
         }
         return superColumn;
     }
