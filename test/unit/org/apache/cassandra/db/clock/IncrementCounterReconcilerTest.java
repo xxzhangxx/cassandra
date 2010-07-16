@@ -88,13 +88,13 @@ public class IncrementCounterReconcilerTest
             ((IncrementCounterClock)reconciled.clock()).context()
             ) == 0;
 
-        // local:   27L+9L
+        // local:   27L
         // 1:       128L
         // 5:       32L
         // 6:       2L
         // 9:       62L
         assert FBUtilities.compareByteArrays(
-            FBUtilities.toByteArray((27L+9L)+128L+32L+2L+62L),
+            FBUtilities.toByteArray(27L+128L+32L+2L+62L),
             reconciled.value()
             ) == 0;
 

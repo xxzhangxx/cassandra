@@ -621,7 +621,8 @@ public class IncrementCounterContextTest
         //     local counts aggregated
         //     remote counts are reconciled (i.e. take max)
 
-        List<byte[]> contexts = new ArrayList<byte[]>();
+        List<byte[]> contexts;
+        contexts = new ArrayList<byte[]>();
 
         byte[] bytes = new byte[HEADER_LENGTH + (4 * stepLength)];
         icc.writeElementAtStepOffset(bytes, 0, FBUtilities.toByteArray(1), 1L);
@@ -644,9 +645,24 @@ public class IncrementCounterContextTest
             9L);
         contexts.add(bytes);
 
-        byte[] merged = icc.merge(contexts);
+        byte[] merged;
+        merged = icc.merge(contexts);
 
-        // 127.0.0.1: 12 : 3 + 9
+        contexts = new ArrayList<byte[]>();
+        contexts.add(merged);
+
+        bytes = new byte[HEADER_LENGTH + (1 * stepLength)];
+        icc.setFlags(bytes, icc.FLAG_WRITE);
+        icc.writeElementAtStepOffset(
+            bytes,
+            0,
+            FBUtilities.getLocalAddress().getAddress(),
+            4L);
+        contexts.add(bytes);
+
+        merged = icc.merge(contexts);
+
+        // 127.0.0.1: 12 : 9 + 4
         // 0.0.0.5:    5 : 5
         // 0.0.0.4:    4 : max(3, 4)
         // 0.0.0.2:    2 : 2
@@ -661,7 +677,7 @@ public class IncrementCounterContextTest
             0,
             merged, HEADER_LENGTH + 0*stepLength,
             4);
-        assert 12L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
+        assert 13L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
 
         // remote node id counts are reconciled (i.e. take max)
         assert 5  == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 1*stepLength);
@@ -800,7 +816,7 @@ public class IncrementCounterContextTest
         byte[] merged = icc.merge(contexts);
 
         //                 reconcile: + merged:
-        // 127.0.0.1: 30 : 3 + 9      + 9 + 9
+        // 127.0.0.1: 30 : max(3, 9)  + 9 + 9
         // 0.0.0.4:   28 : max(3, 4)  + 4 + 20
         // 0.0.0.3:   11 :              11
         // 0.0.0.1:   10 : max(1)     + 9
@@ -811,15 +827,15 @@ public class IncrementCounterContextTest
         assert 0 == icc.getFlags(merged);
 
         // all node id counts are aggregated
+        assert 4   == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 0*stepLength);
+        assert 28L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
+
         assert 0   == FBUtilities.compareByteSubArrays(
             FBUtilities.getLocalAddress().getAddress(),
             0,
-            merged, HEADER_LENGTH + 0*stepLength,
+            merged, HEADER_LENGTH + 1*stepLength,
             4);
-        assert 30L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
-
-        assert 4   == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 1*stepLength);
-        assert 28L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 1*stepLength + idLength);
+        assert 27L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 1*stepLength + idLength);
 
         assert 3   == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 2*stepLength);
         assert 11L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 2*stepLength + idLength);
@@ -862,13 +878,13 @@ public class IncrementCounterContextTest
 
         byte[] merged = icc.merge(contexts);
 
-        // 127.0.0.1: 12 (3+9)
-        // 0.0.0.1:    1
-        // 0.0.0.2:    2
-        // 0.0.0.4:    4
-        // 0.0.0.5:    5
+        // 127.0.0.1: 9
+        // 0.0.0.1:   1
+        // 0.0.0.2:   2
+        // 0.0.0.4:   4
+        // 0.0.0.5:   5
 
-        assert 24L == FBUtilities.byteArrayToLong(icc.total(merged));
+        assert 21L == FBUtilities.byteArrayToLong(icc.total(merged));
     }
 
     @Test

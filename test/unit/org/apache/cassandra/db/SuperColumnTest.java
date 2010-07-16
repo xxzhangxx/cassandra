@@ -56,7 +56,7 @@ public class SuperColumnTest
             FBUtilities.toByteArray(10L),
             FBUtilities.toByteArray(0L),
             FBUtilities.toByteArray(0),
-            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(9L),
+            FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(10L),
             FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(4), FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(2), FBUtilities.toByteArray(3L)
@@ -81,7 +81,7 @@ public class SuperColumnTest
                 FBUtilities.toByteArray(10L),
                 FBUtilities.toByteArray(0L),
                 FBUtilities.toByteArray(0),
-                FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(12L),
+                FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(10L),
                 FBUtilities.toByteArray(8), FBUtilities.toByteArray(9L),
                 FBUtilities.toByteArray(1), FBUtilities.toByteArray(7L),
                 FBUtilities.toByteArray(2), FBUtilities.toByteArray(5L),

@@ -210,7 +210,7 @@ public class IncrementCounterClockTest
         clocks.add(new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
+            FBUtilities.toByteArray(IncrementCounterContext.FLAG_WRITE),
             FBUtilities.toByteArray(3), FBUtilities.toByteArray(15L),
             FBUtilities.toByteArray(8), FBUtilities.toByteArray(14L),
             FBUtilities.toByteArray(4), FBUtilities.toByteArray(13L)
@@ -232,13 +232,13 @@ public class IncrementCounterClockTest
             FBUtilities.toByteArray(7), FBUtilities.toByteArray(1L)
             )));
 
-        // 127.0.0.1:   1266L
+        // 127.0.0.1:   1234L
         // 2:           999L
-        // 3:           655L
-        // 4:           632L
+        // 3:           670L
+        // 4:           645L
         // 1:           128L
         // 9:           62L
-        // 8:           45L
+        // 8:           59L
         // 6:           2L
         // 7:           1L
 
@@ -250,16 +250,16 @@ public class IncrementCounterClockTest
             merged,
             HEADER_LENGTH + 0*stepLength,
             4);
-        assert 1266L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
+        assert 1234L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 0*stepLength + idLength);
 
         assert    2 == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 1*stepLength);
         assert 999L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 1*stepLength + idLength);
 
         assert    3 == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 2*stepLength);
-        assert 655L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 2*stepLength + idLength);
+        assert 670L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 2*stepLength + idLength);
 
         assert    4 == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 3*stepLength);
-        assert 632L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 3*stepLength + idLength);
+        assert 645L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 3*stepLength + idLength);
 
         assert    1 == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 4*stepLength);
         assert 128L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 4*stepLength + idLength);
@@ -268,7 +268,7 @@ public class IncrementCounterClockTest
         assert 62L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 5*stepLength + idLength);
 
         assert   8 == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 6*stepLength);
-        assert 45L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 6*stepLength + idLength);
+        assert 59L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 6*stepLength + idLength);
 
         assert   6 == FBUtilities.byteArrayToInt(merged,  HEADER_LENGTH + 7*stepLength);
         assert  2L == FBUtilities.byteArrayToLong(merged, HEADER_LENGTH + 7*stepLength + idLength);
