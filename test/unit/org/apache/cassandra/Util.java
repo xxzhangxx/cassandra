@@ -126,4 +126,9 @@ public class Util
 
         return result;
     }
+        
+    public static ColumnFamily cloneAndRemoveDeleted(ColumnFamily cf, int gcBefore)
+    {
+        return ColumnFamilyStore.removeDeleted(cf.cloneMe(), gcBefore);
+    }
 }
