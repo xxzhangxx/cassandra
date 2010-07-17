@@ -355,20 +355,23 @@ public class StorageProxy implements StorageProxyMBean
 
     /**
      * Update destination endpoints depending on the clock type.
+     * @param consistency_level If consistency level is > ONE we also return secondary writes.
+     * @param rm used to find out what clock type we are dealing with.
+     * @return A collection of inetaddresses to use for the secondary write.
      */
     private static Collection<InetAddress> updateDestinationByClock(ConsistencyLevel consistency_level, RowMutation rm,
             Multimap<InetAddress, InetAddress> destinationEndpoints)
     {
         ClockType clockType = rm.getColumnFamilies().iterator().next().getClockType();
         if (clockType != ClockType.IncrementCounter)
-            return null;
+            return Collections.emptySet();
 
         InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
         destinationEndpoints.clear();
         destinationEndpoints.put(randomDestination, randomDestination);
 
         if (ConsistencyLevel.ONE == consistency_level || ConsistencyLevel.ZERO == consistency_level)
-            return null;
+            return Collections.emptySet();
 
         Set<InetAddress> secondaryEndpoints = new HashSet<InetAddress>();
         secondaryEndpoints.addAll(destinationEndpoints.keySet());
