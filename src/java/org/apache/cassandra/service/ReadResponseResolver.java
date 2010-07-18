@@ -79,6 +79,11 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             ReadResponse result = ReadResponse.serializer().deserialize(new DataInputStream(bufIn));
             if (result.isDigestQuery())
             {
+                if (isDigestQuery)
+                {
+                    byte[] resultDigest = result.digest();
+                    checkDigest(key, digest, resultDigest);
+                }
                 digest = result.digest();
                 isDigestQuery = true;
             }
@@ -95,12 +100,8 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             for (ColumnFamily cf : versions)
             {
-                if (!Arrays.equals(ColumnFamily.digest(cf), digest))
-                {
-                    /* Wrap the key as the context in this exception */
-                    String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(ColumnFamily.digest(cf)), FBUtilities.bytesToHex(digest));
-                    throw new DigestMismatchException(s);
-                }
+                byte[] resultDigest = ColumnFamily.digest(cf);
+                checkDigest(key, digest, resultDigest);
             }
         }
 
@@ -111,6 +112,16 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             logger_.debug("resolve: " + (System.currentTimeMillis() - startTime) + " ms.");
 		return new Row(key, resolved);
 	}
+
+    private void checkDigest(DecoratedKey key, byte[] digest, byte[] resultDigest) throws DigestMismatchException
+    {
+        if (!Arrays.equals(resultDigest, digest))
+        {
+            /* Wrap the key as the context in this exception */
+            String s = String.format("Mismatch for key %s (%s vs %s)", key, FBUtilities.bytesToHex(resultDigest), FBUtilities.bytesToHex(digest));
+            throw new DigestMismatchException(s);
+        }
+    }
 
     /**
      * For each row version, compare with resolved (the superset of all row versions);
@@ -149,7 +160,7 @@ public class ReadResponseResolver implements IResponseResolver<Row>
         {
             if (cf != null)
             {
-                resolved = cf.cloneMe();
+                resolved = cf.cloneMeShallow();
                 break;
             }
         }

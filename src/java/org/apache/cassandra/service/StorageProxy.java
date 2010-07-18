@@ -54,6 +54,7 @@ import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.UnavailableException;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.LatencyTracker;
+import org.apache.cassandra.utils.Pair;
 import org.apache.cassandra.utils.WrappedRunnable;
 import org.apache.cassandra.db.filter.QueryFilter;
 
@@ -112,6 +113,9 @@ public class StorageProxy implements StorageProxyMBean
                     // 1. local, unhinted write: run directly on write stage
                     // 2. non-local, unhinted write: send row mutation message
                     // 3. hinted write: add hint header, and send message
+
+                    updateDestinationByClock(ConsistencyLevel.ZERO, rm, hintedEndpoints);
+
                     for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
                     {
                         InetAddress destination = entry.getKey();
@@ -119,6 +123,8 @@ public class StorageProxy implements StorageProxyMBean
                         if (targets.size() == 1 && targets.iterator().next().equals(destination))
                         {
                             // unhinted writes
+                            rm.updateClocks(destination);
+
                             if (destination.equals(FBUtilities.getLocalAddress()))
                             {
                                 if (logger.isDebugEnabled())
@@ -187,6 +193,8 @@ public class StorageProxy implements StorageProxyMBean
         
         try
         {
+            Collection<Pair<RowMutation, Collection<InetAddress>>> secondaryWrites = new LinkedList<Pair<RowMutation, Collection<InetAddress>>>();
+
             for (RowMutation rm : mutations)
             {
                 mostRecentRowMutation = rm;
@@ -203,6 +211,12 @@ public class StorageProxy implements StorageProxyMBean
 
                 responseHandlers.add(responseHandler);
                 Message unhintedMessage = null;
+
+                Collection<InetAddress> secondaryEndpoints = updateDestinationByClock(consistency_level, rm, hintedEndpoints);
+                if (secondaryEndpoints != null) {
+                    secondaryWrites.add(new Pair<RowMutation, Collection<InetAddress>>(rm, secondaryEndpoints));
+                }
+
                 for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
                 {
                     InetAddress destination = entry.getKey();
@@ -211,6 +225,8 @@ public class StorageProxy implements StorageProxyMBean
                     if (targets.size() == 1 && targets.iterator().next().equals(destination))
                     {
                         // unhinted writes
+                        rm.updateClocks(destination);
+
                         if (destination.equals(FBUtilities.getLocalAddress()))
                         {
                             insertLocalMessage(rm, responseHandler);
@@ -253,6 +269,82 @@ public class StorageProxy implements StorageProxyMBean
             {
                 responseHandler.get();
             }
+
+            /**
+             * perform secondary writes, if necessary
+             *
+             * use case: support distributed counter writes for CL > ONE
+             * rationale:
+             *   distributed counters need to be first written to one replica
+             *     to be correctly accounted for
+             *   then, for CL > ONE, writes can be sent to other replicas
+             *     to help them catch up to the total count of the first replica
+             */
+            responseHandlers.clear();
+            for (Pair<RowMutation, Collection<InetAddress>> pair : secondaryWrites)
+            {
+                RowMutation rm = pair.left;
+                Collection<InetAddress> secondaryEndpoints = pair.right;
+
+                mostRecentRowMutation = rm;
+                String table = rm.getTable();
+                AbstractReplicationStrategy rs = ss.getReplicationStrategy(table);
+
+                Multimap<InetAddress, InetAddress> hintedEndpoints = rs.getHintedEndpoints(secondaryEndpoints);
+
+                final AbstractWriteResponseHandler responseHandler = rs.getSecondaryWriteResponseHandler(
+                        secondaryEndpoints,
+                        hintedEndpoints,
+                        consistency_level,
+                        table);
+                responseHandler.assureSufficientLiveNodes();
+
+                responseHandlers.add(responseHandler);
+                Message unhintedMessage = null;
+
+                for (Map.Entry<InetAddress, Collection<InetAddress>> entry : hintedEndpoints.asMap().entrySet())
+                {
+                    InetAddress destination = entry.getKey();
+                    Collection<InetAddress> targets = entry.getValue();
+
+                    if (targets.size() == 1 && targets.iterator().next().equals(destination)) {
+                        //XXX: clocks already updated
+                        
+                        if (destination.equals(FBUtilities.getLocalAddress())) {
+                            insertLocalMessage(rm, responseHandler);
+                        } else {
+                            // remote write
+                            if (unhintedMessage == null) {
+                                unhintedMessage = rm.makeRowMutationMessage();
+                                MessagingService.instance.addCallback(responseHandler, unhintedMessage.getMessageId());
+                            }
+                            if (logger.isDebugEnabled())
+                                logger.debug("secondary insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + unhintedMessage.getMessageId() + "@" + destination);
+                            MessagingService.instance.sendOneWay(unhintedMessage, destination);
+                        }
+                    } else {
+                        // hinted
+                        Message hintedMessage = rm.makeRowMutationMessage();
+                        for (InetAddress target : targets)
+                        {
+                            if (!target.equals(destination)) {
+                                addHintHeader(hintedMessage, target);
+                                if (logger.isDebugEnabled())
+                                    logger.debug("secondary insert writing key " + FBUtilities.bytesToHex(rm.key()) + " to " + hintedMessage.getMessageId() + "@" + destination + " for " + target);
+                            }
+                        }
+                        // (non-destination hints are part of the callback and count towards consistency only under CL.ANY)
+                        if (secondaryEndpoints.contains(destination) || consistency_level == ConsistencyLevel.ANY)
+                            MessagingService.instance.addCallback(responseHandler, hintedMessage.getMessageId());
+                        MessagingService.instance.sendOneWay(hintedMessage, destination);
+                    }
+                }
+            }
+            // wait for writes; throws TimeoutException (if necessary)
+            for (AbstractWriteResponseHandler responseHandler : responseHandlers)
+            {
+                responseHandler.get();
+            }
         }
         catch (IOException e)
         {
@@ -266,6 +358,59 @@ public class StorageProxy implements StorageProxyMBean
             writeStats.addNano(System.nanoTime() - startTime);
         }
 
+    }
+
+    /**
+     * Update destination endpoints depending on the clock type.
+     * @param consistency_level If consistency level is > ONE we also return secondary writes.
+     * @param rm used to find out what clock type we are dealing with.
+     * @return A collection of inetaddresses to use for the secondary write.
+     */
+    private static Collection<InetAddress> updateDestinationByClock(ConsistencyLevel consistency_level, RowMutation rm,
+            Multimap<InetAddress, InetAddress> destinationEndpoints)
+    {
+        ClockType clockType = rm.getColumnFamilies().iterator().next().getClockType();
+        if (clockType != ClockType.VersionVector)
+            return Collections.emptySet();
+
+        InetAddress randomDestination = pickRandomDestination(destinationEndpoints);
+        destinationEndpoints.clear();
+        destinationEndpoints.put(randomDestination, randomDestination);
+
+        if (ConsistencyLevel.ONE == consistency_level || ConsistencyLevel.ZERO == consistency_level)
+            return Collections.emptySet();
+
+        Set<InetAddress> secondaryEndpoints = new HashSet<InetAddress>();
+        secondaryEndpoints.addAll(destinationEndpoints.keySet());
+        secondaryEndpoints.remove(randomDestination);
+        
+        return secondaryEndpoints;
+    }
+
+    /**
+     * @param endpoints potential destinations.
+     * @return one destination randomly chosen from the endpoints unless localhost is in the map, then that is returned.
+     */
+    private static InetAddress pickRandomDestination(Multimap<InetAddress, InetAddress> endpoints)
+    {
+        Set<InetAddress> destinationSet = endpoints.keySet();
+        
+        if (destinationSet.contains(FBUtilities.getLocalAddress()))
+        {
+            return FBUtilities.getLocalAddress();
+        }
+        else
+        {
+            InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
+            InetAddress randomDestination = destinations[random.nextInt(destinations.length)];
+            Collection<InetAddress> targets = endpoints.asMap().get(randomDestination);
+            assert targets.size() == 1  : "Too many targets: " + targets.toString() + 
+                ", context-based CFs do not support Hinted Hand-off. HH enabled? " + DatabaseDescriptor.hintedHandoffEnabled();
+            assert targets.iterator().next().equals(randomDestination) : "Unexpected destination: " + randomDestination + 
+                " should have been " + targets.toString() + ", context-based CFs do not support Hinted Hand-off. HH enabled? "
+                + DatabaseDescriptor.hintedHandoffEnabled();
+            return randomDestination;
+        }
     }
 
     private static void insertLocalMessage(final RowMutation rm, final AbstractWriteResponseHandler responseHandler)

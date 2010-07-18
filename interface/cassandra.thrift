@@ -60,7 +60,8 @@ const string VERSION = "8.3.0"
  *                   are made about what the timestamp represents, but using microseconds-since-epoch is customary.
  */
 struct Clock {
-   1: required i64 timestamp,
+   1: optional i64 timestamp,
+   2: optional binary context, # version
 }
 
 /** Basic unit of data within a ColumnFamily.

@@ -159,7 +159,7 @@ final class ColumnFamilyRecordWriter extends RecordWriter<byte[],List<IColumn>>
         Map<String, List<Mutation>> cfMutation = new HashMap<String, List<Mutation>>();
         mutationsByKey.put(key, cfMutation);
 
-        Clock clock = new Clock(System.currentTimeMillis());
+        Clock clock = new Clock().setTimestamp(System.currentTimeMillis());
         List<Mutation> mutationList = new ArrayList<Mutation>();
         cfMutation.put(ConfigHelper.getOutputColumnFamily(context.getConfiguration()), mutationList);
 

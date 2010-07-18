@@ -142,11 +142,7 @@ public class Column implements IColumn
 
     public IColumn diff(IColumn column)
     {
-        if (ClockRelationship.GREATER_THAN == column.clock().compare(clock))
-        {
-            return column;
-        }
-        return null;
+        return clock.diff(column, this);
     }
 
     public void updateDigest(MessageDigest digest)
@@ -169,49 +165,6 @@ public class Column implements IColumn
     public int getLocalDeletionTime()
     {
         throw new IllegalStateException("column is not marked for delete");
-    }
-
-    // note that we do not call this simply compareTo since it also makes sense to compare Columns by name
-    public ClockRelationship comparePriority(Column o)
-    {
-        ClockRelationship rel = clock.compare(o.clock());
-
-        // tombstone always wins ties.
-        if (isMarkedForDelete())
-        {
-            switch (rel)
-            {
-                case EQUAL:
-                    return ClockRelationship.GREATER_THAN;
-                default:
-                    return rel;
-            }
-        }
-        if (o.isMarkedForDelete())
-        {
-            switch (rel)
-            {
-                case EQUAL:
-                    return ClockRelationship.LESS_THAN;
-                default:
-                    return rel;
-            }
-        }
-
-        // compare value as tie-breaker for equal clocks
-        if (ClockRelationship.EQUAL == rel)
-        {
-            int valRel = FBUtilities.compareByteArrays(value, o.value);
-            if (1 == valRel)
-                return ClockRelationship.GREATER_THAN;
-            if (0 == valRel)
-                return ClockRelationship.EQUAL;
-            // -1 == valRel
-            return ClockRelationship.LESS_THAN;
-        }
-
-        // neither is tombstoned and clocks are different
-        return rel;
     }
 
     @Override

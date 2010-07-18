@@ -213,7 +213,8 @@ public class ThriftValidation
         if (cosc.column != null)
         {
             validateTtl(cosc.column);
-            validateClock(cosc.column.clock);
+            IClock clock = validateClock(keyspace, cfName, cosc.column.clock);
+            validateValueByClock(cosc.column.value, clock);
             ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(null).setColumn(cosc.column.name));
         }
 
@@ -222,7 +223,8 @@ public class ThriftValidation
             for (Column c : cosc.super_column.columns)
             {
                 validateTtl(c);
-                validateClock(c.clock);
+                IClock clock = validateClock(keyspace, cfName, c.clock);
+                validateValueByClock(c.value, clock);
                 ThriftValidation.validateColumnPath(keyspace, new ColumnPath(cfName).setSuper_column(cosc.super_column.name).setColumn(c.name));
             }
         }
@@ -241,13 +243,37 @@ public class ThriftValidation
         assert column.isSetTtl() || column.ttl == 0;
     }
 
-    public static IClock validateClock(Clock clock) throws InvalidRequestException
+    public static IClock validateClock(String keyspace, String cfName, Clock clock) throws InvalidRequestException
     {
-        if (clock.isSetTimestamp())
+        ClockType clockType = DatabaseDescriptor.getClockType(keyspace, cfName);
+        if (clockType == null)
+            throw new InvalidRequestException("No clock found for " + keyspace + " " + cfName);
+        
+        switch (clockType)
         {
+        case Timestamp:
+            if (!clock.isSetTimestamp())
+            {
+                throw new InvalidRequestException("No timestamp set, despite timestamp clock being used: " + keyspace + " " + cfName);
+            }
             return new TimestampClock(clock.getTimestamp());
+        case VersionVector:
+            return new VersionVectorClock(clock.getContext());
+        default:
+            throw new InvalidRequestException("Invalid clock type for " + keyspace + " " + cfName);
         }
-        throw new InvalidRequestException("Clock must have one a timestamp");
+    }
+
+    public static void validateValueByClock(byte[] value, IClock cassandraClock) throws InvalidRequestException
+    {
+        switch (cassandraClock.type())
+        {
+            case Timestamp:
+            case VersionVector:
+            default:
+                return; //nothing to check
+        }
+        
     }
 
     public static void validateMutation(String keyspace, String cfName, Mutation mut)

@@ -38,6 +38,7 @@ import org.apache.cassandra.service.AbstractWriteResponseHandler;
 import org.apache.cassandra.service.IResponseResolver;
 import org.apache.cassandra.service.QuorumResponseHandler;
 import org.apache.cassandra.service.WriteResponseHandler;
+import org.apache.cassandra.service.SecondaryWriteResponseHandler;
 import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
@@ -114,6 +115,20 @@ public abstract class AbstractReplicationStrategy
         return new WriteResponseHandler(writeEndpoints, hintedEndpoints, consistencyLevel, table);
     }
 
+    /**
+     * secondary write response handler tracks write responses after an initial primary write.
+     * use case: support distributed counter writes for CL > ONE
+     */
+    public AbstractWriteResponseHandler getSecondaryWriteResponseHandler(
+        Collection<InetAddress> writeEndpoints,
+        Multimap<InetAddress, InetAddress> hintedEndpoints,
+        ConsistencyLevel consistencyLevel,
+        String table)
+    {
+        return new SecondaryWriteResponseHandler(writeEndpoints, hintedEndpoints, consistencyLevel, table);
+    }
+    
+    
     // instance method so test subclasses can override it
     int getReplicationFactor(String table)
     {
