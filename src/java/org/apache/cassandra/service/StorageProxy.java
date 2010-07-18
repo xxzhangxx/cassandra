@@ -213,7 +213,7 @@ public class StorageProxy implements StorageProxyMBean
                 Message unhintedMessage = null;
 
                 Collection<InetAddress> secondaryEndpoints = updateDestinationByClock(consistency_level, rm, hintedEndpoints);
-                if (secondaryEndpoints != null) {
+                if (!secondaryEndpoints.isEmpty()) {
                     secondaryWrites.add(new Pair<RowMutation, Collection<InetAddress>>(rm, secondaryEndpoints));
                 }
                 
