@@ -60,12 +60,8 @@ public class IncrementCounterContext implements IContext
                                             TIMESTAMP_LENGTH + // last delete
                                             FLAGS_LENGTH;
    
-    private static final byte[] id;
     private static final int idLength;
-    private static final FBUtilities.ByteArrayWrapper idWrapper;
-
-    private static final int countLength = 8; // long
-
+    private static final int countLength = DBConstants.longSize_;
     private static final int stepLength; // length: id + count
 
     // lazy-load singleton
@@ -76,21 +72,13 @@ public class IncrementCounterContext implements IContext
 
     static
     {
-        id = FBUtilities.getLocalAddress().getAddress();
-        idLength = id.length;
-        idWrapper = new FBUtilities.ByteArrayWrapper(id);
-
+        idLength   = FBUtilities.getLocalAddress().getAddress().length;
         stepLength = idLength + countLength;
     }
 
     public static IncrementCounterContext instance()
     {
         return LazyHolder.incrementCounterContext;
-    }
-
-    public static byte[] getId()
-    {
-        return id;
     }
 
     /**
@@ -127,16 +115,16 @@ public class IncrementCounterContext implements IContext
     }
 
     // write a tuple (node id, count) at the front
-    protected static void writeElement(byte[] context, byte[] id_, long count)
+    protected static void writeElement(byte[] context, byte[] id, long count)
     {
-        writeElementAtStepOffset(context, 0, id_, count);
+        writeElementAtStepOffset(context, 0, id, count);
     }
 
     // write a tuple (node id, count) at step offset
-    protected static void writeElementAtStepOffset(byte[] context, int stepOffset, byte[] id_, long count)
+    protected static void writeElementAtStepOffset(byte[] context, int stepOffset, byte[] id, long count)
     {
         int offset = HEADER_LENGTH + (stepOffset * stepLength);
-        System.arraycopy(id_, 0, context, offset, idLength);
+        System.arraycopy(id, 0, context, offset, idLength);
         FBUtilities.copyIntoBytes(context, offset + idLength, count);
     }
 
