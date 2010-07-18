@@ -167,6 +167,10 @@ public class SuperColumn implements IColumn, IColumnContainer
     	throw new UnsupportedOperationException("This operation is not supported for Super Columns.");
     }
 
+    /**
+     * Add column w/o modification.
+     * Rationale: do not modify column clock during deserialization.
+     */
     protected void addColumnForDeserialization(IColumn column) {
         byte[] name = column.name();
         IColumn oldColumn = columns_.putIfAbsent(name, column);

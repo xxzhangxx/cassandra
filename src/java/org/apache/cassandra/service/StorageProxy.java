@@ -272,7 +272,16 @@ public class StorageProxy implements StorageProxyMBean
                 responseHandler.get();
             }
 
-            // perform secondary writes, if necessary
+            /**
+             * perform secondary writes, if necessary
+             *
+             * use case: support distributed counter writes for CL > ONE
+             * rationale:
+             *   distributed counters need to be first written to one replica
+             *     to be correctly accounted for
+             *   then, for CL > ONE, writes can be sent to other replicas
+             *     to help them catch up to the total count of the first replica
+             */
             responseHandlers.clear();
             for (Pair<RowMutation, Collection<InetAddress>> pair : secondaryWrites)
             {
@@ -350,7 +359,6 @@ public class StorageProxy implements StorageProxyMBean
         {
             writeStats.addNano(System.nanoTime() - startTime);
         }
-
     }
 
     /**

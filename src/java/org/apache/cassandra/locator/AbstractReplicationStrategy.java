@@ -115,6 +115,10 @@ public abstract class AbstractReplicationStrategy
         return new WriteResponseHandler(writeEndpoints, hintedEndpoints, consistencyLevel, table);
     }
 
+    /**
+     * secondary write response handler tracks write responses after an initial primary write.
+     * use case: support distributed counter writes for CL > ONE
+     */
     public AbstractWriteResponseHandler getSecondaryWriteResponseHandler(
         Collection<InetAddress> writeEndpoints,
         Multimap<InetAddress, InetAddress> hintedEndpoints,
