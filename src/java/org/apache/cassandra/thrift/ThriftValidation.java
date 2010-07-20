@@ -254,6 +254,10 @@ public class ThriftValidation
         assert column.isSetTtl() || column.ttl == 0;
     }
 
+    /**
+     * Fetch the clock type for the provided column family and check that we have all the 
+     * information required to instantiate.
+     */
     public static IClock validateClock(String keyspace, String cfName, Clock clock) throws InvalidRequestException
     {
         ClockType clockType = DatabaseDescriptor.getClockType(keyspace, cfName);
@@ -275,6 +279,13 @@ public class ThriftValidation
         }
     }
 
+    /**
+     * Check that the value is valid for the clock specified.
+     * For example the increment counter cannot accept negative values.
+     * @param value Value to validate.
+     * @param cassandraClock Clock to check by.
+     * @throws InvalidRequestException If the value is invalid this exception is thrown.
+     */
     public static void validateValueByClock(byte[] value, IClock cassandraClock) throws InvalidRequestException
     {
         switch (cassandraClock.type())
