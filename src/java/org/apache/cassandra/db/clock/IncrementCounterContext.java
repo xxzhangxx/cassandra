@@ -128,20 +128,6 @@ public class IncrementCounterContext implements IContext
         FBUtilities.copyIntoBytes(context, offset + idLength, count);
     }
 
-    /**
-     * Updates a counter context for this node's id.
-     *
-     * @param context
-     *            counter context
-     * @param node
-     *            InetAddress of node to update.
-     * @return the updated version vector.
-     */
-    public byte[] update(byte[] context, InetAddress node)
-    {
-        return update(context, node, 1);
-    }
-
     public byte[] update(byte[] context, InetAddress node, long delta)
     {
         // update timestamp

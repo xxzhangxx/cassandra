@@ -39,17 +39,6 @@ public interface IContext
     public byte[] create();
 
     /**
-     * Updates a context w/ the local id.
-     *
-     * @param node
-     *            InetAddress of node to update.
-     * @param context
-     *            version context.
-     * @return the updated context.
-     */
-    public byte[] update(byte[] context, InetAddress node);
-
-    /**
      * Determine the version relationship between two contexts.
      *
      * EQUAL:        Equal set of nodes and every count is equal.
