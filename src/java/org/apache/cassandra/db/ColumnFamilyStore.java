@@ -31,6 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.slf4j.Logger;
@@ -394,22 +395,29 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         try
         {
             if (oldMemtable.isFrozen())
-            {
                 return null;
-            }
-            oldMemtable.freeze();
 
+            assert memtable_ == oldMemtable;
+            memtable_.freeze();
             final CommitLogSegment.CommitLogContext ctx = writeCommitLog ? CommitLog.instance().getContext() : null;
-            logger_.info(columnFamily_ + " has reached its threshold; switching in a fresh Memtable at " + ctx);
-            final Condition condition = submitFlush(oldMemtable);
-            memtable_ = new Memtable(this, partitioner_);
-            // a second executor that makes sure the onMemtableFlushes get called in the right order,
+            logger_.info("switching in a fresh Memtable for " + columnFamily_ + " at " + ctx);
+
+            // submit the memtable for any indexed sub-cfses, and our own
+            final CountDownLatch latch = new CountDownLatch(1 + indexedColumns_.size());
+            for (ColumnFamilyStore cfs : Iterables.concat(indexedColumns_.values(), Collections.singleton(this)))
+            {
+                submitFlush(cfs.memtable_, latch);
+                cfs.memtable_ = new Memtable(cfs, cfs.partitioner_);
+            }
+
+            // when all the memtables have been written, including for indexes, mark the flush in the commitlog header.
+            // a second executor makes sure the onMemtableFlushes get called in the right order,
             // while keeping the wait-for-flush (future.get) out of anything latency-sensitive.
             return commitLogUpdater_.submit(new WrappedRunnable()
             {
                 public void runMayThrow() throws InterruptedException, IOException
                 {
-                    condition.await();
+                    latch.await();
                     if (writeCommitLog)
                     {
                         // if we're not writing to the commit log, we are replaying the log, so marking
@@ -463,7 +471,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         if (binaryMemtable_.get().isClean())
             return;
 
-        submitFlush(binaryMemtable_.get());
+        submitFlush(binaryMemtable_.get(), new CountDownLatch(1));
     }
 
     /**
@@ -674,12 +682,10 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
      * flushing thread finishes sorting, which will almost always be longer than any of the flushSorter threads proper
      * (since, by definition, it started last).
      */
-    Condition submitFlush(IFlushable flushable)
+    void submitFlush(IFlushable flushable, CountDownLatch latch)
     {
         logger_.info("Enqueuing flush of {}", flushable);
-        final Condition condition = new SimpleCondition();
-        flushable.flushAndSignal(condition, flushSorter_, flushWriter_);
-        return condition;
+        flushable.flushAndSignal(latch, flushSorter_, flushWriter_);
     }
 
     public int getMemtableColumnsCount()
@@ -975,7 +981,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
       * @param columnFilter description of the columns we're interested in for each row
       * @return true if we found all keys we were looking for, otherwise false
      */
-    private boolean getRangeRows(List<Row> rows, byte[] superColumn, final AbstractBounds range, int maxResults, IFilter columnFilter)
+    private void getRangeRows(List<Row> rows, byte[] superColumn, final AbstractBounds range, int maxResults, IFilter columnFilter)
     throws ExecutionException, InterruptedException
     {
         final DecoratedKey startWith = new DecoratedKey(range.left, (byte[])null);
@@ -1005,17 +1011,20 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 DecoratedKey key = current.key;
 
                 if (!stopAt.isEmpty() && stopAt.compareTo(key) < 0)
-                    return true;
+                    return;
 
                 // skip first one
                 if(range instanceof Bounds || !first || !key.equals(startWith))
+                {
                     rows.add(current);
+                    if (logger_.isDebugEnabled())
+                        logger_.debug("scanned " + key);
+                }
                 first = false;
 
                 if (rows.size() >= maxResults)
-                    return true;
+                    return;
             }
-            return false;
         }
         finally
         {
@@ -1043,24 +1052,10 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     throws ExecutionException, InterruptedException
     {
         List<Row> rows = new ArrayList<Row>();
-        boolean completed;
-        if ((range instanceof Bounds || !((Range)range).isWrapAround()))
-        {
-            completed = getRangeRows(rows, super_column, range, keyMax, columnFilter);
-        }
-        else
-        {
-            // wrapped range
-            Token min = partitioner_.getMinimumToken();
-            Range first = new Range(range.left, min);
-            completed = getRangeRows(rows, super_column, first, keyMax, columnFilter);
-            if (!completed && min.compareTo(range.right) < 0)
-            {
-                Range second = new Range(min, range.right);
-                getRangeRows(rows, super_column, second, keyMax, columnFilter);
-            }
-        }
-
+        assert range instanceof Bounds
+               || (!((Range)range).isWrapAround() || range.right.equals(StorageService.getPartitioner().getMinimumToken()))
+               : range;
+        getRangeRows(rows, super_column, range, keyMax, columnFilter);
         return rows;
     }
 
