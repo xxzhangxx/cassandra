@@ -98,7 +98,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                                                TimeUnit.SECONDS,
                                                new LinkedBlockingQueue<Runnable>(DatabaseDescriptor.getFlushWriters()),
                                                new NamedThreadFactory("FLUSH-WRITER-POOL"));
-    private static ExecutorService commitLogUpdater_ = new JMXEnabledThreadPoolExecutor("MEMTABLE-POST-FLUSHER");
+    private static ExecutorService postFlushExecutor_ = new JMXEnabledThreadPoolExecutor("MEMTABLE-POST-FLUSHER");
     
     private static final FilenameFilter DB_NAME_FILTER = new FilenameFilter()
     {
@@ -110,7 +110,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
 
     private Set<Memtable> memtablesPendingFlush = new ConcurrentSkipListSet<Memtable>();
 
-    private final String table_;
+    public final String table_;
     public final String columnFamily_;
     private final IPartitioner partitioner_;
 
@@ -133,10 +133,6 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     private LatencyTracker readStats_ = new LatencyTracker();
     private LatencyTracker writeStats_ = new LatencyTracker();
 
-    private long minRowCompactedSize = 0L;
-    private long maxRowCompactedSize = 0L;
-    private long rowsCompactedTotalSize = 0L;
-    private long rowsCompactedCount = 0L;
     final CFMetaData metadata;
 
     ColumnFamilyStore(String table, String columnFamilyName, IPartitioner partitioner, int generation, CFMetaData metadata)
@@ -247,6 +243,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                                                           false,
                                                           0,
                                                           0,
+                                                          CFMetaData.DEFAULT_GC_GRACE_SECONDS,
                                                           Collections.<byte[], ColumnDefinition>emptyMap());
             ColumnFamilyStore indexedCfs = ColumnFamilyStore.createColumnFamilyStore(table, 
                                                                                      indexedCfName,
@@ -256,32 +253,41 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         }
     }
 
-    public void addToCompactedRowStats(long rowsize)
+    public long getMinRowSize()
     {
-        if (minRowCompactedSize < 1 || rowsize < minRowCompactedSize)
-            minRowCompactedSize = rowsize;
-        if (rowsize > maxRowCompactedSize)
-            maxRowCompactedSize = rowsize;
-        rowsCompactedCount++;
-        rowsCompactedTotalSize += rowsize;
+        long min = 0;
+        for (SSTableReader sstable : ssTables_)
+        {
+           if (min == 0 || sstable.getEstimatedRowSize().min() < min)
+               min = sstable.getEstimatedRowSize().min();
+        }
+        return min;
     }
 
-    public long getMinRowCompactedSize()
+    public long getMaxRowSize()
     {
-        return minRowCompactedSize;
+        long max = 0;
+        for (SSTableReader sstable : ssTables_)
+        {
+            if (sstable.getEstimatedRowSize().max() > max)
+                max = sstable.getEstimatedRowSize().max();
+        }
+        return max;
     }
 
-    public long getMaxRowCompactedSize()
+    public long getMeanRowSize()
     {
-        return maxRowCompactedSize;
-    }
-
-    public long getMeanRowCompactedSize()
-    {
-        if (rowsCompactedCount > 0)
-            return rowsCompactedTotalSize / rowsCompactedCount;
-        else
-            return 0L;
+        long sum = 0;
+        long count = 0;
+        for (SSTableReader sstable : ssTables_)
+        {
+            if (sstable.getEstimatedRowSize().median() > 0)
+            {
+                sum += sstable.getEstimatedRowSize().median();
+                count++;
+            }
+        }
+        return count > 0 ? sum / count : 0;
     }
 
     public static ColumnFamilyStore createColumnFamilyStore(String table, String columnFamily)
@@ -413,7 +419,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
             // when all the memtables have been written, including for indexes, mark the flush in the commitlog header.
             // a second executor makes sure the onMemtableFlushes get called in the right order,
             // while keeping the wait-for-flush (future.get) out of anything latency-sensitive.
-            return commitLogUpdater_.submit(new WrappedRunnable()
+            return postFlushExecutor_.submit(new WrappedRunnable()
             {
                 public void runMayThrow() throws InterruptedException, IOException
                 {
@@ -804,7 +810,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
      */
     public ColumnFamily getColumnFamily(QueryFilter filter)
     {
-        return getColumnFamily(filter, CompactionManager.getDefaultGCBefore());
+        return getColumnFamily(filter, (int) (System.currentTimeMillis() / 1000) - metadata.gcGraceSeconds);
     }
 
     private ColumnFamily cacheRow(DecoratedKey key)
@@ -974,20 +980,24 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     /**
       * Fetch a range of rows and columns from memtables/sstables.
       * 
-      * @param rows The resulting rows fetched during this operation 
-      * @param superColumn Super column to filter by
+      * @param superColumn optional SuperColumn to slice subcolumns of; null to slice top-level columns
       * @param range Either a Bounds, which includes start key, or a Range, which does not.
       * @param maxResults Maximum rows to return
       * @param columnFilter description of the columns we're interested in for each row
       * @return true if we found all keys we were looking for, otherwise false
      */
-    private void getRangeRows(List<Row> rows, byte[] superColumn, final AbstractBounds range, int maxResults, IFilter columnFilter)
+    public List<Row> getRangeSlice(byte[] superColumn, final AbstractBounds range, int maxResults, IFilter columnFilter)
     throws ExecutionException, InterruptedException
     {
+        assert range instanceof Bounds
+               || (!((Range)range).isWrapAround() || range.right.equals(StorageService.getPartitioner().getMinimumToken()))
+               : range;
+
+        List<Row> rows = new ArrayList<Row>();
         final DecoratedKey startWith = new DecoratedKey(range.left, (byte[])null);
         final DecoratedKey stopAt = new DecoratedKey(range.right, (byte[])null);
-        
-        final int gcBefore = CompactionManager.getDefaultGCBefore();
+
+        final int gcBefore = (int) (System.currentTimeMillis() / 1000) - metadata.gcGraceSeconds;
 
         final QueryPath queryPath =  new QueryPath(columnFamily_, superColumn, null);
 
@@ -1011,7 +1021,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 DecoratedKey key = current.key;
 
                 if (!stopAt.isEmpty() && stopAt.compareTo(key) < 0)
-                    return;
+                    return rows;
 
                 // skip first one
                 if(range instanceof Bounds || !first || !key.equals(startWith))
@@ -1023,7 +1033,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 first = false;
 
                 if (rows.size() >= maxResults)
-                    return;
+                    return rows;
             }
         }
         finally
@@ -1037,25 +1047,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 throw new IOError(e);
             }
         }
-    }
 
-    /**
-     *
-     * @param super_column
-     * @param range: either a Bounds, which includes start key, or a Range, which does not.
-     * @param keyMax maximum number of keys to process, regardless of startKey/finishKey
-     * @param columnFilter description of the columns we're interested in for each row
-     * @throws ExecutionException
-     * @throws InterruptedException
-     */
-    public List<Row> getRangeSlice(byte[] super_column, final AbstractBounds range, int keyMax, IFilter columnFilter)
-    throws ExecutionException, InterruptedException
-    {
-        List<Row> rows = new ArrayList<Row>();
-        assert range instanceof Bounds
-               || (!((Range)range).isWrapAround() || range.right.equals(StorageService.getPartitioner().getMinimumToken()))
-               : range;
-        getRangeRows(rows, super_column, range, keyMax, columnFilter);
         return rows;
     }
 
@@ -1308,7 +1300,12 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
             }
         };
 
-        return commitLogUpdater_.submit(runnable);
+        return postFlushExecutor_.submit(runnable);
+    }
+
+    public static Future<?> submitPostFlush(Runnable runnable)
+    {
+        return postFlushExecutor_.submit(runnable);
     }
 
     public long getBloomFilterFalsePositives()

@@ -3,7 +3,6 @@ package org.apache.cassandra.io.sstable;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.List;
 
 import org.junit.Test;
@@ -14,7 +13,6 @@ import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
-import org.apache.cassandra.io.util.BufferedRandomAccessFile;
 import org.apache.cassandra.io.util.FileDataInput;
 import org.apache.cassandra.io.util.MmappedSegmentedFile;
 import org.apache.cassandra.service.StorageService;
@@ -109,5 +107,23 @@ public class SSTableReaderTest extends CleanupHelper
             DecoratedKey dk = Util.dk(String.valueOf(j));
             assert sstable.getPosition(dk, SSTableReader.Operator.EQ) == -1;
         }
+    }
+
+    @Test
+    public void testPersistentStatistics() throws IOException, ExecutionException, InterruptedException
+    {
+
+        Table table = Table.open("Keyspace1");
+        ColumnFamilyStore store = table.getColumnFamilyStore("Standard1");
+
+        for (int j = 0; j < 100; j += 2)
+        {
+            byte[] key = String.valueOf(j).getBytes();
+            RowMutation rm = new RowMutation("Keyspace1", key);
+            rm.add(new QueryPath("Standard1", null, "0".getBytes()), new byte[0], new TimestampClock(j));
+            rm.apply();
+        }
+        store.forceBlockingFlush();
+        assert store.getMaxRowSize() != 0;
     }
 }

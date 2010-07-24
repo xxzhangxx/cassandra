@@ -2,8 +2,6 @@ dev
  * sstable versioning (CASSANDRA-389)
  * bitmask matching in SliceRange queries (CASSANDRA-764)
  * switched to slf4j logging (CASSANDRA-625)
- * drain method to flush memtables and purge commit log prior to shutdown. 
-   (CASSANDRA-880)
  * access levels for authentication/authorization (CASSANDRA-900)
  * add ReadRepairChance to CF definition (CASSANDRA-930)
  * fix heisenbug in system tests, especially common on OS X (CASSANDRA-944)
@@ -39,12 +37,12 @@ dev
  * allow multiple repair sessions per node (CASSANDRA-1190)
  * add dynamic endpoint snitch (CASSANDRA-981)
  * optimize away MessagingService for local range queries (CASSANDRA-1261)
- * pre-emptively drop requests that cannot be processed within RPCTimeout
-   (CASSANDRA-685)
  * make framed transport the default so malformed requests can't OOM the 
    server (CASSANDRA-475)
  * significantly faster reads from row cache (CASSANDRA-1267)
  * take advantage of row cache during range queries (CASSANDRA-1302)
+ * make GCGraceSeconds a per-ColumnFamily value (CASSANDRA-1276)
+ * keep persistent row size and column count statistics (CASSANDRA-1155)
 
 
 0.6.4
@@ -66,6 +64,8 @@ dev
  * fix duplicate rows being read during mapreduce (CASSANDRA-1142)
  * failure detection wasn't closing command sockets (CASSANDRA-1221)
  * cassandra-cli.bat works on windows (CASSANDRA-1236)
+ * pre-emptively drop requests that cannot be processed within RPCTimeout
+   (CASSANDRA-685)
 
 
 0.6.3

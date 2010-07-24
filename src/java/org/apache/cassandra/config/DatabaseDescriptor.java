@@ -348,12 +348,14 @@ public class DatabaseDescriptor
             KSMetaData systemMeta = new KSMetaData(Table.SYSTEM_TABLE, LocalStrategy.class, 1, new CFMetaData[]{CFMetaData.StatusCf,
                                                                                                   CFMetaData.HintsCf,
                                                                                                   CFMetaData.MigrationsCf,
-                                                                                                  CFMetaData.SchemaCf
+                                                                                                  CFMetaData.SchemaCf,
+                                                                                                  CFMetaData.StatisticsCf
             });
             CFMetaData.map(CFMetaData.StatusCf);
             CFMetaData.map(CFMetaData.HintsCf);
             CFMetaData.map(CFMetaData.MigrationsCf);
             CFMetaData.map(CFMetaData.SchemaCf);
+            CFMetaData.map(CFMetaData.StatisticsCf);
             tables.put(Table.SYSTEM_TABLE, systemMeta);
             
             /* Load the seeds for node contact points */
@@ -613,7 +615,8 @@ public class DatabaseDescriptor
                                              cf.rows_cached,
                                              cf.preload_row_cache, 
                                              cf.keys_cached, 
-                                             cf.read_repair_chance, 
+                                             cf.read_repair_chance,
+                                             cf.gc_grace_seconds,
                                              metadata);
             }
             defs.add(new KSMetaData(keyspace.name, strategyClass, keyspace.replication_factor, cfDefs));
@@ -757,11 +760,6 @@ public class DatabaseDescriptor
             System.err.println("Bad configuration; unable to start server");
             System.exit(1);
         }
-    }
-
-    public static int getGcGraceInSeconds()
-    {
-        return conf.gc_grace_seconds;
     }
 
     public static IPartitioner getPartitioner()

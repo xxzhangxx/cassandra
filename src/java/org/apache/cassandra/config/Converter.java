@@ -12,6 +12,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.xpath.XPathExpressionException;
 
 import org.apache.cassandra.utils.FBUtilities;
+import org.apache.cassandra.utils.SkipNullRepresenter;
 import org.apache.cassandra.utils.XMLUtils;
 import org.apache.cassandra.db.ColumnFamilyType;
 import org.w3c.dom.NodeList;
@@ -42,6 +43,12 @@ public class Converter
         try
         {
             NodeList tablesxml = xmlUtils.getRequestedNodeList("/Storage/Keyspaces/Keyspace");
+
+            String gcGrace = xmlUtils.getNodeValue("/Storage/GCGraceSeconds");
+            int gc_grace_seconds = 864000;
+            if ( gcGrace != null )
+                gc_grace_seconds = Integer.parseInt(gcGrace);
+
             int size = tablesxml.getLength();
             for ( int i = 0; i < size; ++i )
             {
@@ -92,7 +99,9 @@ public class Converter
                     {
                         ks.column_families[j].read_repair_chance = FBUtilities.parseDoubleOrPercent(value);
                     }
-                    
+
+                    ks.column_families[j].gc_grace_seconds = gc_grace_seconds;
+
                     ks.column_families[j].comment = xmlUtils.getNodeValue(xqlCF + "Comment");
                 }
                 keyspaces.add(ks);
@@ -139,11 +148,7 @@ public class Converter
             conf.job_tracker_host = xmlUtils.getNodeValue("/Storage/JobTrackerHost");
             
             conf.job_jar_file_location = xmlUtils.getNodeValue("/Storage/JobJarFileLocation");
-            
-            String gcGrace = xmlUtils.getNodeValue("/Storage/GCGraceSeconds");
-            if ( gcGrace != null )
-                conf.gc_grace_seconds = Integer.parseInt(gcGrace);
-            
+
             conf.initial_token = xmlUtils.getNodeValue("/Storage/InitialToken");
             
             String rpcTimeout = xmlUtils.getNodeValue("/Storage/RpcTimeoutInMillis");
@@ -315,18 +320,4 @@ public class Converter
         }
 
     }
-    
-    /* used to prevent null values from being included in generated YAML */
-    private static class SkipNullRepresenter extends Representer {
-        protected NodeTuple representJavaBeanProperty(Object javaBean, Property property,
-                Object propertyValue, Tag customTag) {
-            if (propertyValue == null) {
-                return null;
-            } else {
-                return super.representJavaBeanProperty(javaBean, property, propertyValue, customTag);
-            }
-        }
-
-    }
-
 }
