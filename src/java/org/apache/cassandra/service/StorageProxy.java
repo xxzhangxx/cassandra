@@ -401,8 +401,7 @@ public class StorageProxy implements StorageProxyMBean
         else
         {
             InetAddress[] destinations = destinationSet.toArray(new InetAddress[0]);
-            InetAddress randomDestination = destinations[random.nextInt(destinations.length)];
-            return randomDestination;
+            return destinations[random.nextInt(destinations.length)];
         }
     }
 
