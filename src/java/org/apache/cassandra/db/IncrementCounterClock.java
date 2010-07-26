@@ -112,9 +112,30 @@ public class IncrementCounterClock implements IClock
         return contextManager.toString(context);
     }
 
+    protected void cleanNodeCounts(InetAddress node)
+    {
+        context = contextManager.cleanNodeCounts(context, node);
+    }
+
     public ClockType type()
     {
         return ClockType.IncrementCounter;
+    }
+
+    public void cleanContext(IColumnContainer cc, InetAddress node)
+    {
+        for (IColumn column : cc.getSortedColumns())
+        {
+            if (column instanceof SuperColumn)
+            {
+                cleanContext((IColumnContainer)column, node);
+                continue;
+            }
+            IncrementCounterClock clock = (IncrementCounterClock)column.clock();
+            clock.cleanNodeCounts(node);
+            if (0 == clock.context().length)
+                cc.remove(column.name());
+        }
     }
 
     public void update(ColumnFamily cf, InetAddress node)
@@ -130,7 +151,6 @@ public class IncrementCounterClock implements IClock
                 // update in-place, although Column is (abstractly) immutable
                 IncrementCounterClock clock = (IncrementCounterClock)col.clock();
                 clock.update(node, FBUtilities.byteArrayToLong(col.value()));
-                contextManager.setFlags(clock.context, IncrementCounterContext.FLAG_WRITE);
             }
             return;
         }
@@ -146,50 +166,8 @@ public class IncrementCounterClock implements IClock
                 // update in-place, although Column is (abstractly) immutable
                 IncrementCounterClock clock = (IncrementCounterClock)subCol.clock();
                 clock.update(node, FBUtilities.byteArrayToLong(subCol.value()));
-                contextManager.setFlags(clock.context, IncrementCounterContext.FLAG_WRITE);
             }
         }
-    }
-
-    private Column prepareWriteForColumn(Column column)
-    {
-        IncrementCounterClock clock = (IncrementCounterClock)column.clock();
-        if (0 == (contextManager.getFlags(clock.context()) & IncrementCounterContext.FLAG_WRITE))
-            return column;
-
-        byte[] originalContext = clock.context();
-        byte[] modifiedContext = new byte[originalContext.length];
-        System.arraycopy(originalContext, 0, modifiedContext, 0, originalContext.length);
-        contextManager.setFlags(modifiedContext, 0);
-        IncrementCounterClock modifiedClock = new IncrementCounterClock(modifiedContext);
-
-        if (column instanceof DeletedColumn)
-            return new DeletedColumn(
-                column.name(),
-                column.value(),
-                modifiedClock);
-        else // Column
-            return new Column(
-                column.name(),
-                column.value(),
-                modifiedClock);
-    }
-
-    public IColumn prepareWrite(IColumn column)
-    {
-        if (column instanceof SuperColumn)
-        {
-            SuperColumn originalSuperCol = (SuperColumn)column;
-            SuperColumn modifiedSuperCol = originalSuperCol.cloneMeShallow();
-            for (IColumn subCol : originalSuperCol.getSubColumns())
-            {
-                modifiedSuperCol.addColumn(prepareWriteForColumn((Column)subCol));
-            }
-
-            return modifiedSuperCol;
-        }
-
-        return prepareWriteForColumn((Column)column);
     }
 }
 

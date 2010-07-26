@@ -35,10 +35,9 @@ import org.apache.commons.lang.ArrayUtils;
  * An implementation of a distributed increment-only counter context.
  *
  * The data structure is:
- *   1) timestamp (last modified),
- *   2) timestamp (last known delete),
- *   3) flags, and
- *   4) a list of (node id, count) pairs.
+ *   1) timestamp,
+ *   2) timestamp of the latest known delete, and
+ *   3) a list of (node id, count) pairs.
  *
  * On update:
  *   1) update timestamp to max(timestamp, local time), and
@@ -52,15 +51,10 @@ import org.apache.commons.lang.ArrayUtils;
 public class IncrementCounterContext implements IContext
 {
     public static final int TIMESTAMP_LENGTH = DBConstants.longSize_;
+    public static final int HEADER_LENGTH    = TIMESTAMP_LENGTH * 2; //2xlong
 
-    public static final int FLAGS_LENGTH = DBConstants.intSize_;
-    public static final int FLAG_WRITE   = 1; // write vs. repair  
-
-    public static final int HEADER_LENGTH = TIMESTAMP_LENGTH + // last modified
-                                            TIMESTAMP_LENGTH + // last delete
-                                            FLAGS_LENGTH;
-   
     private static final int idLength;
+    private static final FBUtilities.ByteArrayWrapper idWrapper;
     private static final int countLength = DBConstants.longSize_;
     private static final int stepLength; // length: id + count
 
@@ -72,7 +66,9 @@ public class IncrementCounterContext implements IContext
 
     static
     {
-        idLength   = FBUtilities.getLocalAddress().getAddress().length;
+        byte[] id  = FBUtilities.getLocalAddress().getAddress();
+        idLength   = id.length;
+        idWrapper  = new FBUtilities.ByteArrayWrapper(id);
         stepLength = idLength + countLength;
     }
 
@@ -91,7 +87,6 @@ public class IncrementCounterContext implements IContext
         byte[] context = new byte[HEADER_LENGTH];
         FBUtilities.copyIntoBytes(context, 0, System.currentTimeMillis());
         FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH, 0L);
-        FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH * 2, 0);
         return context;
     }
     
@@ -100,18 +95,7 @@ public class IncrementCounterContext implements IContext
         byte[] rv = new byte[HEADER_LENGTH];
         FBUtilities.copyIntoBytes(rv, 0, Long.MIN_VALUE);
         FBUtilities.copyIntoBytes(rv, TIMESTAMP_LENGTH, 0L);
-        FBUtilities.copyIntoBytes(rv, TIMESTAMP_LENGTH * 2, 0);
         return rv;
-    }
-
-    public int getFlags(byte[] context)
-    {
-        return FBUtilities.byteArrayToInt(context, TIMESTAMP_LENGTH * 2);
-    }
-
-    public void setFlags(byte[] context, int flags)
-    {
-        FBUtilities.copyIntoBytes(context, TIMESTAMP_LENGTH * 2, flags);
     }
 
     // write a tuple (node id, count) at the front
@@ -425,19 +409,15 @@ public class IncrementCounterContext implements IContext
         //   1) take highest timestamp
         //   2) take highest delete timestamp
         //   3) map id -> count
-        //      a) write flag:    sum counts
-        //      b) no write flag: keep highest count (reconcile)
+        //      a) local id:  sum counts; keep highest timestamp
+        //      b) remote id: keep highest count (reconcile)
         //   4) create a context from sorted array
         long highestTimestamp = Long.MIN_VALUE;
         long highestDeleteTimestamp = Long.MIN_VALUE;
-        Map<FBUtilities.ByteArrayWrapper, Long> reconcileMap =
-            new HashMap<FBUtilities.ByteArrayWrapper, Long>();
-        Map<FBUtilities.ByteArrayWrapper, Long> mergeMap =
+        Map<FBUtilities.ByteArrayWrapper, Long> contextsMap =
             new HashMap<FBUtilities.ByteArrayWrapper, Long>();
         for (byte[] context : contexts)
         {
-            boolean flagWrite = (getFlags(context) & FLAG_WRITE) == FLAG_WRITE;
-
             // take highest timestamp
             highestTimestamp = Math.max(FBUtilities.byteArrayToLong(context, 0), highestTimestamp);
             highestDeleteTimestamp = Math.max(FBUtilities.byteArrayToLong(context, TIMESTAMP_LENGTH), highestDeleteTimestamp);
@@ -449,44 +429,24 @@ public class IncrementCounterContext implements IContext
                         ArrayUtils.subarray(context, offset, offset + idLength));
                 long count = FBUtilities.byteArrayToLong(context, offset + idLength);
 
-                Long previousCount;
-
-                // initial write
-                if (flagWrite) {
-                    previousCount = mergeMap.put(id, count);
-                    if (previousCount == null)
-                        continue;
-
-                    mergeMap.put(id, count + previousCount);
-                    continue;
-                }
-
-                // reconcile
-                previousCount = reconcileMap.put(id, count);
+                Long previousCount = contextsMap.put(id, count);
                 if (previousCount == null)
                     continue;
 
-                // keep highest count:
-                //   remote id
-                reconcileMap.put(id, Math.max(count, previousCount));
+                // local id: sum counts
+                if (this.idWrapper.equals(id)) {
+                    contextsMap.put(id, count + previousCount);
+                    continue;
+                }
+
+                // remote id: keep highest count
+                contextsMap.put(id, Math.max(count, previousCount));
             }
-        }
-
-        // add initial write context counts to reconciled context counts
-        for (Map.Entry<FBUtilities.ByteArrayWrapper, Long> contextEntry : mergeMap.entrySet())
-        {
-            FBUtilities.ByteArrayWrapper id = contextEntry.getKey();
-            Long count = contextEntry.getValue();
-
-            Long previousCount = reconcileMap.put(id, count);
-            if (previousCount == null)
-                continue;
-            reconcileMap.put(id, count + previousCount);
         }
 
         List<Map.Entry<FBUtilities.ByteArrayWrapper, Long>> contextsList =
             new ArrayList<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>(
-                    reconcileMap.entrySet());
+                    contextsMap.entrySet());
         Collections.sort(
             contextsList,
             new Comparator<Map.Entry<FBUtilities.ByteArrayWrapper, Long>>()
@@ -504,7 +464,6 @@ public class IncrementCounterContext implements IContext
         byte[] merged = new byte[HEADER_LENGTH + (length * stepLength)];
         FBUtilities.copyIntoBytes(merged, 0, highestTimestamp);
         FBUtilities.copyIntoBytes(merged, TIMESTAMP_LENGTH, highestDeleteTimestamp);
-        FBUtilities.copyIntoBytes(merged, TIMESTAMP_LENGTH * 2, 0); // flags reset
         for (int i = 0; i < length; i++)
         {
             Map.Entry<FBUtilities.ByteArrayWrapper, Long> entry = contextsList.get(i);
@@ -533,8 +492,6 @@ public class IncrementCounterContext implements IContext
         sb.append(FBUtilities.byteArrayToLong(context, 0));
         sb.append(", ");
         sb.append(FBUtilities.byteArrayToLong(context, TIMESTAMP_LENGTH));
-        sb.append(", ");
-        sb.append(FBUtilities.byteArrayToInt(context, TIMESTAMP_LENGTH * 2));
         sb.append(" + [");
         for (int offset = HEADER_LENGTH; offset < context.length; offset += stepLength)
         {
@@ -573,5 +530,32 @@ public class IncrementCounterContext implements IContext
         }
 
         return FBUtilities.toByteArray(total);
+    }
+
+    // remove the count for a given node id
+    public byte[] cleanNodeCounts(byte[] context, InetAddress node)
+    {
+        // calculate node id
+        byte[] nodeId = node.getAddress();
+
+        // look for this node id
+        for (int offset = HEADER_LENGTH; offset < context.length; offset += stepLength)
+        {
+            if (FBUtilities.compareByteSubArrays(context, offset, nodeId, 0, idLength) != 0)
+                continue;
+
+            // node id found: remove node count
+            byte[] truncatedContext = new byte[context.length - stepLength];
+            System.arraycopy(context, 0, truncatedContext, 0, offset);
+            System.arraycopy(
+                context,
+                offset + stepLength,
+                truncatedContext,
+                offset,
+                context.length - (offset + stepLength));
+            return truncatedContext;
+        }
+
+        return context;
     }
 }

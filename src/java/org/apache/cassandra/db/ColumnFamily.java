@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.db;
 
+import java.net.InetAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.security.MessageDigest;
@@ -222,16 +223,6 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
         columns.clear();
     }
 
-    /**
-     * Add column w/o modification.
-     * Rationale: do not modify column clock during deserialization.
-     */
-    protected void addColumnForDeserialization(IColumn column) {
-        byte[] name = column.name();
-        IColumn oldColumn = columns.putIfAbsent(name, column);
-        assert oldColumn == null;
-    }
-
     /*
      * If we find an old column that has the same name
      * the ask it to resolve itself else add the new column .
@@ -239,9 +230,7 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
     public void addColumn(IColumn column)
     {
         byte[] name = column.name();
-        IColumn oldColumn = columns.putIfAbsent(
-            name,
-            clockType.minClock().prepareWrite(column));
+        IColumn oldColumn = columns.putIfAbsent(name, column);
         if (oldColumn != null)
         {
             if (oldColumn instanceof SuperColumn)
@@ -262,6 +251,17 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
                 }
             }
         }
+    }
+
+    /**
+     * Clean the context for the specified node in a clock
+     * specific manner. Used for example in the increment counter
+     * to clear counts from a node.
+     * @param node Node to clear the context from.
+     */
+    public void cleanContext(InetAddress node)
+    {
+        markedForDeleteAt.get().cleanContext(this, node);
     }
 
     public IColumn getColumn(byte[] name)

@@ -104,6 +104,11 @@ public class SuperColumn implements IColumn, IColumnContainer
     {
     	return columns_.values();
     }
+    
+    public Collection<IColumn> getSortedColumns()
+    {
+        return getSubColumns();
+    }
 
     public IColumn getSubColumn(byte[] columnName)
     {
@@ -167,24 +172,12 @@ public class SuperColumn implements IColumn, IColumnContainer
     	throw new UnsupportedOperationException("This operation is not supported for Super Columns.");
     }
 
-    /**
-     * Add column w/o modification.
-     * Rationale: do not modify column clock during deserialization.
-     */
-    protected void addColumnForDeserialization(IColumn column) {
-        byte[] name = column.name();
-        IColumn oldColumn = columns_.putIfAbsent(name, column);
-        assert oldColumn == null;
-    }
-
     public void addColumn(IColumn column)
     {
         assert column instanceof Column : "A super column can only contain simple columns";
 
         byte[] name = column.name();
-        IColumn oldColumn = columns_.putIfAbsent(
-            name,
-            column.clock().prepareWrite(column));
+        IColumn oldColumn = columns_.putIfAbsent(name, column);
         if (oldColumn != null)
         {
             IColumn reconciledColumn = reconciler.reconcile((Column)column, (Column)oldColumn);
@@ -364,7 +357,7 @@ class SuperColumnSerializer implements ICompactSerializer2<IColumn>
         for ( int i = 0; i < size; ++i )
         {
             IColumn subColumn = Column.serializer(clockType).deserialize(dis);
-            superColumn.addColumnForDeserialization(subColumn);
+            superColumn.addColumn(subColumn);
         }
         return superColumn;
     }

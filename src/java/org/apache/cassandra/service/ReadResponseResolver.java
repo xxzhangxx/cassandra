@@ -89,7 +89,14 @@ public class ReadResponseResolver implements IResponseResolver<Row>
             }
             else
             {
-                versions.add(result.row().cf);
+                ColumnFamily cf = result.row().cf;
+                if (!FBUtilities.getLocalAddress().equals(response.getFrom()) && cf != null)
+                {
+                    cf = cf.cloneMe();
+                    cf.cleanContext(FBUtilities.getLocalAddress());
+                }
+
+                versions.add(cf);
                 endpoints.add(response.getFrom());
                 key = result.row().key;
             }
@@ -137,6 +144,11 @@ public class ReadResponseResolver implements IResponseResolver<Row>
 
             // create and send the row mutation message based on the diff
             RowMutation rowMutation = new RowMutation(table, key.key);
+
+            diffCf.cleanContext(endpoints.get(i));
+            if (diffCf.getColumnsMap().isEmpty() && !diffCf.isMarkedForDelete())
+                continue;
+
             rowMutation.add(diffCf);
             RowMutationMessage rowMutationMessage = new RowMutationMessage(rowMutation);
             Message repairMessage;

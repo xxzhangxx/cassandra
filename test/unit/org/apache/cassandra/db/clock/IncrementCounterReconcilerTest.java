@@ -54,7 +54,6 @@ public class IncrementCounterReconcilerTest
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(10L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(27L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
             FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
@@ -68,7 +67,6 @@ public class IncrementCounterReconcilerTest
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(7L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(9L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(32L),
             FBUtilities.toByteArray(5), FBUtilities.toByteArray(4L),
@@ -88,13 +86,13 @@ public class IncrementCounterReconcilerTest
             ((IncrementCounterClock)reconciled.clock()).context()
             ) == 0;
 
-        // local:   27L
+        // local:   27L+9L
         // 1:       128L
         // 5:       32L
         // 6:       2L
         // 9:       62L
         assert FBUtilities.compareByteArrays(
-            FBUtilities.toByteArray(27L+128L+32L+2L+62L),
+            FBUtilities.toByteArray((27L+9L)+128L+32L+2L+62L),
             reconciled.value()
             ) == 0;
 
@@ -120,7 +118,6 @@ public class IncrementCounterReconcilerTest
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(44L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
             FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
@@ -134,7 +131,6 @@ public class IncrementCounterReconcilerTest
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(1L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L)
             ));
         right = new DeletedColumn(
@@ -160,7 +156,6 @@ public class IncrementCounterReconcilerTest
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
             FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
@@ -174,7 +169,6 @@ public class IncrementCounterReconcilerTest
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(100L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L)
             ));
         right = new DeletedColumn(
@@ -208,7 +202,6 @@ public class IncrementCounterReconcilerTest
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(4L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
             FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
@@ -237,7 +230,6 @@ public class IncrementCounterReconcilerTest
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(1L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(0L)
             ));
         left = new DeletedColumn(
@@ -248,7 +240,6 @@ public class IncrementCounterReconcilerTest
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(44L),
             FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0),
             FBUtilities.getLocalAddress().getAddress(), FBUtilities.toByteArray(3L),
             FBUtilities.toByteArray(1), FBUtilities.toByteArray(128L),
             FBUtilities.toByteArray(9), FBUtilities.toByteArray(62L),
@@ -290,8 +281,7 @@ public class IncrementCounterReconcilerTest
         // delete + delete
         leftClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(3L),
-            FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0)
+            FBUtilities.toByteArray(0L)
             ));
         left = new DeletedColumn(
             "x".getBytes(),
@@ -300,8 +290,7 @@ public class IncrementCounterReconcilerTest
 
         rightClock = new IncrementCounterClock(Util.concatByteArrays(
             FBUtilities.toByteArray(6L),
-            FBUtilities.toByteArray(0L),
-            FBUtilities.toByteArray(0)
+            FBUtilities.toByteArray(0L)
             ));
         right = new DeletedColumn(
             "x".getBytes(),
@@ -335,8 +324,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(1L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(10L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
         // value: 0. timestamp 7. delete timestamp 0
         Column c2 = new DeletedColumn(
@@ -344,8 +332,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(0L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(7L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
         // value: 2. timestamp 3. delete timestamp 0
         Column c3 = new Column(
@@ -353,8 +340,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(2L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(3L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
 
         // should return same value no matter the order of reconciliation
@@ -369,8 +355,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(1L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(10L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
         // value: 0. timestamp 7. delete timestamp 0
         c2 = new DeletedColumn(
@@ -378,8 +363,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(0L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(7L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
         // value: 2. timestamp 3. delete timestamp 0
         c3 = new Column(
@@ -387,8 +371,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(2L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(3L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
         
         r1 = reconciler.reconcile(c1, c2);
@@ -402,8 +385,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(1L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(10L),
-                FBUtilities.toByteArray(8L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(8L)
                 )));
         // value: 0. timestamp 7. delete timestamp 0
         c2 = new DeletedColumn(
@@ -411,8 +393,7 @@ public class IncrementCounterReconcilerTest
             FBUtilities.toByteArray(0L),
             new IncrementCounterClock(Util.concatByteArrays(
                 FBUtilities.toByteArray(7L),
-                FBUtilities.toByteArray(0L),
-                FBUtilities.toByteArray(0)
+                FBUtilities.toByteArray(0L)
                 )));
         
         r1 = reconciler.reconcile(c1, c2);

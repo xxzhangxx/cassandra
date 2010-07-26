@@ -112,13 +112,12 @@ public class TimestampClock implements IClock
         return null;
     }
 
-    public void update(ColumnFamily cf, InetAddress node)
+    public void cleanContext(IColumnContainer cc, InetAddress node)
     {
     }
 
-    public IColumn prepareWrite(IColumn column)
+    public void update(ColumnFamily cf, InetAddress node)
     {
-        return column;
     }
 
     @Override
