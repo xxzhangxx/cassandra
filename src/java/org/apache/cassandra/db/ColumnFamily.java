@@ -241,7 +241,7 @@ public class ColumnFamily implements IColumnContainer, IIterableColumns
         byte[] name = column.name();
         IColumn oldColumn = columns.putIfAbsent(
             name,
-            column.clock().prepareWrite(column));
+            clockType.minClock().prepareWrite(column));
         if (oldColumn != null)
         {
             if (oldColumn instanceof SuperColumn)
