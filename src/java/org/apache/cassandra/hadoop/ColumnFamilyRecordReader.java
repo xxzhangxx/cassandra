@@ -30,14 +30,18 @@ import com.google.common.collect.AbstractIterator;
 
 import org.apache.cassandra.auth.AllowAllAuthenticator;
 import org.apache.cassandra.auth.SimpleAuthenticator;
+
+import org.apache.cassandra.config.ConfigurationException;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.clock.AbstractReconciler;
+import org.apache.cassandra.db.clock.TimestampReconciler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.thrift.*;
 import org.apache.cassandra.thrift.Column;
 import org.apache.cassandra.thrift.SuperColumn;
+import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -45,6 +49,7 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TSocket;
 
 public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byte[], IColumn>>
@@ -57,7 +62,6 @@ public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byt
     private int batchRowCount; // fetch this many per batch
     private String cfName;
     private String keyspace;
-    private AuthenticationRequest authRequest;
     private TSocket socket;
     private Cassandra.Client client;
 
@@ -97,11 +101,35 @@ public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byt
         cfName = ConfigHelper.getInputColumnFamily(conf);
         keyspace = ConfigHelper.getInputKeyspace(conf);
         
-        Map<String, String> creds = new HashMap<String, String>();
-        creds.put(SimpleAuthenticator.USERNAME_KEY, ConfigHelper.getInputKeyspaceUserName(conf));
-        creds.put(SimpleAuthenticator.PASSWORD_KEY, ConfigHelper.getInputKeyspacePassword(conf));
-        authRequest = new AuthenticationRequest(creds);
-        
+        try
+        {
+            // only need to connect once
+            if (socket != null && socket.isOpen())
+                return;
+
+            // create connection using thrift
+            String location = getLocation();
+            socket = new TSocket(location, ConfigHelper.getRpcPort(conf));
+            TBinaryProtocol binaryProtocol = new TBinaryProtocol(new TFramedTransport(socket));
+            client = new Cassandra.Client(binaryProtocol);
+            socket.open();
+
+            // log in
+            client.set_keyspace(keyspace);
+            if (ConfigHelper.getInputKeyspaceUserName(conf) != null)
+            {
+                Map<String, String> creds = new HashMap<String, String>();
+                creds.put(SimpleAuthenticator.USERNAME_KEY, ConfigHelper.getInputKeyspaceUserName(conf));
+                creds.put(SimpleAuthenticator.PASSWORD_KEY, ConfigHelper.getInputKeyspacePassword(conf));
+                AuthenticationRequest authRequest = new AuthenticationRequest(creds);
+                client.login(authRequest);
+            }
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+
         iter = new RowIterator();
     }
     
@@ -113,14 +141,73 @@ public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byt
         return true;
     }
 
+    // we don't use endpointsnitch since we are trying to support hadoop nodes that are
+    // not necessarily on Cassandra machines, too.  This should be adequate for single-DC clusters, at least.
+    private String getLocation()
+    {
+        InetAddress[] localAddresses;
+        try
+        {
+            localAddresses = InetAddress.getAllByName(InetAddress.getLocalHost().getHostAddress());
+        }
+        catch (UnknownHostException e)
+        {
+            throw new AssertionError(e);
+        }
+        for (InetAddress address : localAddresses)
+        {
+            for (String location : split.getLocations())
+            {
+                InetAddress locationAddress = null;
+                try
+                {
+                    locationAddress = InetAddress.getByName(location);
+                }
+                catch (UnknownHostException e)
+                {
+                    throw new AssertionError(e);
+                }
+                if (address.equals(locationAddress))
+                {
+                    return location;
+                }
+            }
+        }
+        return split.getLocations()[0];
+    }
+
     private class RowIterator extends AbstractIterator<Pair<byte[], SortedMap<byte[], IColumn>>>
     {
-
         private List<KeySlice> rows;
         private String startToken;
         private int totalRead = 0;
         private int i = 0;
-        private AbstractType comparator = null;
+        private final AbstractType comparator;
+        private final AbstractType subComparator;
+        private final IPartitioner partitioner;
+
+        private RowIterator()
+        {
+            try
+            {
+                partitioner = FBUtilities.newPartitioner(client.describe_partitioner());
+                Map<String, String> info = client.describe_keyspace(keyspace).get(cfName);
+                comparator = FBUtilities.getComparator(info.get("CompareWith"));
+                subComparator = info.get("CompareSubcolumnsWith") == null ? null : FBUtilities.getComparator(info.get("CompareSubcolumnsWith"));
+            }
+            catch (ConfigurationException e)
+            {
+                throw new RuntimeException("unable to load sub/comparator", e);
+            }
+            catch (TException e)
+            {
+                throw new RuntimeException("error communicating via Thrift", e);
+            }
+            catch (NotFoundException e)
+            {
+                throw new RuntimeException("server reports no such keyspace " + keyspace, e);
+            }
+        }
 
         private void maybeInit()
         {
@@ -130,16 +217,7 @@ public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byt
             
             if (rows != null)
                 return;
-            
-            try
-            {
-                maybeConnect();
-            } 
-            catch (Exception e)
-            {
-                throw new RuntimeException(e);
-            } 
-            
+
             if (startToken == null)
             {
                 startToken = split.getStartToken();
@@ -172,87 +250,13 @@ public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byt
                 
                 // prepare for the next slice to be read
                 KeySlice lastRow = rows.get(rows.size() - 1);
-                IPartitioner p = DatabaseDescriptor.getPartitioner();
                 byte[] rowkey = lastRow.getKey();
-                startToken = p.getTokenFactory().toString(p.getToken(rowkey));
+                startToken = partitioner.getTokenFactory().toString(partitioner.getToken(rowkey));
             }
             catch (Exception e)
             {
                 throw new RuntimeException(e);
             }
-        }
-        
-        /**
-         * Connect, log in and set up the correct comparator.
-         */
-        private void maybeConnect() throws InvalidRequestException, TException, AuthenticationException, 
-            AuthorizationException, NotFoundException, InstantiationException, IllegalAccessException, 
-            ClassNotFoundException, NoSuchFieldException
-        {
-            // only need to connect once
-            if (socket != null && socket.isOpen())
-                return;
-
-            // create connection using thrift
-            String location = getLocation();
-            socket = new TSocket(location, DatabaseDescriptor.getRpcPort());
-            TBinaryProtocol binaryProtocol = new TBinaryProtocol(socket, false, false);
-            client = new Cassandra.Client(binaryProtocol);
-            socket.open();
-            
-            // log in
-            client.set_keyspace(keyspace);
-            if (!(DatabaseDescriptor.getAuthenticator() instanceof AllowAllAuthenticator))
-            {
-                client.login(authRequest);
-            }
-            
-            // Get the keyspace information to get the comparator
-            if (comparator == null)
-            {
-                Map<String, Map<String,String>> desc = client.describe_keyspace(keyspace);
-                Map<String,String> ksProps = desc.get(cfName);
-                String compClass = ksProps.get("CompareWith");
-                // Get the singleton instance of the AbstractType subclass
-                Class<?> c = Class.forName(compClass);
-                comparator = (AbstractType) c.getField("instance").get(c);
-            }
-        }
-
-
-        // we don't use endpointsnitch since we are trying to support hadoop nodes that are
-        // not necessarily on Cassandra machines, too.  This should be adequate for single-DC clusters, at least.
-        private String getLocation()
-        {
-            InetAddress[] localAddresses = new InetAddress[0];
-            try
-            {
-                localAddresses = InetAddress.getAllByName(InetAddress.getLocalHost().getHostAddress());
-            }
-            catch (UnknownHostException e)
-            {
-                throw new AssertionError(e);
-            }
-            for (InetAddress address : localAddresses)
-            {
-                for (String location : split.getLocations())
-                {
-                    InetAddress locationAddress = null;
-                    try
-                    {
-                        locationAddress = InetAddress.getByName(location);
-                    }
-                    catch (UnknownHostException e)
-                    {
-                        throw new AssertionError(e);
-                    }
-                    if (address.equals(locationAddress))
-                    {
-                        return location;
-                    }
-                }
-            }
-            return split.getLocations()[0];
         }
 
         /**
@@ -280,35 +284,34 @@ public class ColumnFamilyRecordReader extends RecordReader<byte[], SortedMap<byt
             }
             return new Pair<byte[], SortedMap<byte[], IColumn>>(ks.key, map);
         }
-    }
 
-    private IColumn unthriftify(ColumnOrSuperColumn cosc)
-    {
-        if (cosc.column == null)
-            return unthriftifySuper(cosc.super_column);
-        return unthriftifySimple(cosc.column);
-    }
-
-    private IColumn unthriftifySuper(SuperColumn super_column)
-    {
-        AbstractType subComparator = DatabaseDescriptor.getSubComparator(keyspace, cfName);
-        ClockType clockType = DatabaseDescriptor.getClockType(keyspace, cfName);
-        AbstractReconciler reconciler = DatabaseDescriptor.getReconciler(keyspace, cfName);
-        org.apache.cassandra.db.SuperColumn sc = new org.apache.cassandra.db.SuperColumn(super_column.name, subComparator, clockType, reconciler);
-        for (Column column : super_column.columns)
+        private IColumn unthriftify(ColumnOrSuperColumn cosc)
         {
-            sc.addColumn(unthriftifySimple(column));
+            if (cosc.column == null)
+                return unthriftifySuper(cosc.super_column);
+            return unthriftifySimple(cosc.column);
         }
-        return sc;
-    }
 
-    private IColumn unthriftifySimple(Column column)
-    {
-        return new org.apache.cassandra.db.Column(column.name, column.value, unthriftifyClock(column.clock));
-    }
+        private IColumn unthriftifySuper(SuperColumn super_column)
+        {
+            ClockType clockType = ClockType.Timestamp; // TODO generalize
+            AbstractReconciler reconciler = new TimestampReconciler(); // TODO generalize
+            org.apache.cassandra.db.SuperColumn sc = new org.apache.cassandra.db.SuperColumn(super_column.name, subComparator, clockType, reconciler);
+            for (Column column : super_column.columns)
+            {
+                sc.addColumn(unthriftifySimple(column));
+            }
+            return sc;
+        }
 
-    private static IClock unthriftifyClock(Clock clock)
-    {
-        return new org.apache.cassandra.db.TimestampClock(clock.getTimestamp());
+        private IColumn unthriftifySimple(Column column)
+        {
+            return new org.apache.cassandra.db.Column(column.name, column.value, unthriftifyClock(column.clock));
+        }
+
+        private IClock unthriftifyClock(Clock clock)
+        {
+            return new org.apache.cassandra.db.TimestampClock(clock.getTimestamp());
+        }
     }
 }

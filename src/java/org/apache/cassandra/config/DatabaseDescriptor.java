@@ -113,9 +113,8 @@ public class DatabaseDescriptor
     {
         try
         {
-            
             configFileName = getStorageConfigPath();
-            
+
             if (logger.isDebugEnabled())
                 logger.info("Loading settings from " + configFileName);
             
@@ -205,10 +204,9 @@ public class DatabaseDescriptor
             }
             try
             {
-                Class cls = Class.forName(conf.partitioner);
-                partitioner = (IPartitioner) cls.getConstructor().newInstance();
+                partitioner = FBUtilities.newPartitioner(conf.partitioner);
             }
-            catch (ClassNotFoundException e)
+            catch (Exception e)
             {
                 throw new ConfigurationException("Invalid partitioner class " + conf.partitioner);
             }
@@ -648,43 +646,12 @@ public class DatabaseDescriptor
 
     public static AbstractType getComparator(String compareWith) throws ConfigurationException
     {
-        logger.info(compareWith);
         Class<? extends AbstractType> typeClass;
         
         if (compareWith == null)
-        {
-            typeClass = BytesType.class;
-        }
-        else
-        {
-            String className = compareWith.contains(".") ? compareWith : "org.apache.cassandra.db.marshal." + compareWith;
-            try
-            {
-                typeClass = (Class<? extends AbstractType>)Class.forName(className);
-            }
-            catch (ClassNotFoundException e)
-            {
-                throw new ConfigurationException("Unable to load class " + className);
-            }
-        }
+            compareWith = "BytesType";
 
-        try
-        {
-            Field field = typeClass.getDeclaredField("instance");
-            return (AbstractType) field.get(null);
-        }
-        catch (NoSuchFieldException e)
-        {
-            ConfigurationException ex = new ConfigurationException("Invalid comparator: must define a public static instance field.");
-            ex.initCause(e);
-            throw ex;
-        }
-        catch (IllegalAccessException e)
-        {
-            ConfigurationException ex = new ConfigurationException("Invalid comparator: must define a public static instance field.");
-            ex.initCause(e);
-            throw ex;
-        }
+        return FBUtilities.getComparator(compareWith);
     }
 
     public static AbstractReconciler getReconciler(String reconcileWith) throws ConfigurationException
@@ -716,19 +683,7 @@ public class DatabaseDescriptor
             ex.initCause(e);
             throw ex;
         }
-        catch (IllegalAccessException e)
-        {
-            ConfigurationException ex = new ConfigurationException(e.getMessage());
-            ex.initCause(e);
-            throw ex;
-        }
-        catch (InvocationTargetException e)
-        {
-            ConfigurationException ex = new ConfigurationException(e.getMessage());
-            ex.initCause(e);
-            throw ex;
-        }
-        catch (NoSuchMethodException e)
+        catch (Exception e)
         {
             ConfigurationException ex = new ConfigurationException(e.getMessage());
             ex.initCause(e);

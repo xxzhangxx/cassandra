@@ -143,17 +143,17 @@ public class CassandraDaemon extends org.apache.cassandra.service.AbstractCassan
         try
         {
             tServerSocket = new TServerSocket(new InetSocketAddress(listenAddr, listenPort));
-        } catch (TTransportException e)
+        }
+        catch (TTransportException e)
         {
-            throw new IOException(String.format(
-                    "Unable to create thrift socket to %s:%s", listenAddr,
-                    listenPort), e);
+            throw new IOException(String.format("Unable to create thrift socket to %s:%s",
+                                                listenAddr, listenPort), e);
         }
         
         logger.info(String.format("Binding thrift service to %s:%s", listenAddr, listenPort));
 
         // Protocol factory
-        TProtocolFactory tProtocolFactory = new TBinaryProtocol.Factory(false, 
+        TProtocolFactory tProtocolFactory = new TBinaryProtocol.Factory(true, 
                                                                         true, 
                                                                         DatabaseDescriptor.getThriftMaxMessageLength());
         
@@ -165,7 +165,6 @@ public class CassandraDaemon extends org.apache.cassandra.service.AbstractCassan
             inTransportFactory = new TFramedTransport.Factory(tFramedTransportSize);
             outTransportFactory = new TFramedTransport.Factory(tFramedTransportSize);
             logger.info("Using TFramedTransport with a max frame size of {} bytes.", tFramedTransportSize);
-            
         }
         else
         {
