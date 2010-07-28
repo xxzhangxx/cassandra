@@ -41,6 +41,7 @@ dev
  * take advantage of row cache during range queries (CASSANDRA-1302)
  * make GCGraceSeconds a per-ColumnFamily value (CASSANDRA-1276)
  * keep persistent row size and column count statistics (CASSANDRA-1155)
+ * add IntegerType (CASSANDRA-1282)
 
 
 0.6.4
@@ -70,6 +71,7 @@ dev
  * fix read repair to use requested consistency level on digest mismatch,
    rather than assuming QUORUM (CASSANDRA-1316)
  * process digest mismatch re-reads in parallel (CASSANDRA-1323)
+ * switch hints CF comparator to BytesType (CASSANDRA-1274)
 
 
 0.6.3
