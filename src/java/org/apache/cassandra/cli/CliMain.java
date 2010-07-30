@@ -80,7 +80,7 @@ public class CliMain
             transport_ = socket;
         }
 
-        TBinaryProtocol binaryProtocol = new TBinaryProtocol(transport_, false, false);
+        TBinaryProtocol binaryProtocol = new TBinaryProtocol(transport_, true, true);
         Cassandra.Client cassandraClient = new Cassandra.Client(binaryProtocol);
 
         try
@@ -232,14 +232,13 @@ public class CliMain
         {
             css_.err.println(ire.why);
             if (css_.debug)
-                ire.printStackTrace();
+                ire.printStackTrace(css_.err);
         }
         catch (Exception e)
         {
             css_.err.println("Exception " + e.getMessage());
             if (css_.debug)
-                e.printStackTrace();
-
+                e.printStackTrace(css_.err);
         }
     }
 
