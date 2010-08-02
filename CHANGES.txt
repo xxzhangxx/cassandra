@@ -43,6 +43,14 @@ dev
  * keep persistent row size and column count statistics (CASSANDRA-1155)
  * add IntegerType (CASSANDRA-1282)
  * page within a single row during hinted handoff (CASSANDRA-1327)
+ * push DatacenterShardStrategy configuration into keyspace definition,
+   eliminating datacenter.properties. (CASSANDRA-1066)
+
+
+0.6.5
+ * page within a single row during hinted handoff (CASSANDRA-1327)
+ * fix compilation on non-sun JKDs (CASSANDRA-1061)
+
 
 0.6.4
  * avoid queuing multiple hint deliveries for the same endpoint
