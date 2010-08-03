@@ -206,9 +206,9 @@ public final class CFMetaData
                + "Columns Sorted By: " + comparator + "\n";
     }
 
-    public org.apache.cassandra.avro.CfDef deflate()
+    public org.apache.cassandra.config.avro.CfDef deflate()
     {
-        org.apache.cassandra.avro.CfDef cf = new org.apache.cassandra.avro.CfDef();
+        org.apache.cassandra.config.avro.CfDef cf = new org.apache.cassandra.config.avro.CfDef();
         cf.id = cfId;
         cf.keyspace = new Utf8(tableName);
         cf.name = new Utf8(cfName);
@@ -225,29 +225,30 @@ public final class CFMetaData
         cf.read_repair_chance = readRepairChance;
         cf.gc_grace_seconds = gcGraceSeconds;
         cf.column_metadata = SerDeUtils.createArray(column_metadata.size(),
-                                                    org.apache.cassandra.avro.ColumnDef.SCHEMA$);
+                                                    org.apache.cassandra.config.avro.ColumnDef.SCHEMA$);
         for (ColumnDefinition cd : column_metadata.values())
             cf.column_metadata.add(cd.deflate());
         return cf;
     }
 
-    public static CFMetaData inflate(org.apache.cassandra.avro.CfDef cf) throws ConfigurationException
+    public static CFMetaData inflate(org.apache.cassandra.config.avro.CfDef cf)
     {
-        AbstractType comparator = DatabaseDescriptor.getComparator(cf.comparator_type.toString());
+        AbstractType comparator;
         AbstractType subcolumnComparator = null;
-        if (cf.subcomparator_type != null)
-            subcolumnComparator = DatabaseDescriptor.getComparator(cf.subcomparator_type.toString());
-        AbstractReconciler reconciler = null;
+        AbstractReconciler reconciler;
         try
         {
+            comparator = DatabaseDescriptor.getComparator(cf.comparator_type.toString());
+            if (cf.subcomparator_type != null)
+                subcolumnComparator = DatabaseDescriptor.getComparator(cf.subcomparator_type.toString());
             reconciler = (AbstractReconciler)Class.forName(cf.reconciler.toString()).newInstance();
         }
         catch (Exception ex)
         {
-            throw new ConfigurationException("Could not create Reconciler of type " + cf.reconciler, ex);
+            throw new RuntimeException("Could not inflate CFMetaData for " + cf, ex);
         }
         Map<byte[], ColumnDefinition> column_metadata = new TreeMap<byte[], ColumnDefinition>(FBUtilities.byteArrayComparator);
-        Iterator<org.apache.cassandra.avro.ColumnDef> cditer = cf.column_metadata.iterator();
+        Iterator<org.apache.cassandra.config.avro.ColumnDef> cditer = cf.column_metadata.iterator();
         while (cditer.hasNext())
         {
             ColumnDefinition cd = ColumnDefinition.inflate(cditer.next());

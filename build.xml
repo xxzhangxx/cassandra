@@ -36,6 +36,8 @@
     <property name="interface.thrift.dir" value="${interface.dir}/thrift"/>
     <property name="interface.thrift.gen-java" value="${interface.thrift.dir}/gen-java"/>
     <property name="interface.avro.dir" value="${interface.dir}/avro"/>
+    <property name="internode.dir" value="${basedir}/internode"/>
+    <property name="internode.avro.dir" value="${internode.dir}/avro"/>
     <property name="test.dir" value="${basedir}/test"/>
     <property name="test.resources" value="${test.dir}/resources"/>
     <property name="test.classes" value="${build.dir}/test/classes"/>
@@ -50,6 +52,7 @@
       <isset property="release"/>
     </condition>
     <property name="version" value="${base.version}-SNAPSHOT"/>
+    <property name="version.properties.dir" value="${build.classes}/org/apache/cassandra/config/"/>
     <property name="final.name" value="${ant.project.name}-${version}"/>
     <property name="ivy.version" value="2.1.0" />
     <property name="ivy.url"
@@ -111,6 +114,7 @@
         <delete dir="${build.classes}" />
         <delete dir="${build.src.gen-java}" />
         <delete dir="${interface.avro.dir}" />
+        <delete dir="${internode.avro.dir}" />
     </target>
     <target depends="clean" name="cleanall"/>
 
@@ -179,6 +183,8 @@
       </taskdef>
       <uptodate property="avroInterfaceUpToDate" srcfile="${interface.dir}/cassandra.genavro"
                   targetfile="${interface.avro.dir}/cassandra.avpr" />
+      <uptodate property="avroINProtoUpToDate" srcfile="${internode.dir}/cassandra.genavro"
+                  targetfile="${internode.avro.dir}/cassandra.avpr" />
     </target>
 
     <target name="avro-generate" depends="avro-interface-generate"
@@ -187,6 +193,7 @@
     <target name="avro-interface-generate" unless="avroInterfaceUpToDate"
             depends="init,check-avro-generate">
             <avromacro protocolname="client" inputfile="${interface.dir}/cassandra.genavro" outputdir="${interface.avro.dir}" />
+            <avromacro protocolname="internode" inputfile="${internode.dir}/cassandra.genavro" outputdir="${internode.avro.dir}" />
     </target>
 
     <macrodef name="avromacro">
@@ -244,7 +251,7 @@
     <!-- create properties file with C version -->
     <target name="createVersionPropFile"> 
       <taskdef name="propertyfile" classname="org.apache.tools.ant.taskdefs.optional.PropertyFile"/>
-      <propertyfile file="${build.classes}/org/apache/cassandra/config/version.properties">
+      <propertyfile file="${version.properties.dir}/version.properties">
 	<entry key="CassandraVersion" value="${version}"/>
       </propertyfile>
     </target>
@@ -264,10 +271,13 @@
             <src path="${build.src.gen-java}"/>
             <src path="${interface.thrift.dir}/gen-java"/>
             <src path="${interface.avro.dir}"/>
+            <src path="${internode.avro.dir}"/>
             <classpath refid="cassandra.classpath"/>
         </javac>
 
         <paranamer sourceDirectory="${interface.avro.dir}"
+               outputDirectory="${build.classes}"/>
+        <paranamer sourceDirectory="${internode.avro.dir}"
                outputDirectory="${build.classes}"/>
 
         <antcall target="createVersionPropFile"/>

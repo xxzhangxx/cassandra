@@ -19,45 +19,25 @@
 package org.apache.cassandra.db.migration;
 
 import org.apache.avro.Schema;
-import org.apache.avro.io.BinaryDecoder;
 
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ConfigurationException;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.KSMetaData;
-import org.apache.cassandra.db.RowMutation;
 import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.commitlog.CommitLog;
-import org.apache.cassandra.io.ICompactSerializer;
 import org.apache.cassandra.io.SerDeUtils;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.UUIDGen;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 
 public class AddKeyspace extends Migration
 {
-    private static final Serializer serializer = new Serializer();
-    
     private KSMetaData ksm;
     
-    private AddKeyspace(DataInputStream din) throws IOException
-    {
-        super(UUIDGen.makeType1UUID(din), UUIDGen.makeType1UUID(din));
-        rm = RowMutation.serializer().deserialize(din);
-
-        // deserialize ks
-        try
-        {
-            ksm = KSMetaData.inflate(SerDeUtils.<org.apache.cassandra.avro.KsDef>deserializeWithSchema(FBUtilities.readShortByteArray(din)));
-        }
-        catch (ConfigurationException e)
-        {
-            throw new IOException(e);
-        }
-    }
+    /** Required no-arg constructor */
+    protected AddKeyspace() { /* pass */ }
     
     public AddKeyspace(KSMetaData ksm) throws ConfigurationException, IOException
     {
@@ -68,12 +48,6 @@ public class AddKeyspace extends Migration
         
         this.ksm = ksm;
         rm = makeDefinitionMutation(ksm, null, newVersion);
-    }
-
-    @Override
-    public ICompactSerializer getSerializer()
-    {
-        return serializer;
     }
 
     @Override
@@ -102,21 +76,16 @@ public class AddKeyspace extends Migration
         }
     }
     
-    private static final class Serializer implements ICompactSerializer<AddKeyspace>
+    public void subdeflate(org.apache.cassandra.db.migration.avro.Migration mi)
     {
-        public void serialize(AddKeyspace addKeyspace, DataOutputStream dos) throws IOException
-        {
-            dos.write(UUIDGen.decompose(addKeyspace.newVersion));
-            dos.write(UUIDGen.decompose(addKeyspace.lastVersion));
-            RowMutation.serializer().serialize(addKeyspace.rm, dos);
-            // serialize the added ks
-            // TODO: sloppy, but migrations should be converted to Avro soon anyway
-            FBUtilities.writeShortByteArray(SerDeUtils.serializeWithSchema(addKeyspace.ksm.deflate()), dos);
-        }
+        org.apache.cassandra.db.migration.avro.AddKeyspace aks = new org.apache.cassandra.db.migration.avro.AddKeyspace();
+        aks.ks = ksm.deflate();
+        mi.migration = aks;
+    }
 
-        public AddKeyspace deserialize(DataInputStream dis) throws IOException
-        {
-            return new AddKeyspace(dis);
-        }
+    public void subinflate(org.apache.cassandra.db.migration.avro.Migration mi)
+    {
+        org.apache.cassandra.db.migration.avro.AddKeyspace aks = (org.apache.cassandra.db.migration.avro.AddKeyspace)mi.migration;
+        ksm = KSMetaData.inflate(aks.ks);
     }
 }
