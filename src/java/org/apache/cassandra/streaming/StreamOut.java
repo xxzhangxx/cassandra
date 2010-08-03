@@ -62,7 +62,7 @@ public class StreamOut
     /**
      * Split out files for all tables on disk locally for each range and then stream them to the target endpoint.
     */
-    public static void transferRanges(InetAddress target, String tableName, Collection<Range> ranges, Runnable callback)
+    public static void transferRanges(InetAddress target, String tableName, Collection<Range> ranges, Runnable callback, OperationType type)
     {
         assert ranges.size() > 0;
         
@@ -96,7 +96,7 @@ public class StreamOut
                 }
             }
             // send the matching portion of every sstable in the keyspace
-            transferSSTables(target, tableName, table.getAllSSTables(), ranges);
+            transferSSTables(target, tableName, table.getAllSSTables(), ranges, type);
         }
         catch (IOException e)
         {
@@ -113,7 +113,7 @@ public class StreamOut
     /**
      * Transfers matching portions of a group of sstables from a single table to the target endpoint.
      */
-    public static void transferSSTables(InetAddress target, String table, Collection<SSTableReader> sstables, Collection<Range> ranges) throws IOException
+    public static void transferSSTables(InetAddress target, String table, Collection<SSTableReader> sstables, Collection<Range> ranges, OperationType type) throws IOException
     {
         List<PendingFile> pending = new ArrayList<PendingFile>();
         int i = 0;
@@ -123,7 +123,7 @@ public class StreamOut
             List<Pair<Long,Long>> sections = sstable.getPositionsForRanges(ranges);
             if (sections.isEmpty())
                 continue;
-            pending.add(new PendingFile(desc, SSTable.COMPONENT_DATA, sections));
+            pending.add(new PendingFile(desc, SSTable.COMPONENT_DATA, sections, type));
         }
         logger.info("Stream context metadata " + pending + " " + sstables.size() + " sstables.");
 

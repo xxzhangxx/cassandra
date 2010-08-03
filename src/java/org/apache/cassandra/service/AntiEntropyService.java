@@ -40,6 +40,7 @@ import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.io.AbstractCompactedRow;
 import org.apache.cassandra.io.ICompactSerializer;
 import org.apache.cassandra.io.sstable.SSTableReader;
+import org.apache.cassandra.streaming.OperationType;
 import org.apache.cassandra.streaming.StreamIn;
 import org.apache.cassandra.streaming.StreamOut;
 import org.apache.cassandra.net.CompactEndpointSerializationHelper;
@@ -536,14 +537,14 @@ public class AntiEntropyService
                 {
                     protected void runMayThrow() throws Exception
                     {
-                        StreamOut.transferSSTables(request.endpoint, request.cf.left, sstables, ranges);
+                        StreamOut.transferSSTables(request.endpoint, request.cf.left, sstables, ranges, OperationType.AES);
                         StreamOutManager.remove(request.endpoint);
                     }
                 });
                 // request ranges from the remote node
                 // FIXME: no way to block for the 'requestRanges' call to complete, or to request a
                 // particular cf: see CASSANDRA-1189
-                StreamIn.requestRanges(request.endpoint, request.cf.left, ranges);
+                StreamIn.requestRanges(request.endpoint, request.cf.left, ranges, OperationType.AES);
                 
                 // wait until streaming has completed
                 f.get();

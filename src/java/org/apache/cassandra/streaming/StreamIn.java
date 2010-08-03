@@ -41,12 +41,12 @@ public class StreamIn
     /**
      * Request ranges to be transferred from source to local node
      */
-    public static void requestRanges(InetAddress source, String tableName, Collection<Range> ranges)
+    public static void requestRanges(InetAddress source, String tableName, Collection<Range> ranges, OperationType type)
     {
         if (logger.isDebugEnabled())
             logger.debug("Requesting from " + source + " ranges " + StringUtils.join(ranges, ", "));
         StreamInManager.initContect(source);
-        StreamRequestMetadata streamRequestMetadata = new StreamRequestMetadata(FBUtilities.getLocalAddress(), ranges, tableName);
+        StreamRequestMetadata streamRequestMetadata = new StreamRequestMetadata(FBUtilities.getLocalAddress(), ranges, tableName, type);
         Message message = StreamRequestMessage.makeStreamRequestMessage(new StreamRequestMessage(streamRequestMetadata));
         MessagingService.instance.sendOneWay(message, source);
     }

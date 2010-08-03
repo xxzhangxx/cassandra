@@ -56,12 +56,14 @@ class StreamRequestMetadata
     protected InetAddress target_;
     protected Collection<Range> ranges_;
     protected String table_;
+    protected OperationType type_;
 
-    StreamRequestMetadata(InetAddress target, Collection<Range> ranges, String table)
+    StreamRequestMetadata(InetAddress target, Collection<Range> ranges, String table, OperationType type)
     {
         target_ = target;
         ranges_ = ranges;
         table_ = table;
+        type_ = type;
     }
 
     public String toString()
@@ -76,6 +78,7 @@ class StreamRequestMetadata
             sb.append(range);
             sb.append(" ");
         }
+        sb.append(type_.toString());
         return sb.toString();
     }
 }
@@ -91,6 +94,7 @@ class StreamRequestMetadataSerializer implements ICompactSerializer<StreamReques
         {
             AbstractBounds.serializer().serialize(range, dos);
         }
+        dos.writeUTF(srMetadata.type_.name());
     }
 
     public StreamRequestMetadata deserialize(DataInputStream dis) throws IOException
@@ -103,6 +107,7 @@ class StreamRequestMetadataSerializer implements ICompactSerializer<StreamReques
         {
             ranges.add((Range) AbstractBounds.serializer().deserialize(dis));
         }
-        return new StreamRequestMetadata(target, ranges, table);
+        OperationType type = OperationType.valueOf(dis.readUTF());
+        return new StreamRequestMetadata(target, ranges, table, type);
     }
 }

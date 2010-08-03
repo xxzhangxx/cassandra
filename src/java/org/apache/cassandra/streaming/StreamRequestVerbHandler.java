@@ -53,7 +53,7 @@ public class StreamRequestVerbHandler implements IVerbHandler
             {
                 if (logger_.isDebugEnabled())
                     logger_.debug(srm.toString());
-                StreamOut.transferRanges(srm.target_, srm.table_, srm.ranges_, null);
+                StreamOut.transferRanges(srm.target_, srm.table_, srm.ranges_, null, srm.type_);
             }
         }
         catch (IOException ex)

@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.db.Table;
 import org.apache.cassandra.io.sstable.Descriptor;
+import org.apache.cassandra.io.sstable.RecoveryProcessor;
 import org.apache.cassandra.io.sstable.SSTable;
 import org.apache.cassandra.io.sstable.SSTableReader;
 import org.apache.cassandra.io.sstable.SSTableWriter;
@@ -57,7 +58,9 @@ class FileStatusHandler
         Descriptor desc = pendingFile.desc;
         try
         {
-            SSTableReader sstable = SSTableWriter.recoverAndOpen(pendingFile.desc);
+            // right now we only need to do this differently for AES operations
+            RecoveryProcessor rp = pendingFile.type == OperationType.AES ? new CleanRecoveryProcessor(host) : RecoveryProcessor.NO_OP;
+            SSTableReader sstable = SSTableWriter.recoverAndOpen(pendingFile.desc, rp);
             Table.open(desc.ksname).getColumnFamilyStore(desc.cfname).addSSTable(sstable);
             logger.info("Streaming added " + sstable);
         }

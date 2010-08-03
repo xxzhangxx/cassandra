@@ -206,7 +206,7 @@ public class SSTableWriter extends SSTable
      * If either of the index or filter files are missing, rebuilds both.
      * TODO: Builds most of the in-memory state of the sstable, but doesn't actually open it.
      */
-    private static void maybeRecover(Descriptor desc) throws IOException
+    private static void maybeRecover(Descriptor desc, RecoveryProcessor rp) throws IOException
     {
         logger.debug("In maybeRecover with Descriptor {}", desc);
         File ifile = new File(desc.filenameFor(SSTable.COMPONENT_INDEX));
@@ -265,6 +265,7 @@ public class SSTableWriter extends SSTable
                             ColumnFamily indexedCf = cfs.newIndexedColumnFamily(iColumn.name());
                             indexedCf.addColumn(new Column(key.key, ArrayUtils.EMPTY_BYTE_ARRAY, iColumn.clock()));
                             logger.debug("adding indexed column row mutation for key {}", valueKey);
+                            rp.process(indexedCf);
                             Table.open(desc.ksname).applyIndexedCF(cfs.getIndexedColumnFamilyStore(iColumn.name()),
                                                                    key,
                                                                    valueKey,
@@ -315,7 +316,7 @@ public class SSTableWriter extends SSTable
      * Removes the given SSTable from temporary status and opens it, rebuilding the non-essential portions of the
      * file if necessary.
      */
-    public static SSTableReader recoverAndOpen(Descriptor desc) throws IOException
+    public static SSTableReader recoverAndOpen(Descriptor desc, RecoveryProcessor rp) throws IOException
     {
         if (!desc.isLatestVersion)
             // TODO: streaming between different versions will fail: need support for
@@ -323,7 +324,7 @@ public class SSTableWriter extends SSTable
             throw new RuntimeException(String.format("Cannot recover SSTable with version %s (current version %s).",
                                                      desc.version, Descriptor.CURRENT_VERSION));
 
-        maybeRecover(desc);
+        maybeRecover(desc, rp);
         return SSTableReader.open(rename(desc));
     }
 

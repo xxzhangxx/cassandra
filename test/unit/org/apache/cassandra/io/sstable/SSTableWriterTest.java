@@ -21,6 +21,7 @@ import org.apache.cassandra.db.filter.IFilter;
 import org.apache.cassandra.db.columniterator.IdentityQueryFilter;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.io.util.DataOutputBuffer;
+import org.apache.cassandra.streaming.OperationType;
 import org.apache.cassandra.thrift.IndexClause;
 import org.apache.cassandra.thrift.IndexExpression;
 import org.apache.cassandra.thrift.IndexOperator;
@@ -59,7 +60,7 @@ public class SSTableWriterTest extends CleanupHelper {
         new File(orig.indexFilename()).delete();
         new File(orig.filterFilename()).delete();
         
-        SSTableReader sstr = SSTableWriter.recoverAndOpen(orig.desc);
+        SSTableReader sstr = SSTableWriter.recoverAndOpen(orig.desc, RecoveryProcessor.NO_OP);
         
         ColumnFamilyStore cfs = Table.open("Keyspace1").getColumnFamilyStore("Indexed1");
         cfs.addSSTable(sstr);
