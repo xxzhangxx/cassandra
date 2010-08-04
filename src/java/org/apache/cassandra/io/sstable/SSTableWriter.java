@@ -35,6 +35,7 @@ import org.apache.cassandra.io.AbstractCompactedRow;
 import org.apache.cassandra.io.util.BufferedRandomAccessFile;
 import org.apache.cassandra.io.util.SegmentedFile;
 import org.apache.cassandra.service.StorageService;
+import org.apache.cassandra.streaming.CleanRecoveryProcessor;
 import org.apache.cassandra.utils.BloomFilter;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.WrappedRunnable;
@@ -221,6 +222,90 @@ public class SSTableWriter extends SSTable
         ifile.delete();
         ffile.delete();
 
+        if (rp instanceof CleanRecoveryProcessor) {
+            // open the data file for input, and write out a "cleaned" version
+            try
+            {
+                FBUtilities.renameWithConfirm(
+                    desc.filenameFor(SSTable.COMPONENT_DATA),
+                    desc.filenameFor(SSTable.COMPONENT_STREAMED));
+            }
+            catch (IOException e)
+            {
+                throw new IOError(e);
+            }
+            BufferedRandomAccessFile dfile = new BufferedRandomAccessFile(
+                desc.filenameFor(SSTable.COMPONENT_STREAMED),
+                "r",
+                8 * 1024 * 1024);
+
+            // rebuild sstable
+            long estimatedRows;
+            int expectedBloomFilterSize;
+            SSTableWriter writer;
+            try
+            {            
+                estimatedRows = estimateRows(desc, dfile);            
+                // TODO the int cast here is potentially buggy
+                expectedBloomFilterSize = Math.max(
+                    SSTableReader.indexInterval(),
+                    (int)estimatedRows);
+                writer = new SSTableWriter(
+                    desc.filenameFor(SSTable.COMPONENT_DATA),
+                    expectedBloomFilterSize,
+                    cfs.metadata,
+                    cfs.partitioner_);
+            }
+            catch(IOException e)
+            {
+                dfile.close();
+                throw e;
+            }
+
+            try
+            {
+                DecoratedKey key;
+                long dataPosition = 0;
+                while (dataPosition < dfile.length())
+                {
+                    key = SSTableReader.decodeKey(
+                        StorageService.getPartitioner(),
+                        desc,
+                        FBUtilities.readShortByteArray(dfile));
+                    long dataSize = SSTableReader.readRowSize(dfile, desc);
+
+                    // skip bloom filter and column index
+                    dfile.readFully(new byte[dfile.readInt()]);
+                    dfile.readFully(new byte[dfile.readInt()]);
+
+                    // clean the column data
+                    ColumnFamily cf = ColumnFamily.create(desc.ksname, desc.cfname);
+                    ColumnFamily.serializer().deserializeFromSSTableNoColumns(cf, dfile);
+                    ColumnFamily.serializer().deserializeColumns(dfile, cf);
+                    rp.process(cf);
+
+                    writer.append(key, cf);
+
+                    dataPosition = dfile.getFilePointer() + dataSize;
+                    dfile.seek(dataPosition);
+                }
+            }
+            finally
+            {
+                try
+                {
+                    dfile.close();
+                }
+                catch (IOException e)
+                {
+                    logger.error("Failed to close data or aes file during recovery of " + desc, e);
+                }
+            }
+
+            writer.closeAndOpenReader();
+            return;
+        }
+
         // open the data file for input, and an IndexWriter for output
         BufferedRandomAccessFile dfile = new BufferedRandomAccessFile(desc.filenameFor(SSTable.COMPONENT_DATA), "r", 8 * 1024 * 1024);
         IndexWriter iwriter;
@@ -309,6 +394,9 @@ public class SSTableWriter extends SSTable
             }
         }
 
+        // moved from recoverAndOpen()
+        rename(desc);
+
         logger.debug("estimated row count was %s of real count", ((double)estimatedRows) / rows);
     }
 
@@ -325,7 +413,7 @@ public class SSTableWriter extends SSTable
                                                      desc.version, Descriptor.CURRENT_VERSION));
 
         maybeRecover(desc, rp);
-        return SSTableReader.open(rename(desc));
+        return SSTableReader.open(desc.asTemporary(false));
     }
 
     /**

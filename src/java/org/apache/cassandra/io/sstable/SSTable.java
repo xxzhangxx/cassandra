@@ -56,6 +56,7 @@ public abstract class SSTable
     public static final String COMPONENT_FILTER = "Filter.db";
 
     public static final String COMPONENT_COMPACTED = "Compacted";
+    public static final String COMPONENT_STREAMED = "Streamed";
 
     protected final Descriptor desc;
     protected final CFMetaData metadata;

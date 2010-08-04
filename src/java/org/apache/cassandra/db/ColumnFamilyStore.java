@@ -132,7 +132,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     private LatencyTracker readStats_ = new LatencyTracker();
     private LatencyTracker writeStats_ = new LatencyTracker();
 
-    final CFMetaData metadata;
+    public final CFMetaData metadata;
 
     ColumnFamilyStore(String table, String columnFamilyName, IPartitioner partitioner, int generation, CFMetaData metadata)
     {
@@ -174,7 +174,9 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 }
             }
 
-            if (((file.length() == 0 && !filename.endsWith("-Compacted")) || (filename.contains("-" + SSTable.TEMPFILE_MARKER))))
+            if ((file.length() == 0 && !filename.endsWith("-" + SSTable.COMPONENT_COMPACTED))
+                || filename.contains("-" + SSTable.TEMPFILE_MARKER)
+                || filename.endsWith("-" + SSTable.COMPONENT_STREAMED))
             {
                 try
                 {
